@@ -67,6 +67,29 @@ meson test -C build
 meson devenv -C build ./crates/app/baseboard
 ```
 
+### Flatpak
+
+The manifest is in `build-aux/flatpak/`. It uses the GNOME 51 runtime and builds libsensors from lm-sensors. The Rust dependencies come from `cargo-sources.json`, so Cargo does not need the network during the build. After a change of `Cargo.lock`, generate that file again with `flatpak-cargo-generator.py` from [flatpak-builder-tools](https://github.com/flatpak/flatpak-builder-tools).
+
+```sh
+flatpak-builder --user --install --install-deps-from=flathub --force-clean \
+    build/flatpak build-aux/flatpak/me.bojanowski.Baseboard.json
+flatpak run me.bojanowski.Baseboard
+```
+
+The Flatpak reads the sensors and the system information with read-only access to the udev database (`/run/udev`). Differences from a native installation:
+
+- It does not see the system's lm-sensors configuration, so labels, `ignore` and `compute` statements from `/etc/sensors.d` do not apply; the board's readings still come scaled and named from its profile. To use the configuration, give the app read-only access to the whole of `/etc`:
+
+  ```sh
+  flatpak override --user --filesystem=host-etc:ro me.bojanowski.Baseboard
+  ```
+
+- It cannot see other programs that control fans, so the System page says it cannot check them.
+- Its settings and own reading names are kept apart from a native installation, under `~/.var/app/me.bojanowski.Baseboard/`.
+
+Fan control (M2) will need a system helper that cannot be part of a Flatpak; it will come as a separate system package.
+
 ## License
 
 GPL-3.0-or-later, see [LICENSE](LICENSE).
