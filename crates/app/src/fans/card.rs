@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The card of one header on the Fans page (docs/PROJEKT.md §7 M2, M2.4):
-//! icon, name and header, speed and duty cycle; the mode switch, which in
-//! 0.2.0 only shows the mode, or a box for a header nobody checked; the
-//! chart of the curve, the duty cycle of manual mode, a bar, or a note;
-//! a footer with "Show Curve". The card itself does nothing when
-//! activated, but takes the keyboard focus, so that a screen reader reads
-//! it.
+//! icon, name and header, speed and duty cycle; a status box with the mode
+//! as text and a lock (0.2.0 changes nothing, D60), or with the note of a
+//! header nobody checked; the chart of the curve, the duty cycle of manual
+//! mode, a bar, or a note; a footer with "Curve Details". The card itself
+//! does nothing when activated, but takes the keyboard focus, so that a
+//! screen reader reads it.
 //!
 //! Speeds and duty cycles are inscriptions, whose size does not depend on
 //! their text: a new value every second redraws them without laying out
@@ -151,7 +151,9 @@ pub(super) struct CardWidgets {
     values: gtk::Box,
     rpm: gtk::Inscription,
     duty: gtk::Label,
-    switch: Option<adw::ToggleGroup>,
+    /// The status box: the mode, or the note of an unchecked header.
+    status: Option<gtk::Widget>,
+    mode: Option<gtk::Label>,
     unchecked_empty: Option<gtk::Label>,
     body: BodyWidgets,
     empty: gtk::Box,
@@ -307,39 +309,47 @@ impl CardWidgets {
         head.attach(&values, 2, 0, 1, 1);
         box_.append(&head);
 
-        // The mode switch, or the box of a header nobody checked.
-        let mut switch = None;
+        // The status box: the mode as text with a lock, as this version
+        // changes nothing (D60), or the box of a header nobody checked.
+        let mut status = None;
+        let mut mode = None;
         let mut unchecked_empty = None;
         if let CardKind::Full { control, .. } = &card.kind {
             match control {
-                Control::Switch { positions, .. } => {
-                    let group = adw::ToggleGroup::builder()
-                        .homogeneous(true)
-                        .can_shrink(false)
-                        .hexpand(true)
-                        .sensitive(false)
+                Control::Switch { .. } => {
+                    let frame = gtk::Box::builder()
+                        .spacing(10)
+                        .css_classes(["fan-status"])
                         .build();
-                    group.add_css_class("fan-mode");
-                    let names = [
-                        ("auto", gettext("Automatic BIOS")),
-                        ("manual", gettext("Manual")),
-                        ("curve", gettext("Curve")),
-                    ];
-                    for (name, label) in names.into_iter().take(usize::from(*positions)) {
-                        group.add(adw::Toggle::builder().name(name).label(label).build());
-                    }
-                    // Translators: the name of the mode switch of a fan,
-                    // for screen readers.
-                    group
-                        .upcast_ref::<gtk::Widget>()
-                        .update_property(&[gtk::accessible::Property::Label(&gettext("Mode"))]);
-                    box_.append(&group);
-                    switch = Some(group);
+                    let label = gtk::Label::builder()
+                        .xalign(0.0)
+                        .wrap(true)
+                        .natural_wrap_mode(gtk::NaturalWrapMode::Word)
+                        .hexpand(true)
+                        .valign(gtk::Align::Center)
+                        .use_markup(true)
+                        .css_classes(["caption"])
+                        .build();
+                    let lock = gtk::Image::builder()
+                        .icon_name("system-lock-screen-symbolic")
+                        .valign(gtk::Align::Center)
+                        .css_classes(["dimmed"])
+                        .build();
+                    // Translators: read by screen readers next to the mode
+                    // of a fan, which this version does not change.
+                    lock.update_property(&[gtk::accessible::Property::Label(&gettext(
+                        "Cannot be changed",
+                    ))]);
+                    frame.append(&label);
+                    frame.append(&lock);
+                    box_.append(&frame);
+                    status = Some(frame.upcast());
+                    mode = Some(label);
                 }
                 Control::Unchecked => {
                     let frame = gtk::Box::builder()
                         .spacing(10)
-                        .css_classes(["fan-unchecked"])
+                        .css_classes(["fan-status"])
                         .build();
                     let icon = gtk::Image::from_icon_name("help-about-symbolic");
                     icon.set_accessible_role(gtk::AccessibleRole::Presentation);
@@ -361,6 +371,7 @@ impl CardWidgets {
                     frame.append(&icon);
                     frame.append(&lines);
                     box_.append(&frame);
+                    status = Some(frame.upcast());
                     unchecked_empty = Some(empty);
                 }
             }
@@ -475,8 +486,9 @@ impl CardWidgets {
         let foot_note = caption("", true);
         foot_note.set_hexpand(true);
         let button_content = gtk::Box::builder().spacing(6).build();
-        // Translators: a button on a fan card that opens its curve.
-        button_content.append(&gtk::Label::new(Some(&gettext("Show Curve"))));
+        // Translators: a button on a fan card that opens a page with the
+        // large chart of its curve and the values of its points.
+        button_content.append(&gtk::Label::new(Some(&gettext("Curve Details"))));
         button_content.append(&gtk::Image::from_icon_name("go-next-symbolic"));
         let button = gtk::Button::builder()
             .child(&button_content)
@@ -499,7 +511,8 @@ impl CardWidgets {
             values,
             rpm,
             duty,
-            switch,
+            status,
+            mode,
             unchecked_empty,
             body,
             empty,
@@ -515,11 +528,6 @@ impl CardWidgets {
     /// the chart is lower.
     pub(super) fn set_layout(&self, layout: Layout) {
         let narrow = layout == Layout::Narrow;
-        // Whole names of the modes where there is room; a long one may be
-        // shortened in a narrow window.
-        if let Some(switch) = &self.switch {
-            switch.set_can_shrink(narrow);
-        }
         let attached = |row| {
             self.head
                 .child_at(if row == 0 { 2 } else { 1 }, row)
@@ -625,14 +633,10 @@ impl CardWidgets {
             } => *mode,
             _ => None,
         };
-        if let Some(switch) = &self.switch {
-            let name = match mode {
-                Some(Mode::Auto) => Some("auto"),
-                Some(Mode::Manual) => Some("manual"),
-                None => None,
-            };
-            if switch.active_name().as_deref() != name {
-                switch.set_active_name(name);
+        if let Some(label) = &self.mode {
+            let markup = mode_markup(mode);
+            if label.label() != markup {
+                label.set_markup(&markup);
             }
         }
         let empty = card.maybe_empty();
@@ -703,8 +707,9 @@ impl CardWidgets {
         let button = card.chart().is_some();
         self.button.set_visible(button);
         // Translators: read by screen readers for the button that opens
-        // the curve of a fan; {name} is the fan, e.g. "CPU fan 1".
-        let label = gettext("Show the curve of {name}").replace("{name}", &name);
+        // the details of the curve of a fan; {name} is the fan, e.g.
+        // "CPU fan 1".
+        let label = gettext("Curve details: {name}").replace("{name}", &name);
         self.button
             .update_property(&[gtk::accessible::Property::Label(&label)]);
         self.foot.set_visible(button || !note.is_empty());
@@ -715,18 +720,14 @@ impl CardWidgets {
         if !duty_line.is_empty() {
             parts.push(duty_line);
         }
-        if let Some(mode) = mode {
-            parts.push(
+        match mode {
+            Some(mode) => parts.push(
                 // Translators: read by screen readers on a fan card, e.g.
                 // "mode: Automatic BIOS".
-                gettext("mode: {mode}").replace(
-                    "{mode}",
-                    &match mode {
-                        Mode::Auto => gettext("Automatic BIOS"),
-                        Mode::Manual => gettext("Manual"),
-                    },
-                ),
-            );
+                gettext("mode: {mode}").replace("{mode}", &mode_name(mode)),
+            ),
+            None if self.mode.is_some() => parts.push(mode_unknown()),
+            None => {}
         }
         if self.unchecked_empty.is_some() {
             parts.push(gettext("This header was not checked on this board."));
@@ -739,6 +740,40 @@ impl CardWidgets {
             gtk::accessible::Property::Label(&name),
             gtk::accessible::Property::Description(&description),
         ]);
+    }
+
+    /// The status box, which the page makes as high as the one of the card
+    /// next to it (D60).
+    pub(super) fn status(&self) -> Option<&gtk::Widget> {
+        self.status.as_ref()
+    }
+}
+
+/// The name of a mode, as the mode switch of the editor will name it.
+fn mode_name(mode: Mode) -> String {
+    match mode {
+        Mode::Auto => gettext("Automatic BIOS"),
+        Mode::Manual => gettext("Manual"),
+    }
+}
+
+fn mode_unknown() -> String {
+    // Translators: in the status box of a fan card when the kernel driver
+    // gives no mode.
+    gettext("The mode could not be read")
+}
+
+/// The text of the status box: the mode, its name in bold (D60).
+fn mode_markup(mode: Option<Mode>) -> String {
+    match mode {
+        Some(mode) => {
+            // Translators: in the status box of a fan card, e.g. "Mode:
+            // Automatic BIOS"; {mode} is shown in bold.
+            let template = glib::markup_escape_text(&gettext("Mode: {mode}")).to_string();
+            let name = format!("<b>{}</b>", glib::markup_escape_text(&mode_name(mode)));
+            template.replace("{mode}", &name)
+        }
+        None => glib::markup_escape_text(&mode_unknown()).to_string(),
     }
 }
 
@@ -791,5 +826,18 @@ fn set_label(label: &gtk::Label, text: &str) {
 fn set_inscription(inscription: &gtk::Inscription, text: &str) {
     if inscription.text().as_deref() != Some(text) {
         inscription.set_text(Some(text));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The mode as text with its name in bold, or why there is none (D60).
+    #[test]
+    fn mode_as_text() {
+        assert_eq!(mode_markup(Some(Mode::Auto)), "Mode: <b>Automatic BIOS</b>");
+        assert_eq!(mode_markup(Some(Mode::Manual)), "Mode: <b>Manual</b>");
+        assert_eq!(mode_markup(None), "The mode could not be read");
     }
 }

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: baseboard\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-11 22:55+0100\n"
+"POT-Creation-Date: 2026-11-11 23:09+0100\n"
 "PO-Revision-Date: 2026-11-11 20:30+0100\n"
 "Last-Translator: Tomasz Bojanowski <tomasz@bojanowski.me>\n"
 "Language-Team: \n"
@@ -221,72 +221,72 @@ msgid "Hardware descriptions from public sources"
 msgstr "Opis sprzętu ze źródeł publicznych"
 
 #. Translators: {source} is a temperature, e.g. "CPU (board sensor)".
-#: crates/app/src/fan_chart.rs:322
+#: crates/app/src/fan_chart.rs:323
 #, rust-format
 msgid "Temperature source: {source}."
 msgstr "Źródło temperatury: {source}."
 
 #. Translators: a point of a fan curve, e.g. "Point 3: 60 °C, 35 %."
-#: crates/app/src/fan_chart.rs:328 crates/app/src/fans/curve_page.rs:467
+#: crates/app/src/fan_chart.rs:329 crates/app/src/fans/curve_page.rs:467
 #, rust-format
 msgid "Point {number}: {temperature}, {duty}."
 msgstr "Punkt {number}: {temperature}, {duty}."
 
 #. Translators: repeated points of a fan curve, e.g.
 #. "Points 4–7: 85 °C, 100 %."
-#: crates/app/src/fan_chart.rs:333
+#: crates/app/src/fan_chart.rs:334
 #, rust-format
 msgid "Points {first}–{last}: {temperature}, {duty}."
 msgstr "Punkty {first}–{last}: {temperature}, {duty}."
 
 #. Translators: the source temperature and the fan's duty cycle
 #. now, e.g. "Now 46.0 °C, duty cycle 38 %."
-#: crates/app/src/fan_chart.rs:347
+#: crates/app/src/fan_chart.rs:348
 #, rust-format
 msgid "Now {temperature}, duty cycle {duty}."
 msgstr "Teraz {temperature}, wypełnienie {duty}."
 
 #. Translators: the controller changes the duty cycle
 #. gradually; {duty} is where it is heading, e.g. "40 %".
-#: crates/app/src/fan_chart.rs:357
+#: crates/app/src/fan_chart.rs:358
 #, rust-format
 msgid "The fan is moving to {duty}."
 msgstr "Wentylator dochodzi do {duty}."
 
 #. Translators: the lowest duty cycle allowed for this fan, e.g. "30 %".
-#: crates/app/src/fan_chart.rs:365
+#: crates/app/src/fan_chart.rs:366
 #, rust-format
 msgid "Minimum duty cycle: {duty}."
 msgstr "Minimalne wypełnienie: {duty}."
 
 #. Translators: the emergency temperature of the source, e.g. "95 °C".
-#: crates/app/src/fan_chart.rs:372
+#: crates/app/src/fan_chart.rs:373
 #, rust-format
 msgid "Emergency threshold: {temperature}."
 msgstr "Próg awaryjny: {temperature}."
 
 #. Translators: the name of the chart for the screen reader;
 #. {name} is a fan, e.g. "CPU fan 1".
-#: crates/app/src/fan_chart.rs:546
+#: crates/app/src/fan_chart.rs:547
 #, rust-format
 msgid "Curve of {name}"
 msgstr "Krzywa: {name}"
 
 #. Translators: the title of the vertical axis of a fan curve.
-#: crates/app/src/fan_chart.rs:792
+#: crates/app/src/fan_chart.rs:793
 msgid "Duty cycle"
 msgstr "Wypełnienie"
 
 #. Translators: the title of the horizontal axis of a fan curve;
 #. {source} is a temperature, e.g. "CPU (board sensor)".
-#: crates/app/src/fan_chart.rs:801
+#: crates/app/src/fan_chart.rs:802
 #, rust-format
 msgid "Temperature: {source}"
 msgstr "Temperatura: {source}"
 
 #. Translators: the zone of a fan curve below the lowest duty
 #. cycle allowed; {duty} is e.g. "30 %".
-#: crates/app/src/fan_chart.rs:869
+#: crates/app/src/fan_chart.rs:870
 #, rust-format
 msgid "Below the minimum of {duty}"
 msgstr "Poniżej minimum {duty}"
@@ -294,68 +294,111 @@ msgstr "Poniżej minimum {duty}"
 #. Translators: the emergency temperature of the source on
 #. a fan curve that must reach full duty by then; e.g.
 #. "Emergency threshold 95 °C: 100 % from there".
-#: crates/app/src/fan_chart.rs:907
+#: crates/app/src/fan_chart.rs:908
 #, rust-format
 msgid "Emergency threshold {temperature}: {duty} from there"
 msgstr "Próg awaryjny {temperature}: od niego {duty}"
 
 #. Translators: the emergency temperature of the source on
 #. a fan curve, e.g. "Emergency threshold 95 °C".
-#: crates/app/src/fan_chart.rs:913
+#: crates/app/src/fan_chart.rs:914
 #, rust-format
 msgid "Emergency threshold {temperature}"
 msgstr "Próg awaryjny {temperature}"
 
 #. Translators: the label of the operating point on a fan curve,
 #. e.g. "Now 46.0 °C · 38 %".
-#: crates/app/src/fan_chart.rs:1033
+#: crates/app/src/fan_chart.rs:1034
 #, rust-format
 msgid "Now {temperature} · {duty}"
 msgstr "Teraz {temperature} · {duty}"
 
 #. Translators: under the label of the operating point, where
 #. the fan is heading, e.g. "target 40 %".
-#: crates/app/src/fan_chart.rs:1045
+#: crates/app/src/fan_chart.rs:1046
 #, rust-format
 msgid "target {duty}"
 msgstr "cel {duty}"
 
 #. Translators: the source of a fan curve when it is a temperature
 #. the kernel driver does not report.
-#: crates/app/src/fans.rs:66
+#: crates/app/src/fans.rs:68
 msgid "A temperature the driver does not report"
 msgstr "Temperatura, której sterownik nie podaje"
 
 #. Translators: the source of a fan curve when the controller
 #. follows no temperature.
-#: crates/app/src/fans.rs:69
+#: crates/app/src/fans.rs:71
 msgid "No temperature"
 msgstr "Brak temperatury"
 
 #. Translators: the source of a fan curve that follows several
 #. temperatures at once; {list} is e.g. "temp1, temp2".
-#: crates/app/src/fans.rs:77
+#: crates/app/src/fans.rs:79
 #, rust-format
 msgid "Several temperatures: {list}"
 msgstr "Kilka temperatur: {list}"
 
 #. / The line on top of the page in version 0.2.0 at a driver that controls
 #. / the fans, and the note of the curve page.
-#: crates/app/src/fans.rs:85
+#: crates/app/src/fans.rs:87
 msgid "This version of Baseboard shows the fan settings without changing them."
 msgstr ""
 "Ta wersja Baseboard pokazuje ustawienia wentylatorów bez możliwości zmiany."
 
+#. Translators: the part of the project's website on fan control in the
+#. kernel, after its address: "/#kernel" on the English page,
+#. "/pl/#jadro" on the Polish one. Keep "/#kernel" for a language
+#. without its own page.
+#: crates/app/src/fans.rs:100
+msgid "/#kernel"
+msgstr "/pl/#jadro"
+
+#. Translators: under "Temperature source" on the Fans page; the next
+#. sentence follows on the same line.
+#: crates/app/src/fans.rs:111
+msgid ""
+"The board's controller computes the duty cycles of the curves from this "
+"temperature."
+msgstr "Według tej temperatury kontroler płyty liczy wypełnienie z krzywych."
+
+#. Above the readings of the Overview, and under the temperature source on the Fans page, where it follows another sentence on one line: keep it short.
+#: crates/app/src/fans.rs:113 crates/app/src/overview.ui:64
+msgid "Gray: minimum and maximum since the app started."
+msgstr "Szary: minimum i maksimum od startu aplikacji."
+
+#. Translators: in the legend of the fan charts, the hatched zone
+#. below the lowest duty cycle of a header.
+#: crates/app/src/fans.rs:140
+msgid "below the header's minimum"
+msgstr "poniżej minimum złącza"
+
+#. Translators: in the legend of the fan charts, the red dashed line.
+#: crates/app/src/fans.rs:142
+msgid "emergency threshold"
+msgstr "próg awaryjny"
+
+#. Translators: in the legend of the fan charts, the green dot.
+#: crates/app/src/fans.rs:144
+msgid "now: temperature and duty cycle"
+msgstr "teraz: temperatura i wypełnienie"
+
+#. Translators: in the legend of the fan charts, the dashed line of
+#. a curve before its first point and after its last one.
+#: crates/app/src/fans.rs:147
+msgid "curve beyond its end points"
+msgstr "krzywa poza skrajnymi punktami"
+
 #. Translators: under the temperature source of the fan
 #. curves, e.g. "nct6687 · temp1 · emergency threshold 95 °C".
-#: crates/app/src/fans.rs:159
+#: crates/app/src/fans.rs:222
 #, rust-format
 msgid "{chip} · {channel} · emergency threshold {temperature}"
 msgstr "{chip} · {channel} · próg awaryjny {temperature}"
 
 #. Translators: read by screen readers after the name of a
 #. reading, e.g. "nct6687 · temp2. Now 37.5 °C".
-#: crates/app/src/fans.rs:190 crates/app/src/overview.rs:336
+#: crates/app/src/fans.rs:253 crates/app/src/overview.rs:336
 #, rust-format
 msgid "{subtitle}. Now {value}"
 msgstr "{subtitle}. Teraz {value}"
@@ -363,44 +406,38 @@ msgstr "{subtitle}. Teraz {value}"
 #. Translators: read by screen readers after the name of a
 #. reading, e.g. "nct6687 · temp2. Now 37.5 °C, since start
 #. 36.0–38.0 °C".
-#: crates/app/src/fans.rs:192 crates/app/src/overview.rs:341
+#: crates/app/src/fans.rs:255 crates/app/src/overview.rs:341
 #, rust-format
 msgid "{subtitle}. Now {value}, since start {range}"
 msgstr "{subtitle}. Teraz {value}, od uruchomienia {range}"
 
+#. Translators: read by screen readers for the legend above the
+#. fan cards.
+#: crates/app/src/fans.rs:366
+msgid "Legend of the charts"
+msgstr "Legenda wykresów"
+
 #. Translators: Baseboard cannot control the board's fans here.
-#: crates/app/src/fans.rs:452 crates/app/src/fans.rs:503
-#: crates/app/src/system.rs:665
+#: crates/app/src/fans.rs:576 crates/app/src/fans.rs:626
+#: crates/app/src/system.rs:688
 msgid "Fan control unavailable"
 msgstr "Sterowanie wentylatorami niedostępne"
 
 #. Translators: {} is the name of the board's chip, e.g. nct6687.
-#: crates/app/src/fans.rs:464 crates/app/src/system.rs:672
+#: crates/app/src/fans.rs:588 crates/app/src/system.rs:695
 #, rust-format
 msgid "The board's {} chip was not found"
 msgstr "Nie znaleziono układu płyty {}"
 
-#: crates/app/src/fans.rs:480 crates/app/src/overview.rs:652
+#: crates/app/src/fans.rs:604 crates/app/src/overview.rs:652
 msgid "All readings are hidden"
 msgstr "Wszystkie odczyty są ukryte"
 
-#: crates/app/src/fans.rs:481 crates/app/src/overview.rs:653
+#: crates/app/src/fans.rs:605 crates/app/src/overview.rs:653
 msgid "Turn them on again in Preferences."
 msgstr "Można je włączyć z powrotem w preferencjach."
 
-#: crates/app/src/fans.rs:508
-msgid ""
-"Needs a newer kernel with the extended nct6683 driver. This driver does not "
-"report the duty cycles of the system fans."
-msgstr ""
-"Wymaga nowszego jądra z rozszerzonym sterownikiem nct6683. Wypełnienia "
-"wentylatorów systemowych ten sterownik nie podaje."
-
-#: crates/app/src/fans.rs:512
-msgid "Needs a newer kernel with the extended nct6683 driver."
-msgstr "Wymaga nowszego jądra z rozszerzonym sterownikiem nct6683."
-
-#: crates/app/src/fans.rs:590
+#: crates/app/src/fans.rs:697
 msgid "The kernel driver does not support control of this header."
 msgid_plural "The kernel driver does not support control of these headers."
 msgstr[0] "Sterownik jądra nie obsługuje sterowania tym złączem."
@@ -416,140 +453,150 @@ msgstr "Odczyt czujników…"
 msgid "Details"
 msgstr "Szczegóły"
 
-#: crates/app/src/fans.ui:85 crates/app/src/fans/curve_page.rs:231
+#. A button on the Fans page that opens the website's section on fan control in the kernel.
+#: crates/app/src/fans.ui:91
+msgid "Kernel Status"
+msgstr "Stan w jądrze"
+
+#: crates/app/src/fans.ui:111 crates/app/src/fans/curve_page.rs:231
 msgid "Temperature source"
 msgstr "Źródło temperatury"
 
-#: crates/app/src/fans.ui:86
-msgid ""
-"The board's controller computes the duty cycles of the curves from this "
-"temperature."
-msgstr "Według tej temperatury kontroler płyty liczy wypełnienie z krzywych."
-
-#: crates/app/src/fans.ui:91
+#: crates/app/src/fans.ui:116
 msgid "Headers"
 msgstr "Złącza"
 
-#: crates/app/src/fans.ui:92 crates/app/src/overview.rs:446
+#: crates/app/src/fans.ui:117 crates/app/src/overview.rs:446
 msgid "In the order of the headers on the board"
 msgstr "W kolejności złączy na płycie"
 
-#: crates/app/src/fans.ui:106 crates/app/src/system.rs:704
+#: crates/app/src/fans.ui:145 crates/app/src/system.rs:721
 msgid "Read only"
 msgstr "Tylko odczyt"
 
-#: crates/app/src/fans/card.rs:324 crates/app/src/fans/card.rs:725
-msgid "Automatic BIOS"
-msgstr "Automat BIOS"
-
-#: crates/app/src/fans/card.rs:325 crates/app/src/fans/card.rs:726
-msgid "Manual"
-msgstr "Ręczny"
-
-#: crates/app/src/fans/card.rs:326
-msgid "Curve"
-msgstr "Krzywa"
-
-#: crates/app/src/fans/card.rs:335
-msgid "Mode"
-msgstr "Tryb"
+#: crates/app/src/fans/card.rs:341 crates/app/src/fans/curve_page.rs:247
+msgid "Cannot be changed"
+msgstr "Nie można zmienić"
 
 #. Translators: in place of the mode switch of a fan
 #. header whose channel nobody has checked on this
 #. board.
-#: crates/app/src/fans/card.rs:356 crates/app/src/fans/card.rs:732
+#: crates/app/src/fans/card.rs:366 crates/app/src/fans/card.rs:733
 msgid "This header was not checked on this board."
 msgstr "Złącza nie sprawdzono na tej płycie."
 
 #. Translators: under the duty cycle of a fan in manual
 #. mode, e.g. "45 %".
-#: crates/app/src/fans/card.rs:421
+#: crates/app/src/fans/card.rs:432
 msgid "duty cycle"
 msgstr "wypełnienie"
 
-#: crates/app/src/fans/card.rs:441
+#: crates/app/src/fans/card.rs:452
 msgid ""
 "A curve in the board's controller sets the speed. This driver does not show "
 "it."
 msgstr ""
 "Obroty ustala krzywa w kontrolerze płyty. Ten sterownik jej nie pokazuje."
 
-#: crates/app/src/fans/card.rs:445
+#: crates/app/src/fans/card.rs:456
 msgid "The curve could not be read from the board's controller."
 msgstr "Nie udało się odczytać krzywej z kontrolera płyty."
 
 #. Translators: after "No speed since the app started: the
 #. header may be empty."; Readings is the page of the
 #. Preferences dialog.
-#: crates/app/src/fans/card.rs:462
+#: crates/app/src/fans/card.rs:473
 msgid "You can hide it in Preferences, on the Readings page."
 msgstr "Ukryjesz je w Preferencjach, w zakładce Odczyty."
 
-#. Translators: a button on a fan card that opens its curve.
-#: crates/app/src/fans/card.rs:479
-msgid "Show Curve"
-msgstr "Pokaż krzywą"
+#. Translators: a button on a fan card that opens a page with the
+#. large chart of its curve and the values of its points.
+#: crates/app/src/fans/card.rs:491
+msgid "Curve Details"
+msgstr "Szczegóły krzywej"
 
 #. Translators: the duty cycle of a fan moving to the one
 #. its curve gives, e.g. "duty 30 % → 38 %".
-#: crates/app/src/fans/card.rs:610
+#: crates/app/src/fans/card.rs:618
 #, rust-format
 msgid "duty {duty} → {target}"
 msgstr "wypełnienie {duty} → {target}"
 
 #. Translators: the duty cycle of a fan, e.g. "duty 49 %".
-#: crates/app/src/fans/card.rs:615 crates/app/src/fans/card.rs:682
+#: crates/app/src/fans/card.rs:623 crates/app/src/fans/card.rs:686
 #, rust-format
 msgid "duty {duty}"
 msgstr "wypełnienie {duty}"
 
 #. Translators: under a fan card while the fan moves to the duty
 #. cycle of its curve.
-#: crates/app/src/fans/card.rs:694
+#: crates/app/src/fans/card.rs:698
 msgid "In automatic mode the controller changes the duty cycle gradually."
 msgstr "W automacie kontroler zmienia wypełnienie stopniowo."
 
 #. Translators: under a fan card in manual mode; {duty} is "0 %".
-#: crates/app/src/fans/card.rs:697
+#: crates/app/src/fans/card.rs:701
 #, rust-format
 msgid "{duty} stops the fan"
 msgstr "{duty} zatrzymuje wentylator"
 
 #. Translators: read by screen readers for the button that opens
-#. the curve of a fan; {name} is the fan, e.g. "CPU fan 1".
-#: crates/app/src/fans/card.rs:707
+#. the details of the curve of a fan; {name} is the fan, e.g.
+#. "CPU fan 1".
+#: crates/app/src/fans/card.rs:712
 #, rust-format
-msgid "Show the curve of {name}"
-msgstr "Pokaż krzywą: {name}"
+msgid "Curve details: {name}"
+msgstr "Szczegóły krzywej: {name}"
 
 #. Translators: read by screen readers on a fan card, e.g.
 #. "mode: Automatic BIOS".
-#: crates/app/src/fans/card.rs:722
+#: crates/app/src/fans/card.rs:727
 #, rust-format
 msgid "mode: {mode}"
 msgstr "tryb: {mode}"
+
+#: crates/app/src/fans/card.rs:755
+msgid "Automatic BIOS"
+msgstr "Automat BIOS"
+
+#: crates/app/src/fans/card.rs:756
+msgid "Manual"
+msgstr "Ręczny"
+
+#. Translators: in the status box of a fan card when the kernel driver
+#. gives no mode.
+#: crates/app/src/fans/card.rs:763
+msgid "The mode could not be read"
+msgstr "Nie udało się odczytać trybu"
+
+#. Translators: in the status box of a fan card, e.g. "Mode:
+#. Automatic BIOS"; {mode} is shown in bold.
+#: crates/app/src/fans/card.rs:772
+#, rust-format
+msgid "Mode: {mode}"
+msgstr "Tryb: {mode}"
 
 #. / "No speed since the app started: the header may be empty."
 #. Translators: on a fan card when the fan has not turned since
 #. Baseboard started; nothing tells an empty header from a fan that
 #. does not start.
-#: crates/app/src/fans/card.rs:750
+#: crates/app/src/fans/card.rs:785
 msgid "No speed since the app started: the header may be empty."
 msgstr "Brak obrotów od startu aplikacji: złącze może być puste."
 
 #. Translators: the lowest duty cycle of a fan, e.g. "minimum 30 %".
-#: crates/app/src/fans/card.rs:761
+#: crates/app/src/fans/card.rs:796
 #, rust-format
 msgid "minimum {duty}"
 msgstr "minimum {duty}"
 
 #. Translators: nobody has yet checked on this board that the
 #. reading belongs to this header.
-#: crates/app/src/fans/card.rs:773
+#: crates/app/src/fans/card.rs:808
 msgid "header not tested"
 msgstr "złącze nietestowane"
 
-#: crates/app/src/fans/card.rs:779
+#: crates/app/src/fans/card.rs:814
 #, rust-format
 msgid "source: {source}"
 msgstr "źródło: {source}"
@@ -568,10 +615,6 @@ msgstr "Wartości odczytane z kontrolera płyty."
 #: crates/app/src/fans/curve_page.rs:234
 msgid "The controller computes the duty from it."
 msgstr "Według niej kontroler liczy wypełnienie."
-
-#: crates/app/src/fans/curve_page.rs:247
-msgid "Cannot be changed"
-msgstr "Nie można zmienić"
 
 #: crates/app/src/fans/curve_page.rs:252
 msgid "How the curve works"
@@ -641,11 +684,11 @@ msgstr[2] ""
 "Kontroler ma {} punktów, a krzywa z mniejszą liczbą poziomów powtarza "
 "ostatni."
 
-#: crates/app/src/overview.rs:30 crates/app/src/system.rs:362
+#: crates/app/src/overview.rs:30 crates/app/src/system.rs:385
 msgid "Processor"
 msgstr "Procesor"
 
-#: crates/app/src/overview.rs:31 crates/app/src/system.rs:265
+#: crates/app/src/overview.rs:31 crates/app/src/system.rs:288
 msgid "Mainboard"
 msgstr "Płyta"
 
@@ -658,16 +701,16 @@ msgstr "Wentylatory"
 msgid "Voltages"
 msgstr "Napięcia"
 
-#: crates/app/src/overview.rs:34 crates/app/src/system.rs:434
-#: crates/app/src/system.rs:449
+#: crates/app/src/overview.rs:34 crates/app/src/system.rs:457
+#: crates/app/src/system.rs:472
 msgid "Graphics card"
 msgstr "Karta graficzna"
 
-#: crates/app/src/overview.rs:35 crates/app/src/system.rs:490
+#: crates/app/src/overview.rs:35 crates/app/src/system.rs:513
 msgid "Disks"
 msgstr "Dyski"
 
-#: crates/app/src/overview.rs:36 crates/app/src/system.rs:392
+#: crates/app/src/overview.rs:36 crates/app/src/system.rs:415
 msgctxt "system memory"
 msgid "Memory"
 msgstr "Pamięć"
@@ -905,10 +948,6 @@ msgstr ""
 "Ten komputer nie zgłasza żadnych czujników sprzętu (hwmon), np. w maszynie "
 "wirtualnej."
 
-#: crates/app/src/overview.ui:64
-msgid "The gray range is the minimum and maximum since the app started."
-msgstr "Szary zakres to minimum i maksimum od uruchomienia aplikacji."
-
 #: crates/app/src/preferences.rs:126 crates/app/src/shortcuts-dialog.ui:11
 msgid "General"
 msgstr "Ogólne"
@@ -1021,306 +1060,320 @@ msgstr "Ten model MS-{} ma inny układ złączy wentylatorów: tryb ogólny"
 msgid "No profile for this board"
 msgstr "Brak profilu tej płyty"
 
+#. Translators: on the Fans page when the kernel driver can only
+#. read the fans and reports no duty cycle of the system fans. No
+#. kernel version: no released kernel has the changes yet.
+#: crates/app/src/system.rs:262
+msgid ""
+"The driver in this kernel only reads the fans, without the duty cycle of the "
+"system fans. Control is coming in a future Linux version."
+msgstr ""
+"Sterownik w tym jądrze tylko odczytuje wentylatory, bez wypełnienia "
+"wentylatorów systemowych. Sterowanie pojawi się w jednej z przyszłych wersji "
+"Linuksa."
+
+#. Translators: on the Fans and System pages when the kernel
+#. driver can only read the fans.
+#: crates/app/src/system.rs:269
+msgid ""
+"The driver in this kernel only reads the fans. Control is coming in a future "
+"Linux version."
+msgstr ""
+"Sterownik w tym jądrze tylko odczytuje wentylatory. Sterowanie pojawi się w "
+"jednej z przyszłych wersji Linuksa."
+
 #. Translators: the board code and the PCB revision, e.g.
 #. "MS-7E61, revision 1".
-#: crates/app/src/system.rs:258
+#: crates/app/src/system.rs:281
 #, rust-format
 msgid "{code}, revision {revision}"
 msgstr "{code}, rewizja {revision}"
 
-#: crates/app/src/system.rs:269
+#: crates/app/src/system.rs:292
 msgid "Model"
 msgstr "Model"
 
-#: crates/app/src/system.rs:272 crates/app/src/system.rs:332
+#: crates/app/src/system.rs:295 crates/app/src/system.rs:355
 msgid "Manufacturer"
 msgstr "Producent"
 
-#: crates/app/src/system.rs:273
+#: crates/app/src/system.rs:296
 msgid "Board code and PCB revision"
 msgstr "Kod płyty i rewizja PCB"
 
 #. Translators: {} is the file name of the board profile, e.g.
 #. ms-7e61.toml.
-#: crates/app/src/system.rs:285
+#: crates/app/src/system.rs:308
 #, rust-format
 msgid "Board profile: {}"
 msgstr "Profil płyty: {}"
 
-#: crates/app/src/system.rs:289
+#: crates/app/src/system.rs:312
 msgid "Verified for this PCB revision"
 msgstr "Sprawdzony dla tej rewizji PCB"
 
 #. Translators: {} is the PCB revision of the board, a
 #. digit. Baseboard only reads the fans then.
-#: crates/app/src/system.rs:296
+#: crates/app/src/system.rs:319
 #, rust-format
 msgid "Not verified for PCB revision {}: read only"
 msgstr "Niesprawdzony dla rewizji PCB {}: tylko odczyt"
 
 #. Translators: Baseboard only reads the fans then.
-#: crates/app/src/system.rs:299
+#: crates/app/src/system.rs:322
 msgid "PCB revision unknown: read only"
 msgstr "Rewizja PCB nieznana: tylko odczyt"
 
-#: crates/app/src/system.rs:304
+#: crates/app/src/system.rs:327
 msgid "No profile for this model: generic mode"
 msgstr "Brak profilu dla tego modelu: tryb ogólny"
 
 #. Translators: {} is the board code, e.g. MS-7E56. Boards with
 #. one code can differ in fan headers.
-#: crates/app/src/system.rs:307
+#: crates/app/src/system.rs:330
 #, rust-format
 msgid "The profiles for {} are for models with other fan headers"
 msgstr "Profile dla {} dotyczą modeli z innymi złączami wentylatorów"
 
-#: crates/app/src/system.rs:311
+#: crates/app/src/system.rs:334
 msgid "No profile for this board: generic mode"
 msgstr "Brak profilu dla tej płyty: tryb ogólny"
 
-#: crates/app/src/system.rs:312
+#: crates/app/src/system.rs:335
 msgid "Readings without header names, no fan control"
 msgstr "Odczyty bez nazw złączy, bez sterowania wentylatorami"
 
 #. Translators: the BIOS version and its date, e.g.
 #. "1.A68 of 09/07/2026"; the date is written as the locale writes
 #. dates.
-#: crates/app/src/system.rs:322
+#: crates/app/src/system.rs:345
 #, rust-format
 msgid "{version} of {date}"
 msgstr "{version} z {date}"
 
-#: crates/app/src/system.rs:328
+#: crates/app/src/system.rs:351
 msgid "BIOS"
 msgstr "BIOS"
 
-#: crates/app/src/system.rs:331
+#: crates/app/src/system.rs:354
 msgid "Version"
 msgstr "Wersja"
 
-#: crates/app/src/system.rs:358
+#: crates/app/src/system.rs:381
 msgid "Processor and system"
 msgstr "Procesor i system"
 
-#: crates/app/src/system.rs:368
+#: crates/app/src/system.rs:391
 msgid "Processor frequency driver"
 msgstr "Sterownik częstotliwości procesora"
 
-#: crates/app/src/system.rs:371 crates/app/src/window.rs:59
+#: crates/app/src/system.rs:394 crates/app/src/window.rs:59
 #: crates/app/src/window.ui:82
 msgid "System"
 msgstr "System"
 
-#: crates/app/src/system.rs:372
+#: crates/app/src/system.rs:395
 msgid "Kernel"
 msgstr "Jądro"
 
 #. Translators: {} is the number of a memory slot in SMBIOS.
-#: crates/app/src/system.rs:384
+#: crates/app/src/system.rs:407
 #, rust-format
 msgid "Slot {}"
 msgstr "Gniazdo {}"
 
-#: crates/app/src/system.rs:388
+#: crates/app/src/system.rs:411
 msgid "Empty"
 msgstr "Puste"
 
 #. Translators: the speed a memory module runs at and its highest
 #. speed, e.g. "4800 MT/s (max. 6000 MT/s)".
-#: crates/app/src/system.rs:419
+#: crates/app/src/system.rs:442
 #, rust-format
 msgid "{configured} (max. {max})"
 msgstr "{configured} (maks. {max})"
 
 #. Translators: the highest speed of a memory module, e.g.
 #. "max. 6000 MT/s".
-#: crates/app/src/system.rs:426
+#: crates/app/src/system.rs:449
 #, rust-format
 msgid "max. {}"
 msgstr "maks. {}"
 
-#: crates/app/src/system.rs:441
+#: crates/app/src/system.rs:464
 msgid "VBIOS"
 msgstr "VBIOS"
 
-#: crates/app/src/system.rs:443
+#: crates/app/src/system.rs:466
 msgid "Driver"
 msgstr "Sterownik"
 
-#: crates/app/src/system.rs:445
+#: crates/app/src/system.rs:468
 msgid "PCI identifiers"
 msgstr "Identyfikatory PCI"
 
 #. Translators: the PCI identifiers of a device, e.g.
 #. "1002:7590, subsystem 148c:2437".
-#: crates/app/src/system.rs:464
+#: crates/app/src/system.rs:487
 #, rust-format
 msgid "{device}, subsystem {subsystem}"
 msgstr "{device}, podsystem {subsystem}"
 
 #. Translators: the firmware version of a disk, e.g. "firmware P9CR40D".
-#: crates/app/src/system.rs:478
+#: crates/app/src/system.rs:501
 #, rust-format
 msgid "firmware {}"
 msgstr "firmware {}"
 
-#: crates/app/src/system.rs:482
+#: crates/app/src/system.rs:505
 msgid "removable medium"
 msgstr "nośnik wymienny"
 
-#: crates/app/src/system.rs:498
+#: crates/app/src/system.rs:521
 msgid "Unknown network card"
 msgstr "Nieznana karta sieciowa"
 
-#: crates/app/src/system.rs:502
+#: crates/app/src/system.rs:525
 msgid "no driver"
 msgstr "bez sterownika"
 
 #. Translators: the driver of a device, e.g. "driver r8169".
-#: crates/app/src/system.rs:504
+#: crates/app/src/system.rs:527
 #, rust-format
 msgid "driver {}"
 msgstr "sterownik {}"
 
-#: crates/app/src/system.rs:509
+#: crates/app/src/system.rs:532
 msgid "Network cards"
 msgstr "Karty sieciowe"
 
-#: crates/app/src/system.rs:522
+#: crates/app/src/system.rs:545
 msgid "Hardware monitor"
 msgstr "Monitor sprzętu"
 
-#: crates/app/src/system.rs:526
+#: crates/app/src/system.rs:549
 msgid "in-tree module"
 msgstr "moduł z jądra"
 
-#: crates/app/src/system.rs:527
+#: crates/app/src/system.rs:550
 msgid "out-of-tree module"
 msgstr "moduł spoza jądra"
 
-#: crates/app/src/system.rs:528
+#: crates/app/src/system.rs:551
 msgid "module origin unknown"
 msgstr "pochodzenie modułu nieznane"
 
-#: crates/app/src/system.rs:532
+#: crates/app/src/system.rs:555
 msgid "The nct6683 driver is not loaded"
 msgstr "Sterownik nct6683 nie jest załadowany"
 
 #. Translators: {} is the name of the chip, e.g. nct6687.
-#: crates/app/src/system.rs:538
+#: crates/app/src/system.rs:561
 #, rust-format
 msgid "The nct6683 driver is loaded but found no {} chip"
 msgstr "Sterownik nct6683 jest załadowany, ale nie znalazł układu {}"
 
-#: crates/app/src/system.rs:544
+#: crates/app/src/system.rs:567
 msgid "The nct6683 driver is loaded"
 msgstr "Sterownik nct6683 załadowany"
 
-#: crates/app/src/system.rs:552
+#: crates/app/src/system.rs:575
 msgid "Checking the driver"
 msgstr "Sprawdzenie sterownika"
 
-#: crates/app/src/system.rs:558
+#: crates/app/src/system.rs:581
 msgid "lm-sensors library"
 msgstr "Biblioteka lm-sensors"
 
 #. Translators: {} is the version of libsensors, e.g. 3.6.2.
-#: crates/app/src/system.rs:565
+#: crates/app/src/system.rs:588
 #, rust-format
 msgid ""
 "Version {}: without the system's configuration, which Flatpak does not share"
 msgstr "Wersja {}: bez konfiguracji systemu, której Flatpak nie udostępnia"
 
 #. Translators: {} is the version of libsensors, e.g. 3.6.0.
-#: crates/app/src/system.rs:571
+#: crates/app/src/system.rs:594
 #, rust-format
 msgid "Version {}: readings with the lm-sensors configuration"
 msgstr "Wersja {}: odczyty z konfiguracją lm-sensors"
 
-#: crates/app/src/system.rs:581
+#: crates/app/src/system.rs:604
 msgid ""
 "Not used: readings straight from sysfs, without the lm-sensors configuration"
 msgstr "Nieużywana: odczyty prosto z sysfs, bez konfiguracji lm-sensors"
 
-#: crates/app/src/system.rs:592
+#: crates/app/src/system.rs:615
 msgid "lm-sensors configuration not available in Flatpak"
 msgstr "Konfiguracja lm-sensors niedostępna w Flatpaku"
 
-#: crates/app/src/system.rs:599 crates/app/src/system.rs:601
-#: crates/app/src/system.rs:607
+#: crates/app/src/system.rs:622 crates/app/src/system.rs:624
+#: crates/app/src/system.rs:630
 msgid "lm-sensors configuration"
 msgstr "Konfiguracja lm-sensors"
 
 #. Translators: {} is the name of the board's chip, e.g. nct6687;
 #. "chip" is a statement of the lm-sensors configuration.
-#: crates/app/src/system.rs:604
+#: crates/app/src/system.rs:627
 #, rust-format
 msgid "No file has a chip statement for {}"
 msgstr "Żaden plik nie ma instrukcji chip dla {}"
 
-#: crates/app/src/system.rs:621
+#: crates/app/src/system.rs:644
 msgid "Other fan control programs"
 msgstr "Inne programy sterujące wentylatorami"
 
-#: crates/app/src/system.rs:622
+#: crates/app/src/system.rs:645
 msgid "Cannot be checked in Flatpak"
 msgstr "Nie można sprawdzić w Flatpaku"
 
-#: crates/app/src/system.rs:625
+#: crates/app/src/system.rs:648
 msgid "No other fan control programs"
 msgstr "Brak innych programów sterujących wentylatorami"
 
 #. Translators: {} lists program names, e.g. "fancontrol, coolercontrold".
-#: crates/app/src/system.rs:627
+#: crates/app/src/system.rs:650
 #, rust-format
 msgid "Checked: {}"
 msgstr "Sprawdzono: {}"
 
-#: crates/app/src/system.rs:631
+#: crates/app/src/system.rs:654
 msgid "Other fan control programs are running"
 msgstr "Działają inne programy sterujące wentylatorami"
 
 #. Translators: {} lists program names, e.g. "fancontrol".
-#: crates/app/src/system.rs:633
+#: crates/app/src/system.rs:656
 #, rust-format
 msgid "{}: they may change the fan settings at the same time as Baseboard"
 msgstr "{}: mogą zmieniać ustawienia wentylatorów równocześnie z Baseboard"
 
-#: crates/app/src/system.rs:647
+#: crates/app/src/system.rs:670
 msgid "Sensors and fans"
 msgstr "Czujniki i wentylatory"
 
-#: crates/app/src/system.rs:679
-msgid ""
-"This kernel can only read the fans. Control needs a newer kernel with the "
-"extended nct6683 driver."
-msgstr ""
-"To jądro pozwala tylko odczytywać wentylatory. Sterowanie wymaga nowszego "
-"jądra z rozszerzonym sterownikiem nct6683."
-
-#: crates/app/src/system.rs:687 crates/app/src/system.rs:690
+#: crates/app/src/system.rs:704 crates/app/src/system.rs:707
 msgid "Fan control"
 msgstr "Sterowanie wentylatorami"
 
 #. Translators: {} is what the driver allows, e.g. "Manual mode".
-#: crates/app/src/system.rs:692
+#: crates/app/src/system.rs:709
 #, rust-format
 msgid "{}; read only, because the PCB revision is not verified"
 msgstr "{}; tylko odczyt, bo rewizja PCB jest niesprawdzona"
 
-#: crates/app/src/system.rs:705
+#: crates/app/src/system.rs:722
 msgid "Manual mode"
 msgstr "Tryb ręczny"
 
-#: crates/app/src/system.rs:706
+#: crates/app/src/system.rs:723
 msgid "Manual mode and curve preview"
 msgstr "Tryb ręczny i podgląd krzywych"
 
-#: crates/app/src/system.rs:707
+#: crates/app/src/system.rs:724
 msgid "Curves in the EC"
 msgstr "Krzywe w EC"
 
-#: crates/app/src/system.rs:708
+#: crates/app/src/system.rs:725
 msgid "Curves in the EC with a choice of temperature"
 msgstr "Krzywe w EC z wyborem temperatury"
 
@@ -1375,6 +1428,36 @@ msgstr "Kopiuje informacje o systemie do schowka, np. do zgłoszenia błędu"
 #: crates/app/src/window.ui:172 crates/app/src/window.ui:178
 msgid "Copy Information"
 msgstr "Kopiuj informacje"
+
+#~ msgid ""
+#~ "Needs a newer kernel with the extended nct6683 driver. This driver does "
+#~ "not report the duty cycles of the system fans."
+#~ msgstr ""
+#~ "Wymaga nowszego jądra z rozszerzonym sterownikiem nct6683. Wypełnienia "
+#~ "wentylatorów systemowych ten sterownik nie podaje."
+
+#~ msgid "Needs a newer kernel with the extended nct6683 driver."
+#~ msgstr "Wymaga nowszego jądra z rozszerzonym sterownikiem nct6683."
+
+#~ msgid "Curve"
+#~ msgstr "Krzywa"
+
+#~ msgid "Mode"
+#~ msgstr "Tryb"
+
+#~ msgid "Show Curve"
+#~ msgstr "Pokaż krzywą"
+
+#, rust-format
+#~ msgid "Show the curve of {name}"
+#~ msgstr "Pokaż krzywą: {name}"
+
+#~ msgid ""
+#~ "This kernel can only read the fans. Control needs a newer kernel with the "
+#~ "extended nct6683 driver."
+#~ msgstr ""
+#~ "To jądro pozwala tylko odczytywać wentylatory. Sterowanie wymaga nowszego "
+#~ "jądra z rozszerzonym sterownikiem nct6683."
 
 #~ msgid "automatic BIOS"
 #~ msgstr "automat BIOS"

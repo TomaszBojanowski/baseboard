@@ -27,6 +27,7 @@
 //!   and the threshold.
 
 mod geometry;
+pub mod swatch;
 
 use std::cell::{Cell, OnceCell, RefCell};
 

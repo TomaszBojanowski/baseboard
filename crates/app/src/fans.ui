@@ -74,6 +74,31 @@
                                     <child type="prefix">
                                       <object class="GtkImage" id="note_icon">
                                         <property name="accessible-role">presentation</property>
+                                        <property name="icon-name">help-about-symbolic</property>
+                                      </object>
+                                    </child>
+                                    <!-- Opens the kernel section of the
+                                         project's website (D60). -->
+                                    <child type="suffix">
+                                      <object class="GtkButton" id="kernel_button">
+                                        <property name="visible">False</property>
+                                        <property name="valign">center</property>
+                                        <property name="child">
+                                          <object class="GtkBox">
+                                            <property name="spacing">6</property>
+                                            <child>
+                                              <object class="GtkLabel">
+                                                <property name="label" translatable="yes" comments="A button on the Fans page that opens the website's section on fan control in the kernel.">Kernel Status</property>
+                                              </object>
+                                            </child>
+                                            <child>
+                                              <object class="GtkImage">
+                                                <property name="icon-name">adw-external-link-symbolic</property>
+                                                <property name="accessible-role">presentation</property>
+                                              </object>
+                                            </child>
+                                          </object>
+                                        </property>
                                       </object>
                                     </child>
                                   </object>
@@ -81,15 +106,29 @@
                               </object>
                             </child>
                             <child>
+                              <!-- The description comes from fans.rs. -->
                               <object class="AdwPreferencesGroup" id="source_group">
                                 <property name="title" translatable="yes">Temperature source</property>
-                                <property name="description" translatable="yes">The board's controller computes the duty cycles of the curves from this temperature.</property>
                               </object>
                             </child>
                             <child>
                               <object class="AdwPreferencesGroup" id="cards_group">
                                 <property name="title" translatable="yes">Headers</property>
                                 <property name="description" translatable="yes">In the order of the headers on the board</property>
+                                <!-- The legend of the charts (D60): whole
+                                     items wrap, never a text. fans.rs fills
+                                     it and shows it with charts. -->
+                                <child>
+                                  <object class="AdwWrapBox" id="legend">
+                                    <property name="visible">False</property>
+                                    <property name="accessible-role">group</property>
+                                    <property name="child-spacing">22</property>
+                                    <property name="line-spacing">6</property>
+                                    <style>
+                                      <class name="fan-chart-legend"/>
+                                    </style>
+                                  </object>
+                                </child>
                                 <!-- Rows of two cards as high as the
                                      higher one, or one column. -->
                                 <child>

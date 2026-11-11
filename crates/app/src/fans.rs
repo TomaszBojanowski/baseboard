@@ -22,8 +22,10 @@ use baseboard_core::profile::Profile;
 use baseboard_core::sensors::Kind;
 use baseboard_core::units::{Numbers, UNIT_SPACE};
 use gettextrs::{gettext, ngettext};
-use gtk::glib;
+use gtk::{gio, glib};
 
+use crate::config;
+use crate::fan_chart::swatch::{Mark, Swatch};
 use crate::overview::{self, RowWidgets};
 use crate::sampler::Sample;
 use card::{CardWidgets, Shape};
@@ -83,6 +85,67 @@ pub(crate) fn source_name(row: &SourceRow, numbers: &Numbers) -> String {
 /// the fans, and the note of the curve page.
 fn preview_note() -> String {
     gettext("This version of Baseboard shows the fan settings without changing them.")
+}
+
+// The section of the project's website on fan control in the kernel, in
+// the language of the app (D60). No doc comment right above: xgettext would
+// take it for translators.
+
+fn kernel_url() -> String {
+    let website = config::WEBSITE;
+    // Translators: the part of the project's website on fan control in the
+    // kernel, after its address: "/#kernel" on the English page,
+    // "/pl/#jadro" on the Polish one. Keep "/#kernel" for a language
+    // without its own page.
+    let section = gettext("/#kernel");
+    format!("{website}{section}")
+}
+
+/// The description of the temperature source: what the controller does
+/// with it, and what the gray range is (D60, the same words as on the
+/// Overview).
+fn source_description() -> String {
+    let what = gettext(
+        // Translators: under "Temperature source" on the Fans page; the next
+        // sentence follows on the same line.
+        "The board's controller computes the duty cycles of the curves from this temperature.",
+    );
+    let range = gettext("Gray: minimum and maximum since the app started.");
+    keep_last_words(&format!("{what} {range}"), 3)
+}
+
+/// `text` with its last `count` words held together by no-break spaces,
+/// so that a wrapped line never leaves fewer of them alone on the next
+/// line.
+fn keep_last_words(text: &str, count: usize) -> String {
+    let spaces: Vec<usize> = text.match_indices(' ').map(|(i, _)| i).collect();
+    let from = spaces.len().saturating_sub(count.saturating_sub(1));
+    let mut kept = String::with_capacity(text.len() + count);
+    let mut start = 0;
+    for &space in &spaces[from..] {
+        kept.push_str(&text[start..space]);
+        kept.push('\u{a0}');
+        start = space + 1;
+    }
+    kept.push_str(&text[start..]);
+    kept
+}
+
+/// The legend of the charts on the cards (D60): each mark with its name.
+/// A name does not wrap, so the legend breaks between whole items.
+fn legend_items() -> [(Mark, String); 4] {
+    [
+        // Translators: in the legend of the fan charts, the hatched zone
+        // below the lowest duty cycle of a header.
+        (Mark::BelowMinimum, gettext("below the header's minimum")),
+        // Translators: in the legend of the fan charts, the red dashed line.
+        (Mark::Threshold, gettext("emergency threshold")),
+        // Translators: in the legend of the fan charts, the green dot.
+        (Mark::Now, gettext("now: temperature and duty cycle")),
+        // Translators: in the legend of the fan charts, the dashed line of
+        // a curve before its first point and after its last one.
+        (Mark::Ends, gettext("curve beyond its end points")),
+    ]
 }
 
 /// The row of the temperature source: value above the range in a narrow
@@ -231,9 +294,11 @@ mod imp {
         #[template_child]
         pub note_row: TemplateChild<adw::ActionRow>,
         #[template_child]
-        pub note_icon: TemplateChild<gtk::Image>,
+        pub kernel_button: TemplateChild<gtk::Button>,
         #[template_child]
         pub source_group: TemplateChild<adw::PreferencesGroup>,
+        #[template_child]
+        pub legend: TemplateChild<adw::WrapBox>,
         #[template_child]
         pub cards: TemplateChild<gtk::Grid>,
         #[template_child]
@@ -252,6 +317,8 @@ mod imp {
         pub(super) model: RefCell<Option<Page>>,
         /// The curve page, while it is open.
         pub(super) curve: RefCell<Option<CurvePage>>,
+        /// The status boxes of the cards in one row, equally high (D60).
+        pub(super) size_groups: RefCell<Vec<gtk::SizeGroup>>,
     }
 
     #[glib::object_subclass]
@@ -280,6 +347,38 @@ mod imp {
             ));
             // Samples are only stored while the page cannot be seen.
             obj.connect_map(|page| page.display());
+
+            self.source_group
+                .set_description(Some(&glib::markup_escape_text(&source_description())));
+            for (mark, text) in legend_items() {
+                let item = gtk::Box::builder().spacing(7).build();
+                item.append(&Swatch::new(mark));
+                item.append(
+                    &gtk::Label::builder()
+                        .label(text)
+                        .css_classes(["caption", "fan-soft"])
+                        .build(),
+                );
+                self.legend.append(&item);
+            }
+            // Translators: read by screen readers for the legend above the
+            // fan cards.
+            let name = gettext("Legend of the charts");
+            self.legend
+                .upcast_ref::<gtk::Widget>()
+                .update_property(&[gtk::accessible::Property::Label(&name)]);
+            self.kernel_button.connect_clicked(|button| {
+                let window = button.root().and_downcast::<gtk::Window>();
+                gtk::UriLauncher::new(&kernel_url()).launch(
+                    window.as_ref(),
+                    gio::Cancellable::NONE,
+                    |result| {
+                        if let Err(e) = result {
+                            eprintln!("baseboard: cannot open the website: {e}");
+                        }
+                    },
+                );
+            });
         }
     }
 
@@ -387,11 +486,19 @@ impl FansPage {
     }
 
     /// Puts the cards in rows of two, each as high as its higher card, or
-    /// in one column.
+    /// in one column. In a row of two the status boxes (the mode, or the
+    /// box of an unchecked header) are equally high, so that the charts and
+    /// the footers line up and no card has a gap under its chart (D60).
     fn arrange(&self, cards: &[CardWidgets], layout: Layout) {
-        let grid = &self.imp().cards;
+        let imp = self.imp();
+        let grid = &imp.cards;
         while let Some(child) = grid.first_child() {
             grid.remove(&child);
+        }
+        for group in imp.size_groups.take() {
+            for widget in group.widgets() {
+                group.remove_widget(&widget);
+            }
         }
         let columns = if layout == Layout::Wide { 2 } else { 1 };
         for (i, card) in cards.iter().enumerate() {
@@ -402,6 +509,23 @@ impl FansPage {
         if columns == 2 && cards.len() % 2 == 1 {
             let filler = gtk::Box::new(gtk::Orientation::Vertical, 0);
             grid.attach(&filler, 1, (cards.len() / 2) as i32, 1, 1);
+        }
+        if columns == 2 {
+            let groups = cards
+                .chunks(2)
+                .filter_map(|row| {
+                    let boxes: Vec<&gtk::Widget> =
+                        row.iter().filter_map(CardWidgets::status).collect();
+                    (boxes.len() == 2).then(|| {
+                        let group = gtk::SizeGroup::new(gtk::SizeGroupMode::Vertical);
+                        for status in boxes {
+                            group.add_widget(status);
+                        }
+                        group
+                    })
+                })
+                .collect();
+            imp.size_groups.replace(groups);
         }
     }
 
@@ -495,42 +619,25 @@ impl FansPage {
         let numbers = self.numbers();
         let layout = imp.layout.get();
 
-        // The line on top.
-        let (icon, warning, title, subtitle) = match model.note {
+        // The line on top, with the information icon in both cases: a driver
+        // without control is the usual state of released kernels (D60).
+        let (title, subtitle, kernel) = match model.note {
             Note::NoControl { sys_without_duty } => (
-                "dialog-warning-symbolic",
-                true,
                 gettext("Fan control unavailable"),
-                if sys_without_duty {
-                    // Translators: on the Fans page with the kernel of
-                    // Fedora 7.3.3; no kernel version, as it changes.
-                    gettext(
-                        "Needs a newer kernel with the extended nct6683 driver. \
-                         This driver does not report the duty cycles of the system fans.",
-                    )
-                } else {
-                    gettext("Needs a newer kernel with the extended nct6683 driver.")
-                },
+                crate::system::no_control(sys_without_duty),
+                true,
             ),
-            Note::PreviewOnly => ("help-about-symbolic", false, preview_note(), String::new()),
+            Note::PreviewOnly => (preview_note(), String::new(), false),
         };
-        // Only on a change: a new icon lays out the window again.
-        if imp.note_icon.icon_name().as_deref() != Some(icon) {
-            imp.note_icon.set_icon_name(Some(icon));
-        }
-        if warning != imp.note_icon.has_css_class("warning") {
-            if warning {
-                imp.note_icon.add_css_class("warning");
-            } else {
-                imp.note_icon.remove_css_class("warning");
-            }
-        }
         if imp.note_row.title() != title {
             imp.note_row.set_title(&title);
         }
         if imp.note_row.subtitle().as_deref() != Some(subtitle.as_str()) {
             imp.note_row.set_subtitle(&subtitle);
         }
+        imp.kernel_button.set_visible(kernel);
+        imp.legend
+            .set_visible(model.cards.iter().any(|card| card.chart().is_some()));
 
         let mut state = imp.state.borrow_mut();
 
@@ -661,5 +768,42 @@ mod tests {
             "A temperature the driver does not report"
         );
         assert_eq!(percent(30), "30\u{a0}%");
+    }
+
+    /// A wrapped description never leaves fewer than three words alone on
+    /// its last line (D60).
+    #[test]
+    fn last_words_held_together() {
+        assert_eq!(keep_last_words("a b c d e", 3), "a b c\u{a0}d\u{a0}e");
+        assert_eq!(keep_last_words("one two", 3), "one\u{a0}two");
+        assert_eq!(keep_last_words("one", 3), "one");
+        let description = source_description();
+        assert!(
+            description.starts_with("The board's controller computes the duty cycles"),
+            "{description}"
+        );
+        assert!(
+            description.ends_with(" since the\u{a0}app\u{a0}started."),
+            "{description}"
+        );
+    }
+
+    /// The kernel section of the website; the Polish translation names the
+    /// Polish page.
+    #[test]
+    fn kernel_section_of_the_website() {
+        assert_eq!(kernel_url(), "https://baseboard.bojanowski.me/#kernel");
+    }
+
+    /// Four marks in the legend, each with a name.
+    #[test]
+    fn legend_of_the_charts() {
+        let items = legend_items();
+        let marks: Vec<Mark> = items.iter().map(|(mark, _)| *mark).collect();
+        assert_eq!(
+            marks,
+            [Mark::BelowMinimum, Mark::Threshold, Mark::Now, Mark::Ends]
+        );
+        assert!(items.iter().all(|(_, text)| !text.is_empty()));
     }
 }

@@ -249,6 +249,29 @@ pub fn no_profile() -> String {
     gettext("No profile for this board")
 }
 
+// Under "Fan control unavailable" on the Fans page and on this page
+// (§5.5.3, D60): `sys_without_duty` adds that the system fans report no
+// duty cycle (the Fans page). No kernel version before the changes are in a
+// released kernel (D41).
+pub fn no_control(sys_without_duty: bool) -> String {
+    if sys_without_duty {
+        gettext(
+            // Translators: on the Fans page when the kernel driver can only
+            // read the fans and reports no duty cycle of the system fans. No
+            // kernel version: no released kernel has the changes yet.
+            "The driver in this kernel only reads the fans, without the duty cycle \
+             of the system fans. Control is coming in a future Linux version.",
+        )
+    } else {
+        gettext(
+            // Translators: on the Fans and System pages when the kernel
+            // driver can only read the fans.
+            "The driver in this kernel only reads the fans. \
+             Control is coming in a future Linux version.",
+        )
+    }
+}
+
 fn board(dmi: &Dmi, detection: &Detection) -> Section {
     let code = dmi.board_code().map(|code| code_label(&code));
     let code = match (code, dmi.pcb_revision()) {
@@ -673,14 +696,8 @@ fn fan_control(detection: &Detection, level: Option<DriverLevel>, chip: Option<&
             },
         )
         .status(warning),
-        Some(DriverLevel::ReadOnly) => Line::item(
-            unavailable,
-            gettext(
-                "This kernel can only read the fans. Control needs a newer kernel \
-                 with the extended nct6683 driver.",
-            ),
-        )
-        .status(warning),
+        // The usual state of released kernels, not a problem: no icon (D60).
+        Some(DriverLevel::ReadOnly) => Line::item(unavailable, no_control(false)),
         Some(level) => {
             let words = level_text(level);
             if detection.allows_control() {
@@ -1337,13 +1354,17 @@ mod tests {
         let line = |level| fan_control(&supported, level, Some("nct6687"));
         assert_eq!(line(Some(DriverLevel::Curves)).value, "Curves in the EC");
         assert_eq!(line(Some(DriverLevel::Curves)).status, Some(Status::Ok));
+        // The usual state of released kernels: information, no warning
+        // icon, the same words as on the Fans page (D60).
         let read_only = line(Some(DriverLevel::ReadOnly));
         assert_eq!(read_only.title, "Fan control unavailable");
-        assert_eq!(read_only.status, Some(Status::Warning));
-        // No version number: the only digits are the driver's name.
-        let without_driver = read_only.value.replace("nct6683", "");
-        assert!(!without_driver.chars().any(|c| c.is_ascii_digit()));
+        assert_eq!(read_only.status, None);
+        assert_eq!(read_only.value, no_control(false));
+        // No version number.
+        assert!(!read_only.value.chars().any(|c| c.is_ascii_digit()));
+        // A missing chip is a problem.
         assert_eq!(line(None).value, "The board's nct6687 chip was not found");
+        assert_eq!(line(None).status, Some(Status::Warning));
         let unverified = Detection::UnverifiedRevision {
             profile,
             revision: Some(2),

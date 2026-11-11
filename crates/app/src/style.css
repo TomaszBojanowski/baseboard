@@ -44,23 +44,6 @@ row.monospace-value .subtitle {
   -gtk-icon-filter: opacity(0.6);
 }
 
-/* The mode switch of 0.2.0 only shows the mode. libadwaita draws the
-   labels of a disabled switch at 30 %; here the names stay readable and
-   the current mode reads best (72 %, 5.2:1 in the light style). The
-   narrower padding keeps "Automat BIOS" whole in a narrow window. */
-.fan-mode > toggle.text-button {
-  padding-left: 4px;
-  padding-right: 4px;
-}
-
-.fan-mode > toggle.text-button > label:disabled {
-  filter: opacity(55%);
-}
-
-.fan-mode > toggle.text-button:checked > label:disabled {
-  filter: opacity(72%);
-}
-
 .fan-rpm {
   font-size: 175%;
   font-weight: 800;
@@ -70,16 +53,23 @@ row.monospace-value .subtitle {
   opacity: 0.55;
 }
 
-/* A header nobody checked on this board: a box in place of the switch. */
-.fan-unchecked {
+/* The status box of a card: the mode as text with a lock (0.2.0 changes
+   nothing, D60), or the note of a header nobody checked on this board. */
+.fan-status {
   min-height: 34px;
   padding: 0 11px;
   border-radius: 9px;
   background-color: color-mix(in srgb, currentColor 6%, transparent);
 }
 
-.fan-unchecked > box {
+.fan-status > box,
+.fan-status > label {
   padding: 6px 0;
+}
+
+/* The legend of the charts above the cards (D60). */
+.fan-chart-legend {
+  margin: 2px 2px 14px;
 }
 
 .fan-note {
