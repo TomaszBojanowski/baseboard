@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="Adw" version="1.0"/>
+  <!-- The System page (docs/PROJEKT.md §5.4). The groups are made in
+       system.rs from the data read in a worker thread. -->
+  <template class="BaseboardSystemPage" parent="AdwBin">
+    <property name="child">
+      <object class="GtkStack" id="stack">
+        <property name="transition-type">crossfade</property>
+        <child>
+          <object class="GtkStackPage">
+            <property name="name">status</property>
+            <property name="child">
+              <object class="AdwStatusPage">
+                <property name="icon-name">baseboard-board-symbolic</property>
+                <property name="title" translatable="yes">Reading the system information…</property>
+              </object>
+            </property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkStackPage">
+            <property name="name">info</property>
+            <property name="child">
+              <object class="AdwPreferencesPage" id="page"/>
+            </property>
+          </object>
+        </child>
+      </object>
+    </property>
+  </template>
+</interface>

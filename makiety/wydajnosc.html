@@ -1,0 +1,100 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baseboard – Wydajność (makieta)</title>
+<link rel="stylesheet" href="wspolne.css">
+<style>
+  .bars { padding: 12px 12px 10px; }
+  .bars svg { display: block; width: 100%; height: auto; }
+  .bars .lbl { display: flex; justify-content: space-between; margin-top: 4px; }
+</style>
+</head>
+<body data-page="wydajnosc" data-title="Wydajność">
+
+<!--
+  Outline for M3. Real state of this machine: tuned-ppd with the balanced
+  profile and no holds, amd-pstate-epp in active mode, EPP
+  balance_performance on all threads, per-thread frequencies from one sample.
+-->
+
+<main id="content" class="page">
+  <div class="clamp">
+    <div class="stack">
+
+      <section class="group">
+        <div class="group-header"><div class="labels">
+          <div class="heading">Profil energii</div>
+          <div class="desc">Ten sam wybór co w szybkich ustawieniach systemu.</div>
+        </div></div>
+        <div class="boxed-list">
+          <div class="row">
+            <div class="prefix"><i data-ic="bolt"></i></div>
+            <div class="tb"><div class="t">Wydajność</div><div class="sub">Najwyższa wydajność, większe zużycie energii i hałas</div></div>
+            <div class="suffix"><span class="radio"></span></div>
+          </div>
+          <div class="row">
+            <div class="prefix"><i data-ic="balance"></i></div>
+            <div class="tb"><div class="t">Zrównoważony</div><div class="sub">Standardowa wydajność i zużycie energii</div></div>
+            <div class="suffix"><span class="radio on"></span></div>
+          </div>
+          <div class="row">
+            <div class="prefix"><i data-ic="leaf"></i></div>
+            <div class="tb"><div class="t">Oszczędzanie energii</div><div class="sub">Niższa wydajność i zużycie energii</div></div>
+            <div class="suffix"><span class="radio"></span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="boxed-list">
+          <div class="row property"><div class="tb"><div class="t">Usługa profili</div><div class="sub">tuned-ppd</div></div></div>
+          <div class="row property"><div class="tb"><div class="t">Blokady profilu</div><div class="sub">Żaden program nie wymusza profilu</div></div></div>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="group-header"><div class="labels">
+          <div class="heading">Procesor</div>
+          <div class="desc">Tylko odczyt. Tymi ustawieniami zarządza usługa profili.</div>
+        </div></div>
+        <div class="boxed-list">
+          <div class="row"><div class="tb"><div class="t">Sterownik taktowania</div><div class="sub">amd-pstate-epp · active</div></div>
+            <div class="suffix dim">Tryb aktywny</div></div>
+          <div class="row"><div class="tb"><div class="t">Preferencja energii (EPP)</div><div class="sub">balance_performance</div></div>
+            <div class="suffix dim">Zrównoważona, z naciskiem na wydajność</div></div>
+          <div class="row"><div class="tb"><div class="t">Boost</div></div>
+            <div class="suffix dim">Włączony</div></div>
+          <div class="row"><div class="tb"><div class="t">Zakres taktowania</div></div>
+            <div class="suffix dim numeric">0,61–5,58 GHz</div></div>
+          <div class="row"><div class="tb"><div class="t">Bieżące taktowanie</div></div>
+            <div class="suffix dim numeric">średnio 1,91 GHz, najwyżej 4,29 GHz</div></div>
+          <div class="bars">
+            <div id="bars"></div>
+            <div class="lbl caption dim"><span>Wątek 0</span><span>Wątek 15</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script>
+  // One sample of scaling_cur_freq per thread (kHz), single series.
+  const f = [4293071, 605310, 605310, 605310, 2142066, 4290682, 2140914, 2143718,
+             605310, 4287824, 605310, 2140935, 4284931, 605310, 605310, 605310];
+  const max = 5582301, W = 552, H = 64, gap = 4, bw = (W - gap * 15) / 16;
+  const ghz = v => (v / 1e6).toLocaleString("pl-PL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Taktowanie 16 wątków">`;
+  f.forEach((v, i) => {
+    const h = Math.max(3, v / max * H), x = i * (bw + gap);
+    s += `<rect x="${x}" y="0" width="${bw}" height="${H}" rx="4" fill="currentColor" fill-opacity=".07"/>`;
+    s += `<path d="M${x} ${H} V${H - h + 4} q0 -4 4 -4 h${bw - 8} q4 0 4 4 V${H} Z" fill="var(--accent-bg)"><title>Wątek ${i}: ${ghz(v)} GHz</title></path>`;
+  });
+  document.getElementById("bars").innerHTML = s + "</svg>";
+</script>
+<script src="wspolne.js"></script>
+</body>
+</html>

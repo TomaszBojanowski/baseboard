@@ -1,0 +1,129 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// Shared scaffolding for the HTML mockups: theme switch, icons, window frame.
+// Open a page with ?theme=dark or ?theme=light to force a color scheme.
+
+(function () {
+  const params = new URLSearchParams(location.search);
+  const theme = params.get("theme");
+  if (theme === "dark" || theme === "light") {
+    document.documentElement.dataset.theme = theme;
+  }
+
+  // Simple 16x16 symbolic icons drawn for these mockups.
+  const F = 'style="fill:currentColor;stroke:none"';
+  const ICONS = {
+    gauge: `<path d="M2.8 12 A6 6 0 1 1 13.2 12"/><path d="M8 9 L10.9 5.6"/><circle cx="8" cy="9" r="1.5" ${F}/>`,
+    fan: [0, 120, 240].map(a =>
+      `<path d="M8 8 C6.1 6.9 5.4 3.9 6.9 2.1 C8.3 0.5 11.3 1.1 11.4 3.2 C11.5 5.2 9.6 6.6 8 8 Z" transform="rotate(${a} 8 8)" ${F}/>`).join("") +
+      `<circle cx="8" cy="8" r="1.4" ${F}/>`,
+    rgb: `<circle cx="8" cy="5.6" r="3.6"/><circle cx="5.7" cy="9.6" r="3.6"/><circle cx="10.3" cy="9.6" r="3.6"/>`,
+    bolt: `<path d="M9.2 1.2 L3.4 9.2 H7.6 L6.8 14.8 L12.6 6.6 H8.4 Z" ${F}/>`,
+    chip: `<rect x="3.5" y="3.5" width="9" height="9" rx="1.5"/><rect x="6" y="6" width="4" height="4" rx=".5" ${F}/>` +
+      `<path d="M6 1.2v2.3M10 1.2v2.3M6 12.5v2.3M10 12.5v2.3M1.2 6h2.3M1.2 10h2.3M12.5 6h2.3M12.5 10h2.3"/>`,
+    menu: `<path d="M2.5 4h11M2.5 8h11M2.5 12h11"/>`,
+    close: `<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/>`,
+    warning: `<path d="M8 1.9 L14.8 13.8 H1.2 Z"/><path d="M8 6.2v3.4"/><circle cx="8" cy="11.7" r=".9" ${F}/>`,
+    ok: `<circle cx="8" cy="8" r="6.5"/><path d="M5.1 8.2 L7.1 10.2 L10.9 6.1"/>`,
+    info: `<circle cx="8" cy="8" r="6.5"/><path d="M8 7.3v4"/><circle cx="8" cy="4.9" r=".9" ${F}/>`,
+    next: `<path d="M6 3.5 L10.5 8 L6 12.5"/>`,
+    back: `<path d="M10 3.5 L5.5 8 L10 12.5"/>`,
+    down: `<path d="M3.5 6 L8 10.5 L12.5 6"/>`,
+    plus: `<path d="M8 3v10M3 8h10"/>`,
+    minus: `<path d="M3 8h10"/>`,
+    copy: `<rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.2 V3 A1.5 1.5 0 0 0 9 1.5 H4 A1.5 1.5 0 0 0 2.5 3 V8 A1.5 1.5 0 0 0 4 9.5 H3.5"/>`,
+    restore: `<path d="M13.3 8 A5.3 5.3 0 1 1 11.6 4.1"/><path d="M12.2 1.4 V4.6 H9"/>`,
+    external: `<path d="M9.5 2.5 H13.5 V6.5M13.5 2.5 L7.5 8.5"/><path d="M12 9.5 V13.5 H2.5 V4 H6.5"/>`,
+    drop: `<path d="M8 1.8 C8 1.8 3.6 6.9 3.6 9.9 A4.4 4.4 0 0 0 12.4 9.9 C12.4 6.9 8 1.8 8 1.8Z"/>`,
+    trash: `<path d="M2.5 4h11M6 4V2.5h4V4M4 4l.8 9.5h6.4L12 4"/>`,
+    thermo: `<path d="M6.3 9.3V3a1.7 1.7 0 0 1 3.4 0v6.3a3.2 3.2 0 1 1-3.4 0Z"/><circle cx="8" cy="11.7" r="1.3" ${F}/>`,
+    leaf: `<path d="M13.5 2.5 C6 2.5 2.5 6 2.5 13.5 C10 13.5 13.5 10 13.5 2.5Z"/><path d="M2.5 13.5 L9 7"/>`,
+    balance: `<circle cx="8" cy="8" r="6.5"/><path d="M8 1.5 A6.5 6.5 0 0 1 8 14.5 Z" ${F}/>`,
+    reboot: `<path d="M4 3.5 A6 6 0 1 0 8 2"/><path d="M8 2 L5.6 0.6M8 2 L6.4 4.4"/>`,
+    lock: `<rect x="3" y="7" width="10" height="7.5" rx="1.5"/><path d="M5.2 7V5a2.8 2.8 0 0 1 5.6 0v2"/>`,
+    pencil: `<path d="M10.5 2.5 L13.5 5.5 L5.5 13.5 H2.5 V10.5 Z"/>`,
+  };
+
+  window.icon = function (name, extra = "") {
+    return `<svg class="ic ${extra}" viewBox="0 0 16 16" aria-hidden="true">${ICONS[name] || ""}</svg>`;
+  };
+
+  const PAGES = [
+    ["przeglad", "Przegląd", "gauge"],
+    ["wentylatory", "Wentylatory", "fan"],
+    ["rgb", "RGB", "rgb"],
+    ["wydajnosc", "Wydajność", "bolt"],
+    ["system", "System", "chip"],
+  ];
+
+  function build() {
+    const body = document.body;
+    const page = body.dataset.nav || body.dataset.page;
+    const content = document.getElementById("content");
+    const headEnd = document.getElementById("header-end");
+    const banner = document.getElementById("banner");
+
+    const nav = PAGES.map(([id, label, ic]) =>
+      `<div class="nav-row${id === page ? " selected" : ""}" role="link">${icon(ic)}<span>${label}</span></div>`
+    ).join("");
+
+    const win = document.createElement("div");
+    win.className = "window";
+    win.innerHTML = `
+      <aside class="sidebar-pane" aria-label="Pasek boczny">
+        <div class="headerbar">
+          <div class="start"></div>
+          <div class="wtitle"><div class="t">Baseboard</div></div>
+          <div class="end"><span class="btn flat image" title="Menu główne">${icon("menu")}</span></div>
+        </div>
+        <nav class="nav">${nav}</nav>
+        <div class="sidebar-footer">
+          ${icon("chip", "dim")}
+          <div class="lines caption">
+            <div>MAG B850M MORTAR WIFI</div>
+            <div class="dim">MS-7E61 · BIOS 1.A68</div>
+          </div>
+        </div>
+      </aside>
+      <section class="content-pane">
+        <div class="headerbar">
+          <div class="start">${body.dataset.back ? `<span class="btn flat image" title="Wstecz">${icon("back")}</span>` : ""}</div>
+          <div class="wtitle">
+            <div class="t">${body.dataset.title}</div>
+            ${body.dataset.subtitle ? `<div class="s">${body.dataset.subtitle}</div>` : ""}
+          </div>
+          <div class="end">
+            ${headEnd ? headEnd.innerHTML : ""}
+            <div class="windowcontrols"><div class="wbtn" title="Zamknij"><span>${icon("close")}</span></div></div>
+          </div>
+        </div>
+      </section>`;
+
+    const pane = win.querySelector(".content-pane");
+    if (banner) {
+      const b = document.createElement("div");
+      b.className = "banner";
+      b.innerHTML = banner.innerHTML;
+      pane.appendChild(b);
+    }
+    pane.appendChild(content);
+    if (headEnd) headEnd.remove();
+    if (banner) banner.remove();
+    body.prepend(win);
+
+    // Replace <i data-ic="name"> placeholders with icons.
+    document.querySelectorAll("i[data-ic]").forEach(el => {
+      el.outerHTML = icon(el.dataset.ic, el.className);
+    });
+
+    // Let the render script know how tall the page is.
+    document.documentElement.dataset.height =
+      Math.ceil(document.documentElement.getBoundingClientRect().height);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", build);
+  } else {
+    build();
+  }
+})();

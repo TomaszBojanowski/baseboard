@@ -1,0 +1,127 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baseboard – System (makieta)</title>
+<link rel="stylesheet" href="wspolne.css">
+</head>
+<body data-page="system" data-title="System">
+
+<!--
+  The System page of M1 (step 10), as the app shows it on MS-7E61 with the
+  nct6683 module of series v1. Real data from DMI (no serial numbers),
+  the udev database, sysfs, /proc and /etc/sensors.d. The RGB controller
+  (M3) and the restart into UEFI (M4) come later. Texts brought in line
+  with the app on 2026-11-11 (M1 step 13, D37, D38).
+-->
+
+<template id="header-end">
+  <span class="btn" title="Kopiuje informacje o systemie do schowka, np. do zgłoszenia błędu">
+    <i data-ic="copy"></i><span>Kopiuj informacje</span>
+  </span>
+</template>
+
+<main id="content" class="page">
+  <div class="clamp">
+    <div class="stack">
+
+      <section class="group">
+        <div class="group-header"><div class="labels"><div class="heading">Płyta</div></div></div>
+        <div class="boxed-list">
+          <div class="row property"><div class="tb"><div class="t">Model</div><div class="sub">MAG B850M MORTAR WIFI (MS-7E61)</div></div></div>
+          <div class="row property"><div class="tb"><div class="t">Producent</div><div class="sub">Micro-Star International Co., Ltd.</div></div></div>
+          <div class="row property"><div class="tb"><div class="t">Kod płyty i rewizja PCB</div><div class="sub">MS-7E61, rewizja 1</div></div></div>
+          <div class="row">
+            <div class="prefix"><i data-ic="ok" class="success"></i></div>
+            <div class="tb"><div class="t">Sprawdzony dla tej rewizji PCB</div><div class="sub">Profil płyty: ms-7e61.toml</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="group-header"><div class="labels"><div class="heading">BIOS</div></div></div>
+        <div class="boxed-list">
+          <div class="row property"><div class="tb"><div class="t">Wersja</div><div class="sub">1.A68 z 07.09.2026</div></div></div>
+          <div class="row property"><div class="tb"><div class="t">Producent</div><div class="sub">American Megatrends International, LLC.</div></div></div>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="group-header"><div class="labels"><div class="heading">Procesor i system</div></div></div>
+        <div class="boxed-list">
+          <div class="row property"><div class="tb"><div class="t">Procesor</div><div class="sub">AMD Ryzen 7 9700X</div></div></div>
+          <div class="row property"><div class="tb"><div class="t">Sterownik częstotliwości procesora</div><div class="sub">amd-pstate-epp</div></div></div>
+          <div class="row property"><div class="tb"><div class="t">System</div><div class="sub">Fedora Linux 45 (Workstation Edition)</div></div></div>
+          <div class="row property"><div class="tb"><div class="t">Jądro</div><div class="sub">7.3.3-300.fc45.x86_64</div></div></div>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="group-header"><div class="labels"><div class="heading">Pamięć</div></div></div>
+        <div class="boxed-list">
+          <div class="row"><div class="tb"><div class="t">DIMMA1</div><div class="sub">Puste</div></div></div>
+          <div class="row"><div class="tb"><div class="t">DIMMA2</div><div class="sub">16,0 GiB DDR5 · 6000 MT/s · IR-6000D564L30S/16G</div></div></div>
+          <div class="row"><div class="tb"><div class="t">DIMMB1</div><div class="sub">Puste</div></div></div>
+          <div class="row"><div class="tb"><div class="t">DIMMB2</div><div class="sub">16,0 GiB DDR5 · 6000 MT/s · IR-6000D564L30S/16G</div></div></div>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="group-header"><div class="labels">
+          <div class="heading">Karta graficzna</div>
+          <div class="desc">Radeon RX 9050 / 9060 XT</div>
+        </div></div>
+        <div class="boxed-list">
+          <div class="row property"><div class="tb"><div class="t">VBIOS</div><div class="sub">113-EXT118704-100</div></div></div>
+          <div class="row property"><div class="tb"><div class="t">Sterownik</div><div class="sub">amdgpu</div></div></div>
+          <div class="row property"><div class="tb"><div class="t">Identyfikatory PCI</div><div class="sub">1002:7590, podsystem 148c:2437</div></div></div>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="group-header"><div class="labels"><div class="heading">Dyski</div></div></div>
+        <div class="boxed-list">
+          <div class="row"><div class="tb"><div class="t">WD_BLACK SN7100 2TB</div><div class="sub">2,0 TB · firmware 7615M0WD · nvme0n1</div></div></div>
+          <div class="row"><div class="tb"><div class="t">CT2000P3PSSD8</div><div class="sub">2,0 TB · firmware P9CR40D · nvme1n1</div></div></div>
+          <div class="row"><div class="tb"><div class="t">SanDisk 3.2Gen1</div><div class="sub">61,5 GB · firmware 1.00 · sda · nośnik wymienny</div></div></div>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="group-header"><div class="labels"><div class="heading">Karty sieciowe</div></div></div>
+        <div class="boxed-list">
+          <div class="row"><div class="tb"><div class="t">RTL8126 5GbE Controller</div><div class="sub">sterownik r8169</div></div></div>
+          <div class="row"><div class="tb"><div class="t">FastConnect 7800</div><div class="sub">sterownik ath12k_wifi7_pci</div></div></div>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="group-header"><div class="labels"><div class="heading">Czujniki i wentylatory</div></div></div>
+        <div class="boxed-list">
+          <div class="row">
+            <div class="prefix"><i data-ic="ok" class="success"></i></div>
+            <div class="tb"><div class="t">Monitor sprzętu</div><div class="sub">Sterownik nct6683 załadowany · moduł spoza jądra</div></div>
+          </div>
+          <div class="row">
+            <div class="prefix"><i data-ic="ok" class="success"></i></div>
+            <div class="tb"><div class="t">Sterowanie wentylatorami</div><div class="sub">Krzywe w EC</div></div>
+          </div>
+          <div class="row">
+            <div class="prefix"><i data-ic="ok" class="success"></i></div>
+            <div class="tb"><div class="t">Konfiguracja lm-sensors</div><div class="sub mono">/etc/sensors.d/local.conf<br>/etc/sensors.d/msi-b850m-mortar.conf</div></div>
+          </div>
+          <div class="row">
+            <div class="prefix"><i data-ic="ok" class="success"></i></div>
+            <div class="tb"><div class="t">Brak innych programów sterujących wentylatorami</div><div class="sub">Sprawdzono: fancontrol, coolercontrold, fan2go, thinkfan</div></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script src="wspolne.js"></script>
+</body>
+</html>

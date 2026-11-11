@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- GTK finds the icons under icons/ of the resource base path. The app
+     icon is here too, so that a build that is not installed shows it. -->
+<gresources>
+  <gresource prefix="/me/bojanowski/Baseboard">
+    <file compressed="true" preprocess="xml-stripblanks">window.ui</file>
+    <file compressed="true" preprocess="xml-stripblanks">overview.ui</file>
+    <file compressed="true" preprocess="xml-stripblanks">system.ui</file>
+    <file compressed="true" preprocess="xml-stripblanks">shortcuts-dialog.ui</file>
+    <file compressed="true">style.css</file>
+    <file compressed="true" alias="icons/scalable/apps/me.bojanowski.Baseboard.svg">icons/hicolor/scalable/apps/me.bojanowski.Baseboard.svg</file>
+    <file compressed="true" alias="icons/scalable/actions/baseboard-overview-symbolic.svg">icons/overview-symbolic.svg</file>
+    <!-- The board in the sidebar footer: the symbolic app icon. -->
+    <file compressed="true" alias="icons/scalable/actions/baseboard-board-symbolic.svg">icons/hicolor/symbolic/apps/me.bojanowski.Baseboard-symbolic.svg</file>
+  </gresource>
+</gresources>

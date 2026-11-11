@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+[Desktop Entry]
+Name=Baseboard
+Comment=Monitor and control your motherboard
+Exec=baseboard
+Icon=me.bojanowski.Baseboard
+Terminal=false
+Type=Application
+Categories=System;Monitor;GTK;
+Keywords=sensors;temperature;fan;voltage;hardware;motherboard;mainboard;RGB;
+StartupNotify=true

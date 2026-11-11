@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: CC0-1.0 -->
+<component type="desktop-application">
+  <id>me.bojanowski.Baseboard</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Baseboard</name>
+  <summary>Monitor and control your motherboard</summary>
+  <description>
+    <p>Baseboard shows the temperatures, fan speeds and voltages reported by your motherboard, processor, graphics card, drives and memory, with the names of the fan headers printed on the board.</p>
+    <p>It also shows information about the board, BIOS, processor, memory, graphics card and drives, and copies it as text for bug reports.</p>
+    <p>Later versions will also control fans, onboard RGB lighting and power profiles.</p>
+  </description>
+  <url type="homepage">https://baseboard.bojanowski.me</url>
+  <url type="bugtracker">https://github.com/TomaszBojanowski/baseboard/issues</url>
+  <url type="vcs-browser">https://github.com/TomaszBojanowski/baseboard</url>
+  <developer id="me.bojanowski">
+    <name translate="no">Tomasz Bojanowski</name>
+  </developer>
+  <launchable type="desktop-id">me.bojanowski.Baseboard.desktop</launchable>
+  <provides>
+    <binary>baseboard</binary>
+  </provides>
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+  </supports>
+  <content_rating type="oars-1.1"/>
+</component>

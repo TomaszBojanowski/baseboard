@@ -1,0 +1,3 @@
+# Applied after `tryby`: the curve of pwm13 (SYS_FAN4) is read-only, as
+# for a channel whose curve does not pass the driver's check at load.
+0444 devices/platform/nct6683.2592/hwmon/hwmon7/pwm13_auto_point*

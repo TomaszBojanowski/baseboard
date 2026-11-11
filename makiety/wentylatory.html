@@ -1,0 +1,155 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baseboard – Wentylatory (makieta)</title>
+<link rel="stylesheet" href="wspolne.css">
+<link rel="stylesheet" href="wentylatory.css">
+</head>
+<body data-page="wentylatory" data-title="Wentylatory">
+
+<!--
+  M4 preview. Speeds (rpm) are real readings from this machine; modes and
+  duty cycles of controlled channels are illustrative, because the current
+  kernel cannot control these fans yet. The banner is shown only while the
+  helper controls at least one channel.
+-->
+
+<template id="banner">
+  <span>Ustawienia działają do restartu komputera</span>
+  <span class="btn">Przywróć automat BIOS</span>
+</template>
+
+<main id="content" class="page">
+  <div class="clamp wide">
+    <p class="intro dim">Zmienione ustawienia działają także po zamknięciu aplikacji. Po restarcie komputera wentylatorami znowu steruje BIOS.</p>
+
+    <div class="stack">
+      <section class="group">
+        <div class="group-header"><div class="labels"><div class="heading">Złącza</div></div></div>
+        <div class="fan-grid">
+
+          <!-- CPU: manual, with the B5 floor -->
+          <div class="card fan-card">
+            <div class="fc-head">
+              <div class="fc-ic"><i data-ic="fan"></i></div>
+              <div class="tb"><div class="heading">Wentylator procesora 1</div><div class="caption dim">CPU_FAN1 · minimum 30 %</div></div>
+              <div class="fc-val"><div class="rpm">888 rpm</div></div>
+            </div>
+            <div class="toggle-group full">
+              <span class="toggle">Automat BIOS</span><span class="toggle checked">Ręczny</span><span class="toggle">Krzywa</span>
+            </div>
+            <div class="fc-body">
+              <div class="scale" aria-label="Wypełnienie" title="Poniżej 30 % suwak się nie przesunie">
+                <div class="trough"></div><div class="floor" style="width:30%"></div>
+                <div class="fill" style="width:45%"></div><div class="knob" style="left:45%"></div>
+              </div>
+              <span class="pct">45 %</span>
+            </div>
+          </div>
+
+          <!-- Pump: BIOS auto, permanent warning -->
+          <div class="card fan-card">
+            <div class="fc-head">
+              <div class="fc-ic"><i data-ic="drop"></i></div>
+              <div class="tb"><div class="heading">Pompa 1</div><div class="caption dim">PUMP_SYS1 · minimum 50 %</div></div>
+              <div class="fc-val"><div class="rpm dim">0 rpm</div><div class="caption dim">100 %</div></div>
+            </div>
+            <div class="toggle-group full">
+              <span class="toggle checked">Automat BIOS</span><span class="toggle">Ręczny</span><span class="toggle">Krzywa</span>
+            </div>
+            <div class="notice">
+              <i data-ic="warning" class="warning"></i>
+              <div>
+                <div>Pompa chłodzenia cieczą nie może się zatrzymać. Wypełnienie nie spadnie poniżej 50 %.</div>
+                <div class="caption dim">Przypisanie złącza nie zostało jeszcze sprawdzone na tej płycie.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SYS 1: software curve; the card opens the curve subpage -->
+          <div class="card fan-card activatable" title="Otwórz edytor krzywej">
+            <div class="fc-head">
+              <div class="fc-ic"><i data-ic="fan"></i></div>
+              <div class="tb"><div class="heading">Wentylator systemowy 1</div><div class="caption dim">SYS_FAN1</div></div>
+              <div class="fc-val"><div class="rpm">916 rpm</div><div class="caption dim">25 %</div></div>
+            </div>
+            <div class="toggle-group full">
+              <span class="toggle">Automat BIOS</span><span class="toggle">Ręczny</span><span class="toggle checked">Krzywa</span>
+            </div>
+            <div class="fc-body">
+              <svg class="curve-mini" width="96" height="32" viewBox="0 0 96 32" aria-hidden="true">
+                <polyline fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"
+                  points="2,25 12,25 36,22 54,16 72,8 84,2 94,2"/>
+              </svg>
+              <div class="caption" style="flex:1"><div>Procesor (Tctl): 39,8 °C → 25 %</div><div class="dim">Krzywa z 5 punktów</div></div>
+              <i data-ic="next" class="dim"></i>
+            </div>
+          </div>
+
+          <!-- SYS 2: manual, no floor -->
+          <div class="card fan-card">
+            <div class="fc-head">
+              <div class="fc-ic"><i data-ic="fan"></i></div>
+              <div class="tb"><div class="heading">Wentylator systemowy 2</div><div class="caption dim">SYS_FAN2</div></div>
+              <div class="fc-val"><div class="rpm">771 rpm</div></div>
+            </div>
+            <div class="toggle-group full">
+              <span class="toggle">Automat BIOS</span><span class="toggle checked">Ręczny</span><span class="toggle">Krzywa</span>
+            </div>
+            <div class="fc-body">
+              <div class="scale" aria-label="Wypełnienie">
+                <div class="trough"></div><div class="fill" style="width:40%"></div><div class="knob" style="left:40%"></div>
+              </div>
+              <span class="pct">40 %</span>
+            </div>
+          </div>
+
+          <!-- SYS 3, SYS 4: BIOS auto -->
+          <div class="card fan-card">
+            <div class="fc-head">
+              <div class="fc-ic"><i data-ic="fan"></i></div>
+              <div class="tb"><div class="heading">Wentylator systemowy 3</div><div class="caption dim">SYS_FAN3</div></div>
+              <div class="fc-val"><div class="rpm">749 rpm</div></div>
+            </div>
+            <div class="toggle-group full">
+              <span class="toggle checked">Automat BIOS</span><span class="toggle">Ręczny</span><span class="toggle">Krzywa</span>
+            </div>
+            <div class="fc-body"><span class="dim">Obroty ustala krzywa zapisana w BIOS-ie.</span></div>
+          </div>
+
+          <div class="card fan-card">
+            <div class="fc-head">
+              <div class="fc-ic"><i data-ic="fan"></i></div>
+              <div class="tb"><div class="heading">Wentylator systemowy 4</div><div class="caption dim">SYS_FAN4</div></div>
+              <div class="fc-val"><div class="rpm">970 rpm</div></div>
+            </div>
+            <div class="toggle-group full">
+              <span class="toggle checked">Automat BIOS</span><span class="toggle">Ręczny</span><span class="toggle">Krzywa</span>
+            </div>
+            <div class="fc-body"><span class="dim">Obroty ustala krzywa zapisana w BIOS-ie.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="group-header"><div class="labels">
+          <div class="heading">Tylko odczyt</div>
+        </div></div>
+        <div class="boxed-list">
+          <div class="row">
+            <div class="prefix"><i data-ic="fan" class="dim"></i></div>
+            <div class="tb"><div class="t">Wentylator dodatkowy 1</div><div class="sub">JAF_1 · sterownik jądra nie obsługuje sterowania tym złączem</div></div>
+            <div class="suffix"><span class="v-range">wypełnienie 60 %</span><span class="v-now muted">0 rpm</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script src="wspolne.js"></script>
+</body>
+</html>

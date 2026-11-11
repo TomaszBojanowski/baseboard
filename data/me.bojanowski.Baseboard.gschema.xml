@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<schemalist gettext-domain="baseboard">
+  <schema id="me.bojanowski.Baseboard" path="/me/bojanowski/Baseboard/">
+    <key name="window-width" type="i">
+      <default>1200</default>
+      <summary>Window width</summary>
+    </key>
+    <key name="window-height" type="i">
+      <default>800</default>
+      <summary>Window height</summary>
+    </key>
+    <key name="window-maximized" type="b">
+      <default>false</default>
+      <summary>Window maximized</summary>
+    </key>
+    <key name="refresh-interval" type="u">
+      <range min="1" max="10"/>
+      <default>1</default>
+      <summary>Refresh interval</summary>
+      <description>Seconds between two readings of the sensors on the Overview page.</description>
+    </key>
+    <key name="sensors-labels" type="b">
+      <default>false</default>
+      <summary>Names from lm-sensors</summary>
+      <description>Name the readings as the sensors command does, where the lm-sensors configuration gives a label.</description>
+    </key>
+    <key name="hidden-readings" type="as">
+      <default>[]</default>
+      <summary>Hidden readings</summary>
+      <description>Readings not shown on the Overview page, as chip/channel@device, e.g. nct6687/fan2@devices/platform/nct6683.2592.</description>
+    </key>
+  </schema>
+</schemalist>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <title>Baseboard (symbolic)</title>
+  <g fill="#222222">
+    <path fill-rule="evenodd" d="M3 1h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2zm0 2v10h10V3z"/>
+    <path fill-rule="evenodd" d="M7 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm0 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+    <rect x="11" y="4" width="1" height="6"/>
+    <rect x="4" y="11" width="6" height="1"/>
+  </g>
+</svg>

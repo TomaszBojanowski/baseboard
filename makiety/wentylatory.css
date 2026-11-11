@@ -1,0 +1,37 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* Styles shared by the fan page and the fan curve subpage. */
+
+.intro { margin: 0 0 24px; }
+
+/* connector cards */
+.fan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.fan-card { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+.fc-head { display: flex; align-items: center; gap: 12px; }
+.fc-head .fc-ic {
+  width: 36px; height: 36px; border-radius: 9px; flex: none;
+  display: grid; place-items: center;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+.fc-head .tb { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fc-val { text-align: right; }
+.fc-val .rpm { font-size: 136%; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fc-body { min-height: 40px; display: flex; align-items: center; gap: 12px; }
+.fc-body .pct { width: 44px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+.fc-body .curve-mini { color: var(--accent); flex: none; }
+
+/* curve editor */
+.editor { display: grid; grid-template-columns: 1fr 340px; gap: 0; }
+.editor .plot { padding: 14px 8px 8px 12px; border-right: 1px solid var(--card-shade); }
+.editor .points { padding: 10px 0; display: flex; flex-direction: column; }
+.pt-head, .pt-row {
+  display: grid; grid-template-columns: 22px 1fr 1fr 28px; gap: 6px;
+  align-items: center; padding: 0 12px;
+}
+.pt-head { font-size: 82%; opacity: var(--dim); padding-bottom: 6px; }
+.pt-row { min-height: 44px; }
+.pt-row.sel { background: color-mix(in srgb, var(--accent-bg) 14%, transparent); }
+.pt-row .n { font-variant-numeric: tabular-nums; opacity: var(--dim); text-align: center; }
+.pt-actions { margin-top: auto; padding: 10px 12px 2px; display: flex; flex-direction: column; gap: 8px; }
+.actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 12px; }
+.chart { display: block; width: 100%; height: auto; }

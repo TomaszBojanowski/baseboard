@@ -1,0 +1,180 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Board profile: MAG B850M MORTAR WIFI (MS-7E61).
+# Format: docs/PROJEKT.md §6.2; facts and their certainty: §6.3.
+# Names shown in the app come from the roles (translated); `header` is the
+# name printed on the board.
+
+schema = 1
+id = "ms-7e61"
+model = "MAG B850M MORTAR WIFI"
+
+[match]
+board_vendor = "Micro-Star International Co., Ltd."
+board_code = "7E61"
+pcb_revisions = [1]
+# DMI board_name without "(MS-xxxx)": one board code can stand for models
+# with different fan headers (D28).
+board_names = ["MAG B850M MORTAR WIFI"]
+
+[hwmon]
+name = "nct6687"
+
+# Fans in the order of the headers on the board. The EC numbers the SYS
+# headers in reverse (SYS_FAN1 = fan16/pwm16). `min_duty` is in percent;
+# `tested_writes` lists the writes checked on this board (D16).
+
+[[fan]]
+key = "cpu1"
+role = "cpu"
+number = 1
+header = "CPU_FAN1"
+fan = 1
+pwm = 1
+controllable = true
+min_duty = 30
+verified = true
+tested_writes = []
+
+[[fan]]
+key = "pump1"
+role = "pump"
+number = 1
+header = "PUMP_SYS1"
+fan = 2
+pwm = 2
+controllable = true
+min_duty = 50
+verified = false                     # header mapping not checked physically
+tested_writes = []
+
+[[fan]]
+key = "sys1"
+role = "sys"
+number = 1
+header = "SYS_FAN1"
+fan = 16
+pwm = 16
+controllable = true
+verified = true
+tested_writes = ["manual", "curve"]  # 2026-11-06 and 2026-11-09, also after S3
+
+[[fan]]
+key = "sys2"
+role = "sys"
+number = 2
+header = "SYS_FAN2"
+fan = 15
+pwm = 15
+controllable = true
+verified = true
+tested_writes = []
+
+[[fan]]
+key = "sys3"
+role = "sys"
+number = 3
+header = "SYS_FAN3"
+fan = 14
+pwm = 14
+controllable = true
+verified = true
+tested_writes = []
+
+[[fan]]
+key = "sys4"
+role = "sys"
+number = 4
+header = "SYS_FAN4"
+fan = 13
+pwm = 13
+controllable = true
+verified = true
+tested_writes = []
+
+[[fan]]
+key = "ezconn"
+role = "aux"
+number = 1
+header = "JAF_1"
+fan = 4
+pwm = 4                              # duty readable; the driver does not control it
+verified = false
+
+# Temperatures of the EC; `emergency_c` is the threshold of B4 (and of B14
+# for curves using this source).
+
+[[temp]]
+key = "cpu"
+role = "cpu"
+input = 1
+emergency_c = 95
+
+[[temp]]
+key = "system"
+role = "system"
+input = 2
+emergency_c = 80
+
+[[temp]]
+key = "vrm"
+role = "vrm"
+input = 3
+emergency_c = 90
+
+[[temp]]
+key = "chipset"
+role = "chipset"
+input = 4
+emergency_c = 80
+
+[[voltage]]
+key = "12v"
+role = "p12v"
+input = 0
+multiplier = 12.0
+nominal = 12.0
+tolerance_pct = 5.0
+
+[[voltage]]
+key = "5v"
+role = "p5v"
+input = 1
+multiplier = 5.0
+nominal = 5.0
+tolerance_pct = 5.0
+
+[[voltage]]
+key = "soc"
+role = "soc"
+input = 2
+
+[[voltage]]
+key = "vddio"
+role = "vddio"
+input = 3
+multiplier = 2.0
+
+[[voltage]]
+key = "vcore"
+role = "vcore"
+input = 4
+
+[[voltage]]
+key = "3v3"
+role = "p3v3"
+input = 8
+nominal = 3.3
+tolerance_pct = 5.0
+
+# fan3/pwm3: no header; temp5: the same sensor as temp3; in5-in7: no known
+# rail.
+[hidden]
+fan = [3]
+pwm = [3]
+temp = [5]
+in = [5, 6, 7]
+
+[rgb]
+usb_id = "0db0:0076"
+serial_prefix = "7E61"

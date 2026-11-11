@@ -1,0 +1,14 @@
+# File modes applied by the tests: git keeps no write bits. Files not
+# listed are 0444. A pattern may have one '*' in the file name; later
+# lines win.
+0644 devices/pci0000:00/0000:00:01.2/0000:04:00.0/nvme/nvme0/hwmon2/temp1_max
+0644 devices/pci0000:00/0000:00:01.2/0000:04:00.0/nvme/nvme0/hwmon2/temp2_max
+0644 devices/pci0000:00/0000:00:01.2/0000:04:00.0/nvme/nvme0/hwmon2/temp3_max
+0644 devices/pci0000:00/0000:00:01.2/0000:04:00.0/nvme/nvme0/hwmon2/temp9_max
+0644 devices/pci0000:00/0000:00:02.2/0000:11:00.0/nvme/nvme1/hwmon1/temp1_max
+0644 devices/pci0000:00/0000:00:02.2/0000:11:00.0/nvme/nvme1/hwmon1/temp2_max
+0644 devices/pci0000:00/0000:00:02.2/0000:11:00.0/nvme/nvme1/hwmon1/temp3_max
+0644 devices/pci0000:00/0000:00:14.0/i2c-8/8-0051/hwmon/hwmon6/temp1_crit
+0644 devices/pci0000:00/0000:00:14.0/i2c-8/8-0051/hwmon/hwmon6/temp1_max
+0644 devices/pci0000:00/0000:00:14.0/i2c-8/8-0053/hwmon/hwmon7/temp1_crit
+0644 devices/pci0000:00/0000:00:14.0/i2c-8/8-0053/hwmon/hwmon7/temp1_max

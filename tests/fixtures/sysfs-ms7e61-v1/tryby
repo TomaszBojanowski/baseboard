@@ -1,0 +1,32 @@
+# File modes applied by the tests: git keeps no write bits. Files not
+# listed are 0444. A pattern may have one '*' in the file name; later
+# lines win.
+0644 devices/pci0000:00/0000:00:01.2/0000:04:00.0/nvme/nvme0/hwmon4/temp1_max
+0644 devices/pci0000:00/0000:00:01.2/0000:04:00.0/nvme/nvme0/hwmon4/temp2_max
+0644 devices/pci0000:00/0000:00:01.2/0000:04:00.0/nvme/nvme0/hwmon4/temp3_max
+0644 devices/pci0000:00/0000:00:01.2/0000:04:00.0/nvme/nvme0/hwmon4/temp9_max
+0644 devices/pci0000:00/0000:00:02.2/0000:11:00.0/nvme/nvme1/hwmon2/temp1_max
+0644 devices/pci0000:00/0000:00:02.2/0000:11:00.0/nvme/nvme1/hwmon2/temp2_max
+0644 devices/pci0000:00/0000:00:02.2/0000:11:00.0/nvme/nvme1/hwmon2/temp3_max
+0644 devices/pci0000:00/0000:00:14.0/i2c-8/8-0051/hwmon/hwmon3/temp1_crit
+0644 devices/pci0000:00/0000:00:14.0/i2c-8/8-0051/hwmon/hwmon3/temp1_max
+0644 devices/pci0000:00/0000:00:14.0/i2c-8/8-0053/hwmon/hwmon5/temp1_crit
+0644 devices/pci0000:00/0000:00:14.0/i2c-8/8-0053/hwmon/hwmon5/temp1_max
+0644 devices/platform/nct6683.2592/hwmon/hwmon7/pwm1
+0644 devices/platform/nct6683.2592/hwmon/hwmon7/pwm13
+0644 devices/platform/nct6683.2592/hwmon/hwmon7/pwm13_auto_point*
+0644 devices/platform/nct6683.2592/hwmon/hwmon7/pwm13_enable
+0644 devices/platform/nct6683.2592/hwmon/hwmon7/pwm14
+0644 devices/platform/nct6683.2592/hwmon/hwmon7/pwm14_auto_point*
+0644 devices/platform/nct6683.2592/hwmon/hwmon7/pwm14_enable
+0644 devices/platform/nct6683.2592/hwmon/hwmon7/pwm15
+0644 devices/platform/nct6683.2592/hwmon/hwmon7/pwm15_auto_point*
+0644 devices/platform/nct6683.2592/hwmon/hwmon7/pwm15_enable
+0644 devices/platform/nct6683.2592/hwmon/hwmon7/pwm16
+0644 devices/platform/nct6683.2592/hwmon/hwmon7/pwm16_auto_point*
+0644 devices/platform/nct6683.2592/hwmon/hwmon7/pwm16_enable
+0644 devices/platform/nct6683.2592/hwmon/hwmon7/pwm1_auto_point*
+0644 devices/platform/nct6683.2592/hwmon/hwmon7/pwm1_enable
+0644 devices/platform/nct6683.2592/hwmon/hwmon7/pwm2
+0644 devices/platform/nct6683.2592/hwmon/hwmon7/pwm2_auto_point*
+0644 devices/platform/nct6683.2592/hwmon/hwmon7/pwm2_enable

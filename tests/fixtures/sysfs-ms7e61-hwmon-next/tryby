@@ -1,0 +1,26 @@
+# File modes applied by the tests: git keeps no write bits. Files not
+# listed are 0444. A pattern may have one '*' in the file name; later
+# lines win.
+0644 devices/pci0000:00/0000:00:01.2/0000:04:00.0/nvme/nvme0/hwmon0/temp1_max
+0644 devices/pci0000:00/0000:00:01.2/0000:04:00.0/nvme/nvme0/hwmon0/temp2_max
+0644 devices/pci0000:00/0000:00:01.2/0000:04:00.0/nvme/nvme0/hwmon0/temp3_max
+0644 devices/pci0000:00/0000:00:01.2/0000:04:00.0/nvme/nvme0/hwmon0/temp9_max
+0644 devices/pci0000:00/0000:00:02.2/0000:11:00.0/nvme/nvme1/hwmon5/temp1_max
+0644 devices/pci0000:00/0000:00:02.2/0000:11:00.0/nvme/nvme1/hwmon5/temp2_max
+0644 devices/pci0000:00/0000:00:02.2/0000:11:00.0/nvme/nvme1/hwmon5/temp3_max
+0644 devices/pci0000:00/0000:00:14.0/i2c-8/8-0051/hwmon/hwmon7/temp1_crit
+0644 devices/pci0000:00/0000:00:14.0/i2c-8/8-0051/hwmon/hwmon7/temp1_max
+0644 devices/pci0000:00/0000:00:14.0/i2c-8/8-0053/hwmon/hwmon6/temp1_crit
+0644 devices/pci0000:00/0000:00:14.0/i2c-8/8-0053/hwmon/hwmon6/temp1_max
+0644 devices/platform/nct6683.2592/hwmon/hwmon3/pwm1
+0644 devices/platform/nct6683.2592/hwmon/hwmon3/pwm13
+0644 devices/platform/nct6683.2592/hwmon/hwmon3/pwm13_enable
+0644 devices/platform/nct6683.2592/hwmon/hwmon3/pwm14
+0644 devices/platform/nct6683.2592/hwmon/hwmon3/pwm14_enable
+0644 devices/platform/nct6683.2592/hwmon/hwmon3/pwm15
+0644 devices/platform/nct6683.2592/hwmon/hwmon3/pwm15_enable
+0644 devices/platform/nct6683.2592/hwmon/hwmon3/pwm16
+0644 devices/platform/nct6683.2592/hwmon/hwmon3/pwm16_enable
+0644 devices/platform/nct6683.2592/hwmon/hwmon3/pwm1_enable
+0644 devices/platform/nct6683.2592/hwmon/hwmon3/pwm2
+0644 devices/platform/nct6683.2592/hwmon/hwmon3/pwm2_enable

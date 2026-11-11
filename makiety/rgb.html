@@ -1,0 +1,133 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baseboard – RGB (makieta)</title>
+<link rel="stylesheet" href="wspolne.css">
+<style>
+  .swatches { display: flex; gap: 8px; align-items: center; }
+  .swatches .swatch.sel { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent-bg); }
+  .swatches .custom {
+    width: 24px; height: 24px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+  .scale-row { width: 300px; display: flex; align-items: center; gap: 12px; }
+  .leds { display: flex; gap: 3px; padding: 12px 12px 14px; }
+  .leds span { flex: 1; height: 14px; border-radius: 4px; }
+  .expander-open > .row:first-child { border-bottom: 1px solid var(--card-shade); }
+  .nested .row { padding-left: 24px; }
+</style>
+</head>
+<body data-page="rgb" data-title="RGB">
+
+<!--
+  Outline for M2. Zone names are placeholders: which RGB headers exist on
+  the board and how they map to zones is open question O1. On this machine
+  the controller is present but the udev rule is not installed yet.
+-->
+
+<main id="content" class="page">
+  <div class="clamp">
+    <div class="stack">
+
+      <section class="group">
+        <div class="boxed-list">
+          <div class="row">
+            <div class="prefix"><i data-ic="rgb"></i></div>
+            <div class="tb"><div class="t">Kontroler RGB płyty</div><div class="sub">USB 0DB0:0076</div></div>
+            <div class="suffix"><span class="status"><i data-ic="ok" class="success"></i><span>Gotowy</span></span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="group-header"><div class="labels">
+          <div class="heading">Strefy</div>
+          <div class="desc">Zmiany działają od razu, do wyłączenia zasilania.</div>
+        </div></div>
+        <div class="boxed-list">
+          <div class="row">
+            <div class="prefix"><span class="swatch" style="background:#ffffff"></span></div>
+            <div class="tb"><div class="t">Złącze RGB 12 V</div><div class="sub">Statyczny · jasność 100 %</div></div>
+            <div class="suffix"><i data-ic="next" class="dim"></i></div>
+          </div>
+          <div class="expander expander-open">
+            <div class="row">
+              <div class="prefix"><span class="swatch" style="background:conic-gradient(#e01b24,#f6d32d,#33d17a,#3584e4,#9141ac,#e01b24)"></span></div>
+              <div class="tb"><div class="t">Złącze ARGB 1</div><div class="sub">Kolorowy cykl · jasność 80 %</div></div>
+              <div class="suffix"><i data-ic="down" class="dim" style="transform:rotate(180deg)"></i></div>
+            </div>
+            <div class="nested">
+              <div class="row"><div class="tb"><div class="t">Tryb</div></div>
+                <div class="suffix"><span>Kolorowy cykl</span><i data-ic="down"></i></div></div>
+              <div class="row"><div class="tb"><div class="t">Kolor</div><div class="sub">W tym trybie kolory zmieniają się same</div></div>
+                <div class="suffix swatches" style="opacity:.5">
+                  <span class="swatch" style="background:#e01b24"></span>
+                  <span class="swatch" style="background:#ff7800"></span>
+                  <span class="swatch" style="background:#f6d32d"></span>
+                  <span class="swatch" style="background:#33d17a"></span>
+                  <span class="swatch" style="background:#3584e4"></span>
+                  <span class="swatch" style="background:#9141ac"></span>
+                  <span class="custom"><i data-ic="plus"></i></span>
+                </div></div>
+              <div class="row"><div class="tb"><div class="t">Jasność</div></div>
+                <div class="suffix scale-row"><div class="scale"><div class="trough"></div><div class="fill" style="width:80%"></div><div class="knob" style="left:80%"></div></div><span class="numeric" style="width:58px;text-align:right">80 %</span></div></div>
+              <div class="row"><div class="tb"><div class="t">Prędkość</div></div>
+                <div class="suffix scale-row"><div class="scale"><div class="trough"></div><div class="fill" style="width:50%"></div><div class="knob" style="left:50%"></div></div><span style="width:58px;text-align:right">Średnia</span></div></div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="prefix"><span class="swatch" style="background:#3584e4"></span></div>
+            <div class="tb"><div class="t">Złącze ARGB 2</div><div class="sub">Oddychanie · jasność 60 %</div></div>
+            <div class="suffix"><i data-ic="next" class="dim"></i></div>
+          </div>
+          <div class="row">
+            <div class="prefix"><span class="swatch" style="background:#241f31"></span></div>
+            <div class="tb"><div class="t">Złącze ARGB 3</div><div class="sub">Wyłączone</div></div>
+            <div class="suffix"><i data-ic="next" class="dim"></i></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="group-header"><div class="labels">
+          <div class="heading">Pojedyncze diody</div>
+          <div class="desc">Własne kolory każdej diody na złączu ARGB.</div>
+        </div></div>
+        <div class="boxed-list">
+          <div class="row"><div class="tb"><div class="t">Złącze</div></div>
+            <div class="suffix"><span>Złącze ARGB 2</span><i data-ic="down"></i></div></div>
+          <div class="row"><div class="tb"><div class="t">Liczba diod</div><div class="sub">Musi zgadzać się z podłączonym paskiem</div></div>
+            <div class="suffix spin"><span class="b"><i data-ic="minus"></i></span><span class="val">30</span><span class="b"><i data-ic="plus"></i></span></div></div>
+          <div class="row"><div class="tb"><div class="t">Wypełnienie</div></div>
+            <div class="suffix"><div class="toggle-group"><span class="toggle">Jeden kolor</span><span class="toggle checked">Gradient</span></div></div></div>
+          <div class="leds" id="leds" aria-label="Podgląd 30 diod"></div>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="boxed-list">
+          <div class="row">
+            <div class="tb"><div class="t">Ustawienia startowe</div><div class="sub">Zapisuje obecne kolory w pamięci kontrolera, żeby działały po włączeniu komputera. Rób to rzadko: pamięć zużywa się przy zapisie.</div></div>
+            <div class="suffix"><span class="btn">Zapisz…</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script>
+  // 30-LED gradient preview, blue to purple.
+  const a = [0x35, 0x84, 0xe4], b = [0xc0, 0x61, 0xcb];
+  document.getElementById("leds").innerHTML = Array.from({ length: 30 }, (_, i) => {
+    const k = i / 29, c = a.map((v, j) => Math.round(v + (b[j] - v) * k));
+    return `<span style="background:rgb(${c.join(",")})"></span>`;
+  }).join("");
+</script>
+<script src="wspolne.js"></script>
+</body>
+</html>

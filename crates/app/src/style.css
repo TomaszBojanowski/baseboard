@@ -1,0 +1,8 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* Loaded by AdwApplication from the resource base path. */
+
+/* Values that are file paths or version strings, e.g. on the System page. */
+row.monospace-value .subtitle {
+  font-family: monospace;
+}
