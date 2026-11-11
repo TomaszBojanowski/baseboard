@@ -16,7 +16,7 @@ Zasady lokalne właściciela (notatki na jego komputerze, uprawnienia, git, pami
   - dosłownych cytatów z notatek.
 - Kodu z projektów o innych licencjach (OpenRGB, LibreHardwareMonitor, nct6687d i podobnych) też nie kopiujemy. Bierzemy tylko opis protokołu i podajemy źródło w `docs/`.
 - Aplikacja nie potrzebuje adresów rejestrów EC: wentylatorami steruje wyłącznie przez sysfs sterownika jądra. Nie dodawaj dostępu do portów I/O, `/dev/port` ani `/dev/mem`.
-- W nazwie aplikacji, ikonie i tekstach interfejsu nie używaj znaków towarowych producenta płyty. Wyjątek: dane identyfikacyjne płyty z DMI w profilach i ich wyświetlanie jako informacja o sprzęcie.
+- W nazwie aplikacji i ikonie nie używaj znaków towarowych producenta płyty. Nazwa producenta może paść tylko opisowo w opisie projektu („do płyt głównych MSI”: strona, README, metainfo, plik `.desktop`, okno „O programie”, opis repozytorium), z zastrzeżeniem o znakach towarowych wszędzie tam, gdzie opis ma na nie miejsce (D58). W pozostałych tekstach interfejsu nie, poza danymi identyfikacyjnymi płyty z DMI w profilach i ich wyświetlaniem jako informacji o sprzęcie.
 - Do repozytorium nie trafiają lokalne ścieżki, nazwy plików notatek, numery seryjne ani inne dane prywatne.
 
 ## Sprzęt

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: baseboard\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-11 20:50+0100\n"
+"POT-Creation-Date: 2026-11-11 21:57+0100\n"
 "PO-Revision-Date: 2026-11-11 20:30+0100\n"
 "Last-Translator: Tomasz Bojanowski <tomasz@bojanowski.me>\n"
 "Language-Team: \n"
@@ -24,11 +24,12 @@ msgstr ""
 msgid "Baseboard"
 msgstr "Baseboard"
 
+#. The summary of the metainfo and the .desktop file.
 #: data/me.bojanowski.Baseboard.desktop.in:4
 #: data/me.bojanowski.Baseboard.metainfo.xml.in:8
-#: crates/app/src/application.rs:149
-msgid "Monitor your motherboard sensors"
-msgstr "Podgląd czujników płyty głównej"
+#: crates/app/src/application.rs:150
+msgid "MSI motherboard sensors and fans"
+msgstr "Czujniki i wentylatory płyt MSI"
 
 #: data/me.bojanowski.Baseboard.desktop.in:10
 msgid "sensors;temperature;fan;voltage;hardware;motherboard;mainboard;RGB;"
@@ -98,6 +99,17 @@ msgstr ""
 
 #: data/me.bojanowski.Baseboard.metainfo.xml.in:10
 msgid ""
+"A native GNOME app for the sensors and fans of MSI motherboards on Linux. "
+"Sensor readings work on any board. Fan header names and, later, fan control "
+"need a board profile; one is verified today: MAG B850M MORTAR WIFI."
+msgstr ""
+"Natywna aplikacja GNOME do czujników i wentylatorów płyt głównych MSI w "
+"Linuksie. Odczyty czujników działają na każdej płycie. Nazwy złączy, a w "
+"przyszłości sterowanie wentylatorami, wymagają profilu płyty; dziś jest "
+"jeden sprawdzony: MAG B850M MORTAR WIFI."
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:11
+msgid ""
 "Baseboard shows the temperatures, fan speeds and voltages reported by your "
 "motherboard, processor, graphics card, drives and memory, with the names of "
 "the fan headers printed on the board."
@@ -106,7 +118,7 @@ msgstr ""
 "przez płytę główną, procesor, kartę graficzną, dyski i pamięć, z nazwami "
 "złączy wentylatorów nadrukowanymi na płycie."
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:11
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:12
 msgid ""
 "It also shows information about the board, BIOS, processor, memory, graphics "
 "card and drives, and copies it as text for bug reports."
@@ -114,7 +126,7 @@ msgstr ""
 "Pokazuje też informacje o płycie, BIOS-ie, procesorze, pamięci, karcie "
 "graficznej i dyskach i kopiuje je jako tekst do zgłoszeń błędów."
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:12
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:13
 msgid ""
 "Later versions will also control fans, onboard RGB lighting and power "
 "profiles."
@@ -122,19 +134,29 @@ msgstr ""
 "Kolejne wersje będą też sterować wentylatorami, podświetleniem RGB płyty i "
 "profilami energii."
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:38
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:14
+msgid ""
+"MSI and MSI product names are trademarks of Micro-Star International Co., "
+"Ltd. Baseboard is an independent project and is not affiliated with or "
+"endorsed by MSI."
+msgstr ""
+"MSI i nazwy produktów MSI są znakami towarowymi Micro-Star International "
+"Co., Ltd. Baseboard jest niezależnym projektem, niezwiązanym z MSI i bez jej "
+"poparcia."
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:40
 msgid "Readings named after the board’s fan headers and voltage rails"
 msgstr "Odczyty nazwane według złączy wentylatorów i szyn napięć płyty"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:43
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:45
 msgid "The board, BIOS, processor, memory and drives"
 msgstr "Płyta, BIOS, procesor, pamięć i dyski"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:48
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:50
 msgid "The readings in the dark style"
 msgstr "Odczyty w ciemnym stylu"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:61
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:63
 msgid ""
 "The first release. Baseboard reads the sensors of a motherboard and shows "
 "information about the system; it does not control anything yet."
@@ -142,7 +164,7 @@ msgstr ""
 "Pierwsze wydanie. Baseboard odczytuje czujniki płyty głównej i pokazuje "
 "informacje o systemie; jeszcze niczym nie steruje."
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:63
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:65
 msgid ""
 "Temperatures, fan speeds and voltages; on a board with a profile, named "
 "after its fan headers and voltage rails"
@@ -150,7 +172,7 @@ msgstr ""
 "Temperatury, obroty wentylatorów i napięcia; na płycie z profilem nazwane "
 "według jej złączy wentylatorów i szyn napięć"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:64
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:66
 msgid ""
 "Voltages rated against their tolerance, with the lowest and highest value "
 "since the app started"
@@ -158,7 +180,7 @@ msgstr ""
 "Ocena napięć względem tolerancji, z najniższą i najwyższą wartością od "
 "uruchomienia aplikacji"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:65
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:67
 msgid ""
 "A System page with the board, BIOS, processor, memory, graphics card, drives "
 "and the fan driver, which can be copied as text for bug reports"
@@ -167,11 +189,11 @@ msgstr ""
 "dyskami i sterownikiem wentylatorów, którą można skopiować jako tekst do "
 "zgłoszeń błędów"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:66
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:68
 msgid "English and Polish"
 msgstr "Interfejs po angielsku i po polsku"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:68
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:70
 msgid "Fan control, onboard RGB lighting and power profiles are not there yet."
 msgstr ""
 "Sterowania wentylatorami, podświetlenia RGB płyty i profili energii jeszcze "
@@ -190,11 +212,11 @@ msgid "OpenRGB issue reports on the RGB protocol"
 msgstr "Zgłoszenia w OpenRGB opisujące protokół RGB"
 
 #. Translators: your name and email, one translator per line.
-#: crates/app/src/application.rs:153
+#: crates/app/src/application.rs:154
 msgid "translator-credits"
 msgstr "Tomasz Bojanowski"
 
-#: crates/app/src/application.rs:165
+#: crates/app/src/application.rs:166
 msgid "Hardware descriptions from public sources"
 msgstr "Opis sprzętu ze źródeł publicznych"
 
@@ -1311,3 +1333,6 @@ msgstr "Kopiuje informacje o systemie do schowka, np. do zgłoszenia błędu"
 #: crates/app/src/window.ui:172 crates/app/src/window.ui:178
 msgid "Copy Information"
 msgstr "Kopiuj informacje"
+
+#~ msgid "Monitor your motherboard sensors"
+#~ msgstr "Podgląd czujników płyty głównej"

@@ -206,6 +206,14 @@ h1 {
     text-wrap: balance;
 }
 
+/* Under the lead: which boards the app knows. */
+.lead-note {
+    color: var(--muted);
+    margin: 0.6rem auto 0;
+    max-width: 40rem;
+    text-wrap: balance;
+}
+
 .actions {
     display: flex;
     flex-wrap: wrap;

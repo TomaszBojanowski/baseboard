@@ -146,7 +146,8 @@ fn show_about(app: &adw::Application) {
         .application_icon(APP_ID)
         .developer_name("Tomasz Bojanowski")
         .version(VERSION)
-        .comments(gettext("Monitor your motherboard sensors"))
+        // The summary of the metainfo and the .desktop file.
+        .comments(gettext("MSI motherboard sensors and fans"))
         .copyright("© 2026 Tomasz Bojanowski")
         .license_type(gtk::License::Gpl30)
         // Translators: your name and email, one translator per line.

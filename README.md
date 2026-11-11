@@ -4,7 +4,9 @@
 
 <h1 align="center">Baseboard</h1>
 
-<p align="center">A native GNOME app for the sensors and fans of motherboards on Linux.</p>
+<p align="center">A native GNOME app for the sensors and fans of MSI motherboards on Linux.</p>
+
+<p align="center">Sensor readings work on any board. Fan header names and, later, fan control need a board profile; one is verified today: MAG B850M MORTAR WIFI.</p>
 
 <p align="center">
   <a href="https://baseboard.bojanowski.me">Website</a> ·
