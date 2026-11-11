@@ -33,7 +33,7 @@ use gtk::glib;
 use crate::config;
 use crate::fan_chart::{ChartCurve, FanChart, Reading, Size};
 use crate::overview;
-use crate::sampler::{Options, Setup, Worker};
+use crate::sampler::{FanReads, Options, Setup, Worker};
 
 fn var(name: &str) -> Option<String> {
     std::env::var(name).ok().filter(|v| !v.is_empty())
@@ -313,6 +313,7 @@ fn start_reading(window: &adw::ApplicationWindow, profile: Option<Profile>, foll
                 interval: Duration::from_secs(1),
                 ..Options::default()
             },
+            reads: FanReads::Nothing,
         },
         move |sample| {
             let chip = chip.clone();

@@ -9,7 +9,7 @@ use std::path::Path;
 
 use std::collections::HashSet;
 
-use baseboard_core::fans::driver;
+use baseboard_core::fans::driver::{self, Mode};
 use baseboard_core::labels::{self, UserLabels};
 use baseboard_core::overview::{
     self, Board, Context, Group, GroupKind, Name, Rating, Row, Subtitle, Visibility,
@@ -69,6 +69,18 @@ fn build_with(
     udev: &dyn Udev,
     labels: Option<&UserLabels>,
 ) -> Vec<Group> {
+    build_with_modes(tree, profile, chips, sensors_labels, udev, labels, &[])
+}
+
+fn build_with_modes(
+    tree: &str,
+    profile: Option<&Profile>,
+    chips: &[Chip],
+    sensors_labels: bool,
+    udev: &dyn Udev,
+    labels: Option<&UserLabels>,
+    modes: &[(String, Mode)],
+) -> Vec<Group> {
     let root = Path::new(FIXTURES).join(tree);
     let channels = profile
         .map(|p| driver::channels(p, &sensors::find(chips, "nct6687").unwrap().path))
@@ -79,6 +91,7 @@ fn build_with(
         board: profile.map(|profile| Board {
             profile,
             channels: &channels,
+            modes,
             name: Some(BOARD_NAME.into()),
         }),
         cpu: Some(CPU_MODEL.into()),
@@ -227,6 +240,7 @@ fn fans_in_header_order_with_duty_where_readable() {
                     header,
                     duty,
                     verified,
+                    mode: None,
                 } => (header.as_str(), *duty, *verified),
                 other => panic!("{other:?}"),
             })
@@ -250,6 +264,49 @@ fn fans_in_header_order_with_duty_where_readable() {
             ],
             "{tree}"
         );
+    }
+}
+
+/// The mode shows where the channel has `mode` and the app read it
+/// (§5.5.3): not without `pwmN_enable` (Fedora's driver, JAF_1 everywhere),
+/// not for channels it did not read, not for keys outside the profile.
+#[test]
+fn fan_modes_where_the_channel_has_mode() {
+    let read = [
+        ("cpu1", Mode::Manual),
+        ("sys1", Mode::Auto),
+        ("sys4", Mode::Manual),
+        ("ezconn", Mode::Auto),
+        ("nowhere", Mode::Manual),
+    ]
+    .map(|(key, mode)| (key.to_owned(), mode));
+    for tree in TREES {
+        let profile = profile();
+        let chips = chips(tree);
+        let groups = build_with_modes(tree, Some(&profile), &chips, false, &Database, None, &read);
+        let modes: Vec<_> = group(&groups, GroupKind::Fans)
+            .rows
+            .iter()
+            .map(|r| match &r.subtitle {
+                Subtitle::Header { mode, .. } => *mode,
+                other => panic!("{other:?}"),
+            })
+            .collect();
+        let expected = if tree.contains("fedora") {
+            [None; 7]
+        } else {
+            // CPU, pump, SYS 1–4, JAF_1.
+            [
+                Some(Mode::Manual),
+                None,
+                Some(Mode::Auto),
+                None,
+                None,
+                Some(Mode::Manual),
+                None,
+            ]
+        };
+        assert_eq!(modes, expected, "{tree}");
     }
 }
 

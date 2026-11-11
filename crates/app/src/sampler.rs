@@ -8,7 +8,8 @@
 //! again), without a restart. New options from the settings apply at once.
 //! While the Fans page is shown, each sample also has the fan modes, and
 //! the curves and their sources, read on entering the page and every 10 s
-//! (§7 M2, M2.4). Only reads sysfs and the udev database.
+//! (§7 M2, M2.4); while the Overview is shown, the modes only, for the
+//! subtitles of the fans (§5.5.3). Only reads sysfs and the udev database.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -16,7 +17,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::time::{Duration, Instant};
 
-use baseboard_core::fans::driver::{Channel, SysfsDriver};
+use baseboard_core::fans::driver::{Capability, Channel, FanDriver, Mode, SysfsDriver};
 use baseboard_core::fans::page::{ChannelReading, CurveRead, SourceRead};
 use baseboard_core::labels::UserLabels;
 use baseboard_core::overview::{self, Board, Context, Extremes, Group};
@@ -59,11 +60,28 @@ pub struct Setup {
     /// The processor's model for its group.
     pub cpu: Option<String>,
     pub options: Options,
+    /// What the first samples read of the fan channels.
+    pub reads: FanReads,
 }
 
 /// The curves are read again after this long while the Fans page is
 /// shown: each read of a point goes to the board's controller.
 const CURVES_EVERY: Duration = Duration::from_secs(10);
+
+/// What a sample reads of the fan channels besides speeds and duty
+/// cycles, for the page shown. Each mode or curve read goes to the board's
+/// controller, so only what the page shows is read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FanReads {
+    /// Neither modes nor curves (the System page).
+    #[default]
+    Nothing,
+    /// The modes, for the subtitles of the fans on the Overview.
+    Modes,
+    /// The fan channels for the Fans page: the modes, and the curves and
+    /// sources on entering the page and every 10 s.
+    Channels,
+}
 
 /// Takes samples; lives in the worker thread.
 pub struct Sampler {
@@ -71,8 +89,8 @@ pub struct Sampler {
     devices: Vec<Device>,
     reader: Option<Reader>,
     extremes: Extremes,
-    /// The Fans page is shown: read the fan channels too.
-    fans: bool,
+    /// What to read of the fan channels.
+    reads: FanReads,
     /// How many times the reader was made, for the tests.
     made: usize,
 }
@@ -112,25 +130,25 @@ pub struct Status {
 impl Sampler {
     pub fn new(setup: Setup) -> Self {
         Self {
+            reads: setup.reads,
             setup,
             devices: Vec::new(),
             reader: None,
             extremes: Extremes::default(),
-            fans: false,
             made: 0,
         }
     }
 
-    /// Reads the fan channels too, from the next sample on; turning it on
-    /// reads the curves again at once.
-    pub fn set_fans(&mut self, fans: bool) {
-        if fans
-            && !self.fans
+    /// What to read of the fan channels from the next sample on; turning
+    /// the channels on reads the curves again at once.
+    pub fn set_reads(&mut self, reads: FanReads) {
+        if reads == FanReads::Channels
+            && self.reads != FanReads::Channels
             && let Some(reader) = &mut self.reader
         {
             reader.curves_read = None;
         }
-        self.fans = fans;
+        self.reads = reads;
     }
 
     /// One sample: the model with the minimum and maximum of every row.
@@ -156,12 +174,31 @@ impl Sampler {
             .as_ref()
             .map(|profile| profile.hwmon.name.clone())
             .filter(|name| sensors::find(&chips, name).is_none());
+        let driver = self
+            .setup
+            .profile
+            .as_ref()
+            .and_then(|profile| sensors::find(&chips, &profile.hwmon.name))
+            .map(|chip| SysfsDriver::new(&chip.path));
+        let fans = match (self.reads, &driver) {
+            (FanReads::Channels, Some(driver)) => Some(reader.read_fans(driver)),
+            _ => None,
+        };
+        // The Overview's modes come from the channels when the Fans page
+        // read them: each `pwmN_enable` is read once a sample, and the
+        // Overview is up to date when the window goes back to it.
+        let modes = match (&fans, self.reads, &driver) {
+            (Some(fans), ..) => modes_of(fans),
+            (None, FanReads::Modes, Some(driver)) => reader.read_modes(driver),
+            _ => Vec::new(),
+        };
         let context = Context {
             sysfs_root: &self.setup.root,
             udev: reader.udev.as_ref(),
             board: self.setup.profile.as_ref().map(|profile| Board {
                 profile,
                 channels: &reader.channels,
+                modes: &modes,
                 name: self.setup.board_name.clone(),
             }),
             cpu: self.setup.cpu.clone(),
@@ -170,15 +207,6 @@ impl Sampler {
         };
         let mut groups = overview::build(&chips, &context);
         self.extremes.update(&mut groups);
-        let board = self
-            .setup
-            .profile
-            .as_ref()
-            .and_then(|profile| sensors::find(&chips, &profile.hwmon.name))
-            .map(|chip| chip.path.clone());
-        let fans = board
-            .filter(|_| self.fans)
-            .map(|hwmon| reader.read_fans(&SysfsDriver::new(hwmon)));
         Sample {
             groups,
             status: Status {
@@ -243,6 +271,29 @@ impl Reader {
             })
             .collect()
     }
+
+    /// The modes of the channels with `mode`, for the Overview. A mode
+    /// that cannot be read is left out: the subtitle then has none.
+    fn read_modes(&self, driver: &SysfsDriver) -> Vec<(String, Mode)> {
+        self.channels
+            .iter()
+            .filter(|channel| channel.capabilities.contains(Capability::Mode))
+            .filter_map(|channel| {
+                let mode = driver.mode(channel.pwm).ok()?;
+                Some((channel.key.clone(), mode))
+            })
+            .collect()
+    }
+}
+
+/// The modes the Fans page read, for the Overview.
+fn modes_of(fans: &[ChannelReading]) -> Vec<(String, Mode)> {
+    fans.iter()
+        .filter_map(|channel| match channel.mode {
+            Some(Ok(mode)) => Some((channel.key.clone(), mode)),
+            _ => None,
+        })
+        .collect()
 }
 
 /// Properties of the udev database do not change while a device exists, so
@@ -279,9 +330,8 @@ enum Command {
     Pause,
     /// New settings; a running worker takes a sample with them at once.
     Options(Options),
-    /// The Fans page is shown or not; a running worker takes a sample at
-    /// once.
-    Fans(bool),
+    /// Another page is shown; a running worker takes a sample at once.
+    Reads(FanReads),
 }
 
 /// The worker thread; it ends when this is dropped.
@@ -312,7 +362,7 @@ impl Worker {
                         Ok(Command::Run) => running = true,
                         Ok(Command::Pause) => running = false,
                         Ok(Command::Options(options)) => sampler.set_options(options),
-                        Ok(Command::Fans(fans)) => sampler.set_fans(fans),
+                        Ok(Command::Reads(reads)) => sampler.set_reads(reads),
                         Err(RecvTimeoutError::Timeout) => {}
                         Err(RecvTimeoutError::Disconnected) => break,
                     }
@@ -340,9 +390,9 @@ impl Worker {
         let _ = self.commands.send(Command::Options(options));
     }
 
-    /// Reads the fan channels too while `fans` (the Fans page is shown).
-    pub fn set_fans(&self, fans: bool) {
-        let _ = self.commands.send(Command::Fans(fans));
+    /// What to read of the fan channels, for the page shown.
+    pub fn set_reads(&self, reads: FanReads) {
+        let _ = self.commands.send(Command::Reads(reads));
     }
 }
 
@@ -457,12 +507,10 @@ mod tests {
     /// entering it reads them again. Without the page nothing is read.
     #[test]
     fn fan_channels_while_the_page_is_shown() {
-        use baseboard_core::fans::driver::Mode;
-
         let tree = Tree::new("sysfs-ms7e61-hwmon-next", "fans");
         let mut sampler = Sampler::new(setup(&tree, Options::default()));
         assert_eq!(sampler.sample().fans, None);
-        sampler.set_fans(true);
+        sampler.set_reads(FanReads::Channels);
         let first = sampler.sample().fans.unwrap();
         let keys: Vec<_> = first.iter().map(|c| c.key.as_str()).collect();
         assert_eq!(
@@ -481,11 +529,75 @@ mod tests {
         assert_eq!(sys1(&second).mode, Some(Ok(Mode::Manual)), "at once");
         assert_eq!(point1(&sys1(&second)), 94, "not before 10 s");
 
-        sampler.set_fans(false);
+        sampler.set_reads(FanReads::Nothing);
         assert_eq!(sampler.sample().fans, None);
-        sampler.set_fans(true);
+        sampler.set_reads(FanReads::Channels);
         let third = sampler.sample().fans.unwrap();
         assert_eq!(point1(&sys1(&third)), 50, "read again on entering");
+    }
+
+    fn modes(groups: &[Group]) -> Vec<Option<Mode>> {
+        let fans = groups.iter().find(|g| g.kind == GroupKind::Fans).unwrap();
+        fans.rows
+            .iter()
+            .map(|r| match r.subtitle {
+                Subtitle::Header { mode, .. } => mode,
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// While the Overview is shown, every sample has the modes of the
+    /// channels with `mode` in the fans' subtitles, and nothing else of the
+    /// channels (§5.5.3). On the Fans page the Overview gets the modes the
+    /// page read; on the System page there are none.
+    #[test]
+    fn fan_modes_while_the_overview_is_shown() {
+        let tree = Tree::new("sysfs-ms7e61-hwmon-next", "modes");
+        let mut sampler = Sampler::new(Setup {
+            reads: FanReads::Modes,
+            ..setup(&tree, Options::default())
+        });
+        // CPU, pump, SYS 1–4, JAF_1 (no `pwm4_enable`).
+        let auto = Some(Mode::Auto);
+        let first = sampler.sample();
+        assert_eq!(first.fans, None, "no curves");
+        assert_eq!(
+            modes(&first.groups),
+            [auto, auto, auto, auto, auto, auto, None],
+            "from the first sample"
+        );
+
+        let hwmon = tree.0.join("devices/platform/nct6683.2592/hwmon/hwmon3");
+        std::fs::write(hwmon.join("pwm16_enable"), "1\n").unwrap();
+        let manual = Some(Mode::Manual);
+        let second = sampler.sample();
+        assert_eq!(
+            modes(&second.groups),
+            [auto, auto, manual, auto, auto, auto, None],
+            "at once"
+        );
+
+        sampler.set_reads(FanReads::Channels);
+        let fans_page = sampler.sample();
+        assert!(fans_page.fans.is_some());
+        assert_eq!(modes(&fans_page.groups), modes(&second.groups));
+
+        sampler.set_reads(FanReads::Nothing);
+        let system_page = sampler.sample();
+        assert_eq!(system_page.fans, None);
+        assert_eq!(modes(&system_page.groups), [None; 7]);
+    }
+
+    /// Fedora's driver has no `pwmN_enable`: no modes, nothing to read.
+    #[test]
+    fn no_fan_modes_without_the_attribute() {
+        let tree = Tree::new("sysfs-ms7e61-fedora-7.3.3", "no-modes");
+        let mut sampler = Sampler::new(Setup {
+            reads: FanReads::Modes,
+            ..setup(&tree, Options::default())
+        });
+        assert_eq!(modes(&sampler.sample().groups), [None; 7]);
     }
 
     fn kinds(groups: &[Group]) -> Vec<GroupKind> {
@@ -540,6 +652,7 @@ mod tests {
             board_name: None,
             cpu: None,
             options: Options::default(),
+            reads: FanReads::Modes,
         });
         let sample = sampler.sample();
         assert!(sample.groups.is_empty());
@@ -610,6 +723,7 @@ mod tests {
             board_name: None,
             cpu: None,
             options,
+            reads: FanReads::Nothing,
         }
     }
 

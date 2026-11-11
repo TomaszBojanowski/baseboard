@@ -14,7 +14,7 @@ use crate::config;
 use crate::fans::FansPage;
 use crate::overview::OverviewPage;
 use crate::preferences::{self, DialogSetup};
-use crate::sampler::{Sample, Setup, Worker};
+use crate::sampler::{FanReads, Sample, Setup, Worker};
 use crate::system::{self, SystemPage};
 
 /// The pages, in the order of the sidebar items in window.ui.
@@ -105,8 +105,8 @@ mod imp {
         pub labels_file: RefCell<Option<PathBuf>>,
         /// The sensor reader of the Overview and Fans pages.
         pub worker: RefCell<Option<Worker>>,
-        /// Whether the reader was last told to read the fan channels.
-        pub reading_fans: Cell<Option<bool>>,
+        /// What the reader was last told to read of the fan channels.
+        pub fan_reads: Cell<Option<FanReads>>,
     }
 
     #[glib::object_subclass]
@@ -252,6 +252,8 @@ impl BaseboardWindow {
     pub fn start_readings(&self, mut setup: Setup) {
         let settings = self.settings();
         setup.options = preferences::options(settings);
+        let reads = self.fan_reads();
+        setup.reads = reads;
         let imp = self.imp();
         let visibility = preferences::visibility(settings);
         imp.fans.set_visibility(visibility.clone());
@@ -266,7 +268,7 @@ impl BaseboardWindow {
             });
         });
         imp.worker.replace(Some(worker));
-        imp.reading_fans.set(None);
+        imp.fan_reads.set(Some(reads));
         self.update_reading();
     }
 
@@ -420,25 +422,36 @@ impl BaseboardWindow {
         dialog
     }
 
+    /// What the page shown needs of the fan channels: the modes on the
+    /// Overview, the channels on the Fans page and its subpages (§5.5.3).
+    fn fan_reads(&self) -> FanReads {
+        match self.page() {
+            Page::Overview => FanReads::Modes,
+            Page::Fans => FanReads::Channels,
+            Page::System => FanReads::Nothing,
+        }
+    }
+
     /// Reads while the window is visible and not suspended: the sensors
-    /// always, the fan channels on the Fans page and its subpages, the
-    /// system information on its page only.
+    /// always, of the fan channels what the page shows, the system
+    /// information on its page only.
     fn update_reading(&self) {
         let running = self.running();
-        let fans = running && self.page() == Page::Fans;
+        let reads = self.fan_reads();
         glib::g_debug!(
             "baseboard",
-            "readings {}{}",
+            "readings {}, fan channels: {reads:?}",
             if running { "running" } else { "paused" },
-            if fans { ", with the fan channels" } else { "" }
         );
         let imp = self.imp();
         if let Some(worker) = imp.worker.borrow().as_ref() {
-            worker.set_running(running);
-            // Each change gives a sample at once, so only changes go.
-            if imp.reading_fans.replace(Some(fans)) != Some(fans) {
-                worker.set_fans(fans);
+            // Each change gives a sample at once, so only changes go; and
+            // before `Run`, so that the first sample reads what the page
+            // shows.
+            if imp.fan_reads.replace(Some(reads)) != Some(reads) {
+                worker.set_reads(reads);
             }
+            worker.set_running(running);
         }
         imp.system
             .set_active(running && self.page() == Page::System, false);

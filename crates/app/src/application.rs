@@ -6,7 +6,7 @@ use gettextrs::gettext;
 use gtk::{gio, glib};
 
 use crate::config::{self, APP_ID, RESOURCE_BASE_PATH, VERSION};
-use crate::sampler::{Options, Setup};
+use crate::sampler::{FanReads, Options, Setup};
 use crate::system::{FileKind, SkippedFile};
 use crate::window::BaseboardWindow;
 
@@ -68,8 +68,9 @@ pub fn run() -> glib::ExitCode {
             profile,
             labels,
             cpu: baseboard_core::system::cpu_model(std::path::Path::new("/proc")),
-            // From the settings, in the window.
+            // From the settings and the page shown, in the window.
             options: Options::default(),
+            reads: FanReads::Nothing,
         });
         let skipped_count = skipped.len();
         window.start_system(crate::system::Setup {

@@ -176,6 +176,7 @@ fn unreadable_attributes() {
         board: Some(overview::Board {
             profile: &profile,
             channels: &channels,
+            modes: &[],
             name: None,
         }),
         cpu: None,

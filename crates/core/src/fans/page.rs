@@ -514,6 +514,7 @@ mod tests {
                         header: fan.header.clone(),
                         duty,
                         verified: fan.verified,
+                        mode: None,
                     },
                     Kind::Fan,
                     rpm,

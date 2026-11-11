@@ -9,7 +9,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use crate::fans::driver::{Capability, Channel};
+use crate::fans::driver::{Capability, Channel, Mode};
 use crate::labels::UserLabels;
 use crate::profile::{FanRole, Profile, TempRole, Voltage, VoltageRole};
 use crate::sensors::{self, Chip, Kind, Reading};
@@ -224,11 +224,13 @@ pub enum Name {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Subtitle {
     /// A fan header of the board; its duty cycle (0–255) where the driver
-    /// reports it (`duty-read`); whether the mapping was checked.
+    /// reports it (`duty-read`); whether the mapping was checked; its mode
+    /// where the channel has `mode` and the app read it (§5.5.3).
     Header {
         header: String,
         duty: Option<f64>,
         verified: bool,
+        mode: Option<Mode>,
     },
     /// The driver ([`chip_label`]) and the channel, e.g. `amdgpu` and
     /// `edge`; an empty channel when the name already is the channel.
@@ -257,8 +259,11 @@ pub enum Rating {
 pub struct Board<'a> {
     pub profile: &'a Profile,
     /// What the driver allows on the profile's fan channels
-    /// (`core::fans::driver`); here only `duty-read` counts.
+    /// (`core::fans::driver`); here `duty-read` and `mode` count.
     pub channels: &'a [Channel],
+    /// The modes read in this sample, by the channel's key; empty when the
+    /// app does not read them. Only channels with `mode` show theirs.
+    pub modes: &'a [(String, Mode)],
     /// The board's name for its group, e.g. `board_name` from DMI.
     pub name: Option<String>,
 }
@@ -424,15 +429,23 @@ fn board_rows(chip: &Chip, board: &Board, context: &Context, out: &mut Rows) {
         let Some(reading) = chip.reading(Kind::Fan, fan.fan_index) else {
             continue;
         };
-        let duty_read = board
-            .channels
-            .iter()
-            .any(|c| c.key == fan.key && c.capabilities.contains(Capability::DutyRead));
+        let has = |capability| {
+            board
+                .channels
+                .iter()
+                .any(|c| c.key == fan.key && c.capabilities.contains(capability))
+        };
         let duty = fan
             .pwm_index
-            .filter(|_| duty_read)
+            .filter(|_| has(Capability::DutyRead))
             .and_then(|pwm| chip.reading(Kind::Pwm, pwm))
             .map(|r| r.value);
+        let mode = board
+            .modes
+            .iter()
+            .find(|(key, _)| *key == fan.key)
+            .map(|&(_, mode)| mode)
+            .filter(|_| has(Capability::Mode));
         out.fans.push(Row {
             id: row_id(chip, reading),
             name: pick_own(
@@ -450,6 +463,7 @@ fn board_rows(chip: &Chip, board: &Board, context: &Context, out: &mut Rows) {
                 header: fan.header.clone(),
                 duty,
                 verified: fan.verified,
+                mode,
             },
             kind: Kind::Fan,
             value: reading.value,

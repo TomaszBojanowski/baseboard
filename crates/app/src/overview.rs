@@ -11,6 +11,7 @@ use std::cell::{Cell, OnceCell, RefCell};
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
+use baseboard_core::fans::driver::Mode;
 use baseboard_core::overview::{
     self, Group, GroupKind, Name, Rating, Row, RowId, Subtitle, Visibility,
 };
@@ -131,21 +132,38 @@ pub fn subtitle(row: &Row, numbers: &Numbers) -> String {
             header,
             duty,
             verified,
+            mode,
         } => {
             let duty = duty.map(|d| numbers.value(Kind::Pwm, d));
-            let text = match (&duty, verified) {
+            let text = match (&duty, verified, mode) {
                 // Translators: {header} is a fan header on the board, e.g.
                 // CPU_FAN1, and {duty} its duty cycle, e.g. "49 %".
-                (Some(_), true) => gettext("{header} · duty {duty}"),
+                (Some(_), true, None) => gettext("{header} · duty {duty}"),
                 // Translators: nobody has yet checked on this board that
                 // the reading belongs to this header. Keep it short: it
                 // has to fit in one line with the header and duty cycle.
-                (Some(_), false) => gettext("{header} · duty {duty} · header not tested"),
-                (None, true) => return header.clone(),
-                (None, false) => gettext("{header} · header not tested"),
+                (Some(_), false, None) => gettext("{header} · duty {duty} · header not tested"),
+                (None, true, None) => return header.clone(),
+                (None, false, None) => gettext("{header} · header not tested"),
+                // Translators: {mode} is the mode of the fan, "automatic
+                // BIOS" or "manual mode", e.g. "CPU_FAN1 · duty 49 % ·
+                // automatic BIOS".
+                (Some(_), true, Some(_)) => gettext("{header} · duty {duty} · {mode}"),
+                (Some(_), false, Some(_)) => {
+                    // Translators: as "{header} · duty {duty} · {mode}", for
+                    // a header nobody has checked on this board.
+                    gettext("{header} · duty {duty} · {mode} · header not tested")
+                }
+                // Translators: {mode} is the mode of the fan, "automatic
+                // BIOS" or "manual mode"; the driver gives no duty cycle.
+                (None, true, Some(_)) => gettext("{header} · {mode}"),
+                // Translators: as "{header} · {mode}", for a header nobody
+                // has checked on this board.
+                (None, false, Some(_)) => gettext("{header} · {mode} · header not tested"),
             };
             text.replace("{header}", header)
                 .replace("{duty}", duty.as_deref().unwrap_or_default())
+                .replace("{mode}", &mode.map(mode_text).unwrap_or_default())
         }
         Subtitle::Source { driver, channel } if channel.is_empty() => driver.clone(),
         Subtitle::Source { driver, channel } => format!("{driver} · {channel}"),
@@ -156,6 +174,21 @@ pub fn subtitle(row: &Row, numbers: &Numbers) -> String {
             .replace("{address}", &format!("{address:#04x}")),
         Subtitle::Disk { controller } => controller.clone(),
     }
+}
+
+/// The mode of a fan in its subtitle (§5.5.3), named as on the Fans page;
+/// a line may break around it, not inside it.
+fn mode_text(mode: Mode) -> String {
+    let text = match mode {
+        // Translators: the mode of a fan in its subtitle on the Overview:
+        // the board's controller runs its curve, as "Automatic BIOS" on
+        // the Fans page.
+        Mode::Auto => gettext("automatic BIOS"),
+        // Translators: the mode of a fan in its subtitle on the Overview:
+        // a fixed duty cycle.
+        Mode::Manual => gettext("manual mode"),
+    };
+    text.replace(' ', "\u{a0}")
 }
 
 /// The text of a rated rail; an unrated one shows its source instead.
@@ -739,18 +772,61 @@ mod tests {
         );
         assert!(subtitle(&rated, &numbers).starts_with("Within tolerance"));
         assert_eq!(subtitle(&row(source("r8169", ""), None), &numbers), "r8169");
-        let header = |verified| Subtitle::Header {
-            header: "PUMP_FAN1".into(),
-            duty: Some(255.0),
-            verified,
+        let header = |duty, verified, mode| {
+            let header = Subtitle::Header {
+                header: "PUMP_FAN1".into(),
+                duty,
+                verified,
+                mode,
+            };
+            subtitle(&row(header, None), &numbers)
         };
         assert_eq!(
-            subtitle(&row(header(false), None), &numbers),
+            header(Some(255.0), false, None),
             "PUMP_FAN1 · duty 100\u{a0}% · header not tested"
         );
         assert_eq!(
-            subtitle(&row(header(true), None), &numbers),
+            header(Some(255.0), true, None),
             "PUMP_FAN1 · duty 100\u{a0}%"
+        );
+        assert_eq!(header(None, true, None), "PUMP_FAN1");
+        assert_eq!(header(None, false, None), "PUMP_FAN1 · header not tested");
+    }
+
+    /// With the mode (§5.5.3): after the duty cycle, before "header not
+    /// tested".
+    #[test]
+    fn subtitles_with_the_mode() {
+        let numbers = Numbers::new(".");
+        let header = |duty, verified, mode| {
+            let header = Subtitle::Header {
+                header: "CPU_FAN1".into(),
+                duty,
+                verified,
+                mode: Some(mode),
+            };
+            subtitle(&row(header, None), &numbers)
+        };
+        // The mode is never split over two lines.
+        assert_eq!(
+            header(Some(124.0), true, Mode::Auto),
+            "CPU_FAN1 · duty 49\u{a0}% · automatic\u{a0}BIOS"
+        );
+        assert_eq!(
+            header(Some(115.0), true, Mode::Manual),
+            "CPU_FAN1 · duty 45\u{a0}% · manual\u{a0}mode"
+        );
+        assert_eq!(
+            header(Some(255.0), false, Mode::Auto),
+            "CPU_FAN1 · duty 100\u{a0}% · automatic\u{a0}BIOS · header not tested"
+        );
+        assert_eq!(
+            header(None, true, Mode::Manual),
+            "CPU_FAN1 · manual\u{a0}mode"
+        );
+        assert_eq!(
+            header(None, false, Mode::Auto),
+            "CPU_FAN1 · automatic\u{a0}BIOS · header not tested"
         );
     }
 
