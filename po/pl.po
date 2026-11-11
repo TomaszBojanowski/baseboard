@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: baseboard\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-11 13:15+0100\n"
+"POT-Creation-Date: 2026-11-11 17:31+0100\n"
 "PO-Revision-Date: 2026-11-11 11:00+0100\n"
 "Last-Translator: Tomasz Bojanowski <tomasz@bojanowski.me>\n"
 "Language-Team: \n"
@@ -121,6 +121,61 @@ msgid ""
 msgstr ""
 "Kolejne wersje będą też sterować wentylatorami, podświetleniem RGB płyty i "
 "profilami energii."
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:38
+msgid "Readings named after the board’s fan headers and voltage rails"
+msgstr "Odczyty nazwane według złączy wentylatorów i szyn napięć płyty"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:43
+msgid "The board, BIOS, processor, memory and drives"
+msgstr "Płyta, BIOS, procesor, pamięć i dyski"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:48
+msgid "The readings in the dark style"
+msgstr "Odczyty w ciemnym stylu"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:61
+msgid ""
+"The first release. Baseboard reads the sensors of a motherboard and shows "
+"information about the system; it does not control anything yet."
+msgstr ""
+"Pierwsze wydanie. Baseboard odczytuje czujniki płyty głównej i pokazuje "
+"informacje o systemie; jeszcze niczym nie steruje."
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:63
+msgid ""
+"Temperatures, fan speeds and voltages; on a board with a profile, named "
+"after its fan headers and voltage rails"
+msgstr ""
+"Temperatury, obroty wentylatorów i napięcia; na płycie z profilem nazwane "
+"według jej złączy wentylatorów i szyn napięć"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:64
+msgid ""
+"Voltages rated against their tolerance, with the lowest and highest value "
+"since the app started"
+msgstr ""
+"Ocena napięć względem tolerancji, z najniższą i najwyższą wartością od "
+"uruchomienia aplikacji"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:65
+msgid ""
+"A System page with the board, BIOS, processor, memory, graphics card, drives "
+"and the fan driver, which can be copied as text for bug reports"
+msgstr ""
+"Strona System z płytą, BIOS-em, procesorem, pamięcią, kartą graficzną, "
+"dyskami i sterownikiem wentylatorów, którą można skopiować jako tekst do "
+"zgłoszeń błędów"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:66
+msgid "English and Polish"
+msgstr "Interfejs po angielsku i po polsku"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:68
+msgid "Fan control, onboard RGB lighting and power profiles are not there yet."
+msgstr ""
+"Sterowania wentylatorami, podświetlenia RGB płyty i profili energii jeszcze "
+"nie ma."
 
 #: crates/app/src/application.rs:124
 msgid "The nct6683 driver of Linux and its documentation"
@@ -464,8 +519,7 @@ msgid ""
 "until turned on."
 msgstr ""
 "Wyłączone odczyty nie są pokazywane na stronie Przegląd, np. złącza bez "
-"wentylatora. Numerowane czujniki temperatury dysków są domyślnie "
-"wyłączone."
+"wentylatora. Numerowane czujniki temperatury dysków są domyślnie wyłączone."
 
 #: crates/app/src/shortcuts-dialog.ui:14
 msgid "Preferences"

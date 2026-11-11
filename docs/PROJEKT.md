@@ -1095,12 +1095,12 @@ Wymagania Flathub, których dziś nie spełniamy:
 | Wymaganie | Dziś | Krok |
 |---|---|---|
 | Budowanie bez sieci: zależności Cargo jako źródła manifestu (`cargo-sources.json` z `flatpak-cargo-generator`) | zrobione w F1: `flatpak-cargo-generator.py` z oficjalnego `flatpak/flatpak-builder-tools`, commit `9d86d336a39b9af38b86f114b6ce5820fe260f91`, SHA-256 skryptu `0a2db6be87d75910facef28ab46d4d6460802e8419ab850d0caa6a364d26b380`, uruchomiony poza repozytorium; plik trzeba wygenerować od nowa po każdej zmianie `Cargo.lock` | F1 |
-| `<releases>` w metainfo z wersją i datą | brak (`appstreamcli --pedantic`: `releases-info-missing`) | F2 |
-| Wersja wydania i podpisany tag, zgodne w `meson.build`, `Cargo.toml` i metainfo | 0.1.0 bez tagu | F2 |
-| Zrzuty ekranu w metainfo pod stałymi publicznymi adresami | brak w metainfo; zrzuty strony (`website/img/`) mają okno 1500×1000, a wytyczne Flathub chcą najwyżej 1000×700, więc w F2 nowe zrzuty pod https://baseboard.bojanowski.me/screenshots/0.1.0/ (D43) | F2 |
+| `<releases>` w metainfo z wersją i datą | zrobione w F2: 0.1.0 z opisem po angielsku, tłumaczonym | F2 |
+| Wersja wydania i podpisany tag, zgodne w `meson.build`, `Cargo.toml` i metainfo | 0.1.0 we wszystkich trzech, zgodność sprawdza meson przy konfiguracji; tag podpisuje właściciel przy wydaniu (§10.7) | F2 |
+| Zrzuty ekranu w metainfo pod stałymi publicznymi adresami | zrobione w F2: Przegląd, System i Przegląd w ciemnym stylu, okno 1000×700, każdy z wariantem polskim, pod https://baseboard.bojanowski.me/screenshots/0.1.0/ (D43); zrzuty strony w `website/img/` mają okno 1500×1000, więcej niż wytyczne Flathub (najwyżej 1000×700) | F2 |
 | Działająca strona domowa (walidator Flathub sprawdza adresy) | zrobione 2026-11-11: https://baseboard.bojanowski.me (D41, GitHub Pages) | F2 |
 | Opis zgodny z tym, co aplikacja umie, `summary` najwyżej 35 znaków | zrobione w F1 (§10.3) | F1 |
-| Kolory marki w metainfo (`<branding>`), zalecane | brak; w F2 #deddda i #3d3846 (D43) | F2 |
+| Kolory marki w metainfo (`<branding>`), zalecane | zrobione w F2: #deddda i #3d3846 (D43) | F2 |
 | Domena z App ID, bojanowski.me: linter Flathub wymaga odpowiedzi https://bojanowski.me (`appid-url-not-reachable`), weryfikacja ID plikiem `https://bojanowski.me/.well-known/org.flathub.VerifiedApps.txt` (przekierowania dozwolone, HTTPS obowiązkowe) albo rekordem DNS TXT `_flathub.bojanowski.me` | domena główna odrzuca połączenie (sprawdzone 2026-11-11); strona Baseboard jest pod baseboard.bojanowski.me | F3 (D44) |
 | Uzasadnienie uprawnienia `/run/udev:ro` i zmiennej `SENSORS_SYSFS_ROOT` | tylko w tym projekcie; linter ich nie zgłasza, oceniają je moderatorzy | F3 |
 | Manifest Flathub bez treści generowanych przez AI, zgłoszenie otwierane i prowadzone przez właściciela, ujawnienie AI (zasady Flathub od 2026-09); źródło git z `tag` i `commit` (typ `dir` jest w Flathub błędem) | manifest lokalny (`dir`) służy tylko do budowania własnego; w repozytorium nie ma plików pod Flathub | F3, właściciel |

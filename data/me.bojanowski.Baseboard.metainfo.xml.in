@@ -14,9 +14,11 @@
   <url type="homepage">https://baseboard.bojanowski.me</url>
   <url type="bugtracker">https://github.com/TomaszBojanowski/baseboard/issues</url>
   <url type="vcs-browser">https://github.com/TomaszBojanowski/baseboard</url>
+  <url type="donation">https://buymeacoffee.com/sojer2005</url>
   <developer id="me.bojanowski">
     <name translate="no">Tomasz Bojanowski</name>
   </developer>
+  <translation type="gettext">baseboard</translation>
   <launchable type="desktop-id">me.bojanowski.Baseboard.desktop</launchable>
   <provides>
     <binary>baseboard</binary>
@@ -29,5 +31,42 @@
     <control>keyboard</control>
     <control>touch</control>
   </supports>
+  <!-- Screenshots at stable addresses that never change (D43): a new
+       release gets its own folder. -->
+  <screenshots>
+    <screenshot type="default">
+      <caption>Readings named after the board’s fan headers and voltage rails</caption>
+      <image>https://baseboard.bojanowski.me/screenshots/0.1.0/overview-en.png</image>
+      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.1.0/overview-pl.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>The board, BIOS, processor, memory and drives</caption>
+      <image>https://baseboard.bojanowski.me/screenshots/0.1.0/system-en.png</image>
+      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.1.0/system-pl.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>The readings in the dark style</caption>
+      <image>https://baseboard.bojanowski.me/screenshots/0.1.0/overview-dark-en.png</image>
+      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.1.0/overview-dark-pl.png</image>
+    </screenshot>
+  </screenshots>
+  <branding>
+    <color type="primary" scheme_preference="light">#deddda</color>
+    <color type="primary" scheme_preference="dark">#3d3846</color>
+  </branding>
   <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.1.0" date="2026-11-11">
+      <description>
+        <p>The first release. Baseboard reads the sensors of a motherboard and shows information about the system; it does not control anything yet.</p>
+        <ul>
+          <li>Temperatures, fan speeds and voltages; on a board with a profile, named after its fan headers and voltage rails</li>
+          <li>Voltages rated against their tolerance, with the lowest and highest value since the app started</li>
+          <li>A System page with the board, BIOS, processor, memory, graphics card, drives and the fan driver, which can be copied as text for bug reports</li>
+          <li>English and Polish</li>
+        </ul>
+        <p>Fan control, onboard RGB lighting and power profiles are not there yet.</p>
+      </description>
+    </release>
+  </releases>
 </component>

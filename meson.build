@@ -9,8 +9,21 @@ project(
 
 i18n = import('i18n')
 gnome = import('gnome')
+fs = import('fs')
 
 app_id = 'me.bojanowski.Baseboard'
+
+# One version everywhere (D43): the workspace in Cargo.toml (the app's own
+# version, shown in About) and the newest release in the metainfo must say
+# the same as the project.
+version = meson.project_version()
+if not fs.read('Cargo.toml').contains('\nversion = "@0@"\n'.format(version))
+  error('Cargo.toml: the workspace version is not @0@'.format(version))
+endif
+releases = fs.read('data' / app_id + '.metainfo.xml.in').split('<release version="')
+if releases.length() < 2 or releases[1].split('"')[0] != version
+  error('metainfo: the newest <release> is not @0@'.format(version))
+endif
 
 # GNOME 50 is the minimum.
 gtk_dep = dependency('gtk4', version: '>= 4.22')

@@ -4,7 +4,6 @@
 # msgfmt, as i18n.merge_file does. merge_file depends only on its input, so
 # a changed translation would not rebuild them; these targets depend on
 # po/LINGUAS and every .po file it lists.
-fs = import('fs')
 msgfmt = find_program('msgfmt')
 po_dir = meson.project_source_root() / 'po'
 po_files = files('../po/LINGUAS')
