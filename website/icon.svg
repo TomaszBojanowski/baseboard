@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>Baseboard</title>
+
+  <!-- board: depth and face -->
+  <rect x="12" y="20" width="104" height="96" rx="12" fill="#18794e"/>
+  <rect x="12" y="12" width="104" height="96" rx="12" fill="#26a269"/>
+
+  <!-- traces -->
+  <g fill="none" stroke="#33d17a" stroke-width="3" stroke-linecap="round">
+    <path d="M74 44h14"/>
+    <path d="M74 56h14"/>
+    <path d="M44 74v18"/>
+    <path d="M56 74v18"/>
+    <path d="M80 94h10"/>
+    <path d="M97 78v8"/>
+  </g>
+
+  <!-- memory slots -->
+  <rect x="86" y="25" width="7" height="54" rx="2" fill="#241f31"/>
+  <rect x="86" y="22" width="7" height="54" rx="2" fill="#3d3846"/>
+  <rect x="88.5" y="26" width="2" height="46" rx="1" fill="#77767b"/>
+  <rect x="98" y="25" width="7" height="54" rx="2" fill="#241f31"/>
+  <rect x="98" y="22" width="7" height="54" rx="2" fill="#3d3846"/>
+  <rect x="100.5" y="26" width="2" height="46" rx="1" fill="#77767b"/>
+
+  <!-- expansion slot -->
+  <rect x="24" y="93" width="58" height="8" rx="2" fill="#241f31"/>
+  <rect x="24" y="90" width="58" height="8" rx="2" fill="#3d3846"/>
+  <rect x="28" y="93" width="50" height="2" rx="1" fill="#77767b"/>
+
+  <!-- chipset heatsink -->
+  <rect x="88" y="87" width="18" height="18" rx="3" fill="#5e5c64"/>
+  <rect x="88" y="84" width="18" height="18" rx="3" fill="#c0bfbc"/>
+  <rect x="91" y="89" width="12" height="2" rx="1" fill="#9a9996"/>
+  <rect x="91" y="95" width="12" height="2" rx="1" fill="#9a9996"/>
+
+  <!-- CPU fan -->
+  <rect x="24" y="27" width="52" height="52" rx="9" fill="#241f31"/><rect x="24" y="24" width="52" height="52" rx="9" fill="#5e5c64"/><circle cx="50" cy="50" r="22" fill="#241f31"/>
+<g fill="#3d3846"><circle cx="30" cy="30" r="2"/><circle cx="70" cy="30" r="2"/><circle cx="30" cy="70" r="2"/><circle cx="70" cy="70" r="2"/></g><g transform="translate(50 50)" fill="#c0bfbc"><path d="M0.00 -5.00Q2.17 -12.94 12.31 -15.76A20 20 0 0 1 17.98 -8.77Q9.72 -6.83 2.80 -4.15Z" transform="rotate(0.00)"/><path d="M0.00 -5.00Q2.17 -12.94 12.31 -15.76A20 20 0 0 1 17.98 -8.77Q9.72 -6.83 2.80 -4.15Z" transform="rotate(51.43)"/><path d="M0.00 -5.00Q2.17 -12.94 12.31 -15.76A20 20 0 0 1 17.98 -8.77Q9.72 -6.83 2.80 -4.15Z" transform="rotate(102.86)"/><path d="M0.00 -5.00Q2.17 -12.94 12.31 -15.76A20 20 0 0 1 17.98 -8.77Q9.72 -6.83 2.80 -4.15Z" transform="rotate(154.29)"/><path d="M0.00 -5.00Q2.17 -12.94 12.31 -15.76A20 20 0 0 1 17.98 -8.77Q9.72 -6.83 2.80 -4.15Z" transform="rotate(205.71)"/><path d="M0.00 -5.00Q2.17 -12.94 12.31 -15.76A20 20 0 0 1 17.98 -8.77Q9.72 -6.83 2.80 -4.15Z" transform="rotate(257.14)"/><path d="M0.00 -5.00Q2.17 -12.94 12.31 -15.76A20 20 0 0 1 17.98 -8.77Q9.72 -6.83 2.80 -4.15Z" transform="rotate(308.57)"/></g><circle cx="50" cy="50" r="6.5" fill="#9a9996"/>
+</svg>

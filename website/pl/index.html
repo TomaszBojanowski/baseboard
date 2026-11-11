@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baseboard: czujniki płyty głównej w Linuksie</title>
+<meta name="description" content="Natywna aplikacja GNOME, która pokazuje czujniki i wentylatory płyty głównej w Linuksie. Wczesna wersja, tylko odczyt.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#fafafb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222226" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://baseboard.bojanowski.me/pl/">
+<link rel="alternate" hreflang="en" href="https://baseboard.bojanowski.me/">
+<link rel="alternate" hreflang="pl" href="https://baseboard.bojanowski.me/pl/">
+<link rel="alternate" hreflang="x-default" href="https://baseboard.bojanowski.me/">
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<a class="skip" href="#main">Przejdź do treści</a>
+
+<header class="hero">
+<div class="wrap">
+<div class="top">
+<nav class="lang" aria-label="Język">
+<a href="../" hreflang="en" lang="en">English</a>
+<a href="./" hreflang="pl" lang="pl" aria-current="page">Polski</a>
+</nav>
+</div>
+<div class="intro">
+<div class="icon"><img src="../icon.svg" alt="" width="128" height="128"></div>
+<p class="badge">Wczesna wersja, tylko odczyt</p>
+<h1>Baseboard</h1>
+<p class="lead">Natywna aplikacja GNOME, która pokazuje czujniki i wentylatory płyty głównej w Linuksie.</p>
+<div class="actions">
+<a class="button primary" href="https://github.com/TomaszBojanowski/baseboard" hreflang="en">Kod źródłowy na GitHubie</a>
+<a class="button" href="#instalacja">Jak zainstalować</a>
+</div>
+</div>
+</div>
+
+<figure class="shot">
+<picture>
+<source srcset="../img/overview-dark-pl.png" media="(prefers-color-scheme: dark)">
+<img src="../img/overview-light-pl.png" width="1572" height="1072" alt="Strona Przegląd: odczyty procesora, płyty, wentylatorów i napięć; wentylatory nazwane według złączy, np. CPU_FAN1 i SYS_FAN1, napięcia w tolerancji.">
+</picture>
+<figcaption>Przegląd: odczyty nazwane według złączy wentylatorów i szyn napięć płyty.</figcaption>
+</figure>
+
+<div class="wrap">
+<nav class="toc" aria-label="Spis treści">
+<ul>
+<li><a href="#dzis">Co pokazuje</a></li>
+<li><a href="#jak">Jak działa</a></li>
+<li><a href="#jadro">Wentylatory a jądro</a></li>
+<li><a href="#praca-w-jadrze">Praca w jądrze</a></li>
+<li><a href="#plyty">Płyty</a></li>
+<li><a href="#instalacja">Instalacja</a></li>
+<li><a href="#plany">Plany</a></li>
+</ul>
+</nav>
+</div>
+</header>
+
+<div class="wrap">
+<main id="main">
+<section id="dzis" aria-labelledby="dzis-tytul">
+<h2 id="dzis-tytul">Co pokazuje dziś</h2>
+<p>Baseboard pokazuje odczyty i informacje o systemie, ale jeszcze niczym nie steruje. Nie ma wydań ani pakietów; aplikację buduje się ze źródeł.</p>
+<ul>
+<li>Temperatury, obroty wentylatorów i napięcia, nazwane tak jak złącza i szyny w profilu płyty.</li>
+<li>Ocenę napięć względem tolerancji oraz minimum i maksimum każdego odczytu od uruchomienia aplikacji.</li>
+<li>Stronę System: płytę, BIOS, procesor, pamięć, kartę graficzną, dyski i stan sterownika wentylatorów.</li>
+<li>Przycisk „Kopiuj informacje” z tekstem do zgłoszenia błędu, bez numerów seryjnych i adresów MAC.</li>
+<li>Interfejs po polsku i po angielsku.</li>
+</ul>
+
+<figure class="wide">
+<picture>
+<source srcset="../img/system-dark-pl.png" media="(prefers-color-scheme: dark)">
+<img src="../img/system-light-pl.png" width="1572" height="1072" alt="Strona System: płyta z kodem i rewizją PCB, sprawdzony profil płyty, wersja BIOS-u, procesor, system i jądro.">
+</picture>
+<figcaption>System: płyta, BIOS, procesor, pamięć, dyski i sterownik wentylatorów.</figcaption>
+</figure>
+</section>
+
+<section id="jak" aria-labelledby="jak-tytul">
+<h2 id="jak-tytul">Jak działa</h2>
+<p>Czujniki i wentylatory Baseboard czyta wyłącznie przez sterowniki jądra i ich standardowy interfejs hwmon w sysfs, a jeśli jest zainstalowana, przez bibliotekę libsensors. Nie ma własnego dostępu do sprzętu: żadnych portów I/O, <code>/dev/port</code> ani <code>/dev/mem</code>, a z przestrzeni użytkownika nic nie pisze do kontrolera wbudowanego (EC). Działa jako zwykły użytkownik.</p>
+<p>To, co dotyczy jednej płyty, czyli nazwy złączy wentylatorów i tolerancje napięć, leży w profilu płyty, w pliku danych. Punktem odniesienia jest część MSI Center dla Windows odpowiedzialna za czujniki i wentylatory.</p>
+</section>
+
+<section id="jadro" aria-labelledby="jadro-tytul">
+<h2 id="jadro-tytul">Wentylatory a jądro</h2>
+<p>Sterowanie wentylatorami na tych płytach zależy od sterownika jądra <code>nct6683</code>. Baseboard nie sprawdza wersji jądra. Czyta atrybuty sysfs każdego kanału wentylatora i z nich wnioskuje, na co pozwala sterownik; ten poziom widać już na stronie System. Samo sterowanie przyjdzie w kolejnym etapie, a od tego momentu każdy poziom z tabeli odblokuje się sam, gdy jądro go udostępni, bez nowego wydania Baseboard.</p>
+<div class="table">
+<table>
+<thead>
+<tr><th scope="col">Poziom</th><th scope="col">Co zrobi Baseboard</th><th scope="col">Czego wymaga od jądra</th><th scope="col">Stan w jądrze</th></tr>
+</thead>
+<tbody>
+<tr><th scope="row">Tylko odczyt</th><td data-label="Co zrobi Baseboard">Odczyty oraz wentylatory tylko do podglądu, z wyjaśnieniem, że sterowanie wymaga nowszego sterownika</td><td data-label="Czego wymaga od jądra">Sterownika <code>nct6683</code> dla układu NCT6687D-R płyty</td><td data-label="Stan w jądrze"><span class="pill pill-released">W obecnych jądrach</span></td></tr>
+<tr><th scope="row">Tryb ręczny</th><td data-label="Co zrobi Baseboard">Stałe wypełnienie dla każdego złącza, ustawiane przez pomocnika systemowego</td><td data-label="Czego wymaga od jądra">Zapisywalnych <code>pwmN</code> i <code>pwmN_enable</code> oraz przywracania ich po wybudzeniu</td><td data-label="Stan w jądrze"><span class="pill pill-next">W <code>hwmon-next</code></span><span class="vh">,</span> <span class="state-note">drzewie opiekuna podsystemu hwmon; jeszcze nie w wydanym jądrze</span></td></tr>
+<tr><th scope="row">Podgląd krzywych</th><td data-label="Co zrobi Baseboard">Krzywe zapisane w EC i ich źródło temperatury, do podglądu</td><td data-label="Czego wymaga od jądra">Czytelnych <code>pwmN_auto_point*</code> i <code>pwmN_auto_channels_temp</code></td><td data-label="Stan w jądrze"><span class="pill pill-next">W <code>hwmon-next</code></span><span class="vh">;</span> <span class="state-note">jeszcze nie w wydanym jądrze</span></td></tr>
+<tr><th scope="row">Krzywe w EC</th><td data-label="Co zrobi Baseboard">Edycja siedmiopunktowych krzywych w EC; działają też bez aplikacji</td><td data-label="Czego wymaga od jądra">Zapisywalnych <code>pwmN_auto_point*</code></td><td data-label="Stan w jądrze"><span class="pill pill-review">Łatki w recenzji</span> <span class="state-note">na liście linux-hwmon: <a href="https://lore.kernel.org/linux-hwmon/20261109223442.509238-1-tomasz@bojanowski.me/" hreflang="en">wątek v1</a></span></td></tr>
+<tr><th scope="row">Wybór temperatury</th><td data-label="Co zrobi Baseboard">Wybór czujnika, za którym idzie krzywa</td><td data-label="Czego wymaga od jądra">Zapisywalnego <code>pwmN_auto_channels_temp</code></td><td data-label="Stan w jądrze"><span class="pill pill-planned">Planowane</span><span class="vh">,</span> <span class="state-note">jeszcze niewysłane</span></td></tr>
+</tbody>
+</table>
+</div>
+<p>Łatki w recenzji mogą się zmienić albo nie zostać przyjęte. Jeśli zmieni się ich interfejs, Baseboard się do niego dostosuje.</p>
+</section>
+
+<section id="praca-w-jadrze" class="work" aria-labelledby="praca-w-jadrze-tytul">
+<h2 id="praca-w-jadrze-tytul">Praca w jądrze</h2>
+<p>Obsługa tej płyty w jądrze Linuksa powstaje równolegle z aplikacją, w głównym drzewie jądra.</p>
+
+<div class="card">
+<div class="card-head">
+<h3><span class="pill pill-released">W wydanych jądrach</span></h3>
+<p class="subsys">Dźwięk</p>
+</div>
+<ul class="rows">
+<li><span class="row-text"><a href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=7b457ae8cf711831f19d20963f5ed2fdf4842d3a" hreflang="en" lang="en">ALSA: usb-audio: Add mixer mapping for MSI MAG B850M MORTAR WIFI</a></span><code class="hash">7b457ae8cf71</code></li>
+</ul>
+</div>
+
+<div class="card">
+<div class="card-head">
+<h3><span class="pill pill-mainline">W głównym drzewie</span><span class="vh">,</span> <span class="head-note">jeszcze nie w wydanym jądrze</span></h3>
+<p class="subsys">hwmon (czujniki i wentylatory)</p>
+</div>
+<ul class="rows">
+<li><span class="row-text">Dokumentacja: <a href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=f9c5d495e22f77c0455dacfca627e06219f05881" hreflang="en" lang="en">hwmon: (nct6683) Add MSI B850M to list of tested boards</a></span><code class="hash">f9c5d495e22f</code></li>
+</ul>
+</div>
+
+<div class="card">
+<div class="card-head">
+<h3><span class="pill pill-next">W <code>hwmon-next</code></span><span class="vh">,</span> <span class="head-note">drzewie opiekuna podsystemu hwmon</span></h3>
+<p class="subsys">hwmon (czujniki i wentylatory)</p>
+</div>
+<ul class="rows">
+<li><span class="row-text"><a href="https://patch.msgid.link/20261107082821.8257-1-tomasz@bojanowski.me" hreflang="en" lang="en">hwmon: Add driver for MSI Mystic Light controller voltage sensors</a><span class="row-note">z dokumentacją i wpisem w MAINTAINERS</span></span></li>
+<li><span class="row-text"><a href="https://patch.msgid.link/20261107150619.297999-1-tomasz@bojanowski.me" hreflang="en" lang="en">hwmon: (nct6683) Remove the 32 mV voltage scale</a></span></li>
+<li><span class="row-text"><a href="https://patch.msgid.link/20261109015759.24284-1-tomasz@bojanowski.me" hreflang="en" lang="en">hwmon: (nct6683) Report the fan curves of MSI boards with NCT6687D-R</a><span class="row-note">z dokumentacją</span></span></li>
+<li><span class="row-text"><a href="https://patch.msgid.link/20261109163328.61787-1-tomasz@bojanowski.me" hreflang="en" lang="en">hwmon: (nct6683) Restore manual fan control after resume</a></span></li>
+<li><span class="row-text">Tested-by: <a href="https://patchwork.kernel.org/series/1205153/" hreflang="en">cztery zmiany w sterowniku <code>msi_mystic_light</code></a><span class="row-note">przetestowane na tej płycie</span></span></li>
+</ul>
+</div>
+
+<div class="card">
+<div class="card-head">
+<h3><span class="pill pill-review">W recenzji</span> <span class="head-note">na liście linux-hwmon</span></h3>
+<p class="subsys">hwmon (czujniki i wentylatory)</p>
+</div>
+<ul class="rows">
+<li><span class="row-text"><a href="https://lore.kernel.org/linux-hwmon/20261109223442.509238-1-tomasz@bojanowski.me/" hreflang="en" lang="en">hwmon: (nct6683) Factor out the NCT6687D-R fan configuration transaction</a></span></li>
+<li><span class="row-text"><a href="https://lore.kernel.org/linux-hwmon/20261109223442.509238-1-tomasz@bojanowski.me/" hreflang="en" lang="en">hwmon: (nct6683) Make the fan curves of NCT6687D-R writable</a><span class="row-note">z dokumentacją</span></span></li>
+</ul>
+</div>
+</section>
+
+<section id="plyty" aria-labelledby="plyty-tytul">
+<h2 id="plyty-tytul">Obsługiwane płyty</h2>
+<p>Sprawdzona jest jedna płyta: <strong>MAG B850M MORTAR WIFI (MS-7E61)</strong>, rewizja PCB 1. Na innych komputerach Baseboard działa w trybie ogólnym: odczyty są, ale bez nazw złączy płyty i bez sterowania wentylatorami.</p>
+<p>Profile kolejnych płyt powstaną wyłącznie z ich instrukcji, publicznych źródeł i testów na sprzęcie. Dopóki przypisanie złączy nie zostanie sprawdzone na danej płycie, jej profil daje odczyty i nazwy, ale nie steruje wentylatorami.</p>
+<h3>Zgłoś swoją płytę</h3>
+<p>Załóż <a href="https://github.com/TomaszBojanowski/baseboard/issues" hreflang="en">zgłoszenie na GitHubie</a> i wklej tekst z <strong>System → Kopiuj informacje</strong>. Jest w nim model i kod płyty, BIOS, urządzenia hwmon i poziom sterownika wentylatorów, a nie ma numerów seryjnych ani adresów MAC. Ten tekst jest zawsze po angielsku, także przy polskim interfejsie.</p>
+</section>
+
+<section id="instalacja" aria-labelledby="instalacja-tytul">
+<h2 id="instalacja-tytul">Instalacja</h2>
+<p>Pakietów jeszcze nie ma. Planowane jest wydanie na Flathubie.</p>
+<h3>Ze źródeł</h3>
+<p>Potrzebne są Rust 1.92 lub nowszy, GTK 4.22, libadwaita 1.9 i Meson 1.1.</p>
+<pre><code>git clone https://github.com/TomaszBojanowski/baseboard.git
+cd baseboard
+meson setup build
+meson compile -C build
+meson devenv -C build ./crates/app/baseboard</code></pre>
+<h3>Lokalny Flatpak</h3>
+<p>Manifest korzysta ze środowiska GNOME 51, a zależności Rusta buduje bez dostępu do sieci.</p>
+<pre><code>flatpak-builder --user --install --install-deps-from=flathub --force-clean \
+    build/flatpak build-aux/flatpak/me.bojanowski.Baseboard.json
+flatpak run me.bojanowski.Baseboard</code></pre>
+<p>Flatpak czyta czujniki i informacje o systemie z dostępem tylko do odczytu do bazy udev. Nie widzi konfiguracji lm-sensors systemu, więc jej etykiety i instrukcje <code>ignore</code> nie działają; odczyty płyty i tak są przeliczone i nazwane według profilu. Żeby korzystać z tej konfiguracji, daj aplikacji dostęp tylko do odczytu do całego <code>/etc</code>:</p>
+<pre><code>flatpak override --user --filesystem=host-etc:ro me.bojanowski.Baseboard</code></pre>
+<p>Z piaskownicy Baseboard nie widzi innych programów sterujących wentylatorami i strona System mówi to wprost.</p>
+</section>
+
+<section id="plany" aria-labelledby="plany-tytul">
+<h2 id="plany-tytul">Plany</h2>
+<h3>Najbliżej: sterowanie wentylatorami</h3>
+<p>Najpierw podgląd krzywych, potem mały pomocnik systemowy (D-Bus i polkit), jedyny element, który może zmieniać ustawienia wentylatorów, a na końcu tryb ręczny i edytor krzywych. Pomocnik nie może być częścią Flatpaka, więc trafi do osobnego pakietu systemowego. Obowiązują go stałe zasady bezpieczeństwa:</p>
+<ul>
+<li>minimalne wypełnienie dla wentylatora procesora i pompy;</li>
+<li>pompa nigdy nie staje;</li>
+<li>krzywe procesora i pompy osiągają 100 % najpóźniej przy temperaturze awaryjnej;</li>
+<li>złącza w trybie ręcznym wracają pod sterowanie firmware, gdy pomocnik się zakończy albo ulegnie awarii, przed wyłączeniem komputera i gdy temperatura przekroczy próg awaryjny;</li>
+<li>ustawienia działają do następnego restartu;</li>
+<li>sterowanie tylko na płycie, do której pasuje profil, łącznie z rewizją PCB, i tylko na złączach, których zapis sprawdzono na tej płycie.</li>
+</ul>
+<h3>Do rozważenia</h3>
+<p>To pomysły bez terminu i mogą się nigdy nie pojawić:</p>
+<ul>
+<li>podświetlenie RGB płyty;</li>
+<li>profile energii i restart do ustawień firmware;</li>
+<li>pomoc przy aktualizacji BIOS-u, bez flashowania z działającego systemu.</li>
+</ul>
+</section>
+</main>
+
+<footer>
+<ul>
+<li><a href="https://github.com/TomaszBojanowski/baseboard" hreflang="en">Kod źródłowy na GitHubie</a></li>
+<li><a href="https://github.com/TomaszBojanowski/baseboard/issues" hreflang="en">Zgłoś problem</a></li>
+<li><a href="https://github.com/TomaszBojanowski/baseboard/blob/main/LICENSE" hreflang="en">Licencja: GPL-3.0-or-later</a></li>
+<li><a href="https://buymeacoffee.com/sojer2005" hreflang="en">Postaw kawę</a></li>
+</ul>
+<p>Ta strona jest częścią projektu Baseboard i jest objęta licencją GPL-3.0-or-later. Nie używa ciasteczek, śledzenia ani skryptów.</p>
+<p>MSI, MSI Center i nazwy produktów MSI są znakami towarowymi Micro-Star International Co., Ltd. Baseboard jest niezależnym projektem, niezwiązanym z MSI i bez jej poparcia.</p>
+</footer>
+</div>
+</body>
+</html>

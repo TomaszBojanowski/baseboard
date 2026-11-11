@@ -1,0 +1,660 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Baseboard website: one column, GNOME colours, light and dark from the
+   system setting, no web fonts and no scripts. */
+
+:root {
+    color-scheme: light dark;
+    --bg: #fafafb;
+    --card: #ffffff;
+    --border: rgb(0 0 6 / 0.1);
+    --text: #222226;
+    --muted: #5e5c64;
+    --accent: #18794e;
+    --accent-bg: #18794e;
+    --accent-bg-hover: #146b45;
+    --button: rgb(0 0 6 / 0.08);
+    --button-hover: rgb(0 0 6 / 0.14);
+    --badge-bg: #dcf3e5;
+    --badge-fg: #105c3a;
+    --code: #f0f0f3;
+    /* Cards and boxed lists, as in libadwaita. */
+    --shadow: 0 1px 3px rgb(0 0 6 / 0.07), 0 2px 8px rgb(0 0 6 / 0.04);
+    /* State pills: GNOME Blue 3 at 14 % on the card with Blue 5, and
+       Yellow 5 at 20 % on the card with Brown 4. */
+    --pill-blue-bg: #e3eefb;
+    --pill-blue-fg: #1a5fb4;
+    --pill-amber-bg: #faedce;
+    --pill-amber-fg: #865e3c;
+    /* Strength of the green glow behind the icon and the screenshot. */
+    --glow: 0.3;
+    font-family: "Adwaita Sans", Cantarell, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 106.25%;
+    line-height: 1.6;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #222226;
+        --card: #2e2e33;
+        --border: rgb(255 255 255 / 0.12);
+        --text: #ffffff;
+        --muted: #c0bfbc;
+        --accent: #57e389;
+        --accent-bg: #18794e;
+        --accent-bg-hover: #1b8253;
+        --button: rgb(255 255 255 / 0.1);
+        --button-hover: rgb(255 255 255 / 0.15);
+        --badge-bg: #1e3a2b;
+        --badge-fg: #8ff0a4;
+        --code: #2a2a2f;
+        --shadow: 0 1px 3px rgb(0 0 6 / 0.35);
+        /* Blue 3 at 25 % with Blue 1, Yellow 5 at 20 % with Yellow 4. */
+        --pill-blue-bg: #30445f;
+        --pill-blue-fg: #99c1f1;
+        --pill-amber-bg: #53462b;
+        --pill-amber-fg: #f5c211;
+        --glow: 0.55;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    html {
+        scroll-behavior: smooth;
+    }
+
+    .button {
+        transition: background-color 150ms ease-out;
+    }
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+}
+
+a {
+    color: var(--accent);
+    text-underline-offset: 0.15em;
+}
+
+a:hover {
+    text-decoration-thickness: 2px;
+}
+
+:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.skip {
+    position: absolute;
+    left: 1rem;
+    top: -4rem;
+    z-index: 1;
+    padding: 0.5rem 1rem;
+    background: var(--card);
+    border-radius: 8px;
+}
+
+.skip:focus {
+    top: 1rem;
+}
+
+.wrap {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 0 1.25rem;
+}
+
+/* Top of the page */
+
+.hero {
+    /* The glow may reach past the sides of the screen; clip it there
+       without making the page scroll sideways. The glow sits below all
+       content of this stacking context, including the badge and buttons. */
+    overflow-x: clip;
+    isolation: isolate;
+    padding-bottom: 0.5rem;
+}
+
+.top {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 1rem;
+}
+
+.lang {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.lang a {
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    text-decoration: none;
+    color: var(--text);
+}
+
+.lang a:hover {
+    background: var(--button);
+}
+
+.lang a[aria-current="page"] {
+    background: var(--button);
+    font-weight: 600;
+}
+
+.intro {
+    text-align: center;
+    padding-top: 0.5rem;
+}
+
+.icon {
+    position: relative;
+    width: 128px;
+    margin: 0 auto;
+}
+
+.icon img {
+    display: block;
+    width: 128px;
+    height: 128px;
+}
+
+/* Soft glow in the greens of the icon, fading into the page. */
+.icon::before {
+    content: "";
+    position: absolute;
+    inset: -80px;
+    z-index: -1;
+    background: radial-gradient(closest-side,
+        rgb(51 209 122 / var(--glow)) 0%,
+        rgb(38 162 105 / calc(var(--glow) * 0.55)) 40%,
+        rgb(24 121 78 / calc(var(--glow) * 0.18)) 70%,
+        rgb(24 121 78 / 0) 100%);
+    pointer-events: none;
+}
+
+.badge {
+    display: inline-block;
+    margin: 1rem 0 0;
+    padding: 0.2rem 0.9rem;
+    border-radius: 999px;
+    background: var(--badge-bg);
+    color: var(--badge-fg);
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+h1 {
+    font-size: 2.75rem;
+    line-height: 1.15;
+    margin: 0.5rem 0 0.4rem;
+}
+
+.lead {
+    font-size: 1.25rem;
+    color: var(--muted);
+    margin: 0 auto;
+    max-width: 44rem;
+    text-wrap: balance;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 1.75rem;
+}
+
+/* Pill buttons as in libadwaita; the main one in the accent colour. */
+.button {
+    display: inline-block;
+    min-width: 13rem;
+    padding: 0.65rem 1.75rem;
+    border-radius: 999px;
+    background: var(--button);
+    color: var(--text);
+    font-weight: 700;
+    line-height: 1.4;
+    text-align: center;
+    text-decoration: none;
+}
+
+.button:hover {
+    background: var(--button-hover);
+}
+
+.button.primary {
+    background: var(--accent-bg);
+    color: #ffffff;
+}
+
+.button.primary:hover {
+    background: var(--accent-bg-hover);
+}
+
+.button:focus-visible {
+    border-radius: 999px;
+}
+
+/* The large screenshot under the buttons, wider than the text column and
+   as wide as the System screenshot further down. */
+.shot {
+    max-width: calc(59.5rem + 2.5rem);
+    margin: 2.75rem auto 0;
+    padding: 0 1.25rem;
+}
+
+.shot picture {
+    position: relative;
+    display: block;
+}
+
+/* Two glows that fit inside their box and fade out before its edges:
+   the lighter green of the icon at the top left, the darker at the
+   bottom right. */
+.shot picture::before {
+    content: "";
+    position: absolute;
+    inset: -16% -12% -10%;
+    z-index: -1;
+    background:
+        radial-gradient(closest-side at 42% 46%,
+            rgb(51 209 122 / var(--glow)) 0%,
+            rgb(51 209 122 / var(--glow)) 55%,
+            rgb(51 209 122 / calc(var(--glow) * 0.45)) 78%,
+            rgb(51 209 122 / 0) 100%),
+        radial-gradient(closest-side at 58% 54%,
+            rgb(38 162 105 / var(--glow)) 0%,
+            rgb(38 162 105 / var(--glow)) 55%,
+            rgb(38 162 105 / calc(var(--glow) * 0.45)) 78%,
+            rgb(38 162 105 / 0) 100%);
+    pointer-events: none;
+}
+
+.toc ul {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.2rem 1.1rem;
+    padding: 0;
+    margin: 1.75rem 0 0;
+    font-size: 0.95rem;
+}
+
+.toc a {
+    text-decoration: none;
+}
+
+.toc a:hover {
+    text-decoration: underline;
+}
+
+/* Sections */
+
+h2 {
+    font-size: 1.6rem;
+    line-height: 1.25;
+    margin: 3.5rem 0 1rem;
+}
+
+h3 {
+    font-size: 1.15rem;
+    margin: 2rem 0 0.5rem;
+}
+
+/* Text for screen readers only, such as the punctuation between a state
+   pill and the words after it. */
+.vh {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* State pills. The text always names the state in full, so the colour
+   only repeats it. */
+.pill {
+    display: inline-block;
+    padding: 0.05rem 0.6rem;
+    border: 1.5px solid transparent;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+.pill code {
+    padding: 0;
+    background: none;
+    color: inherit;
+    font-size: 1em;
+}
+
+.pill-released {
+    background: var(--accent-bg);
+    color: #ffffff;
+}
+
+.pill-mainline {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.pill-next {
+    background: var(--pill-blue-bg);
+    color: var(--pill-blue-fg);
+}
+
+.pill-review {
+    background: var(--pill-amber-bg);
+    color: var(--pill-amber-fg);
+}
+
+.pill-planned {
+    background: var(--button);
+    color: var(--text);
+}
+
+.state-note {
+    display: block;
+    margin-top: 0.3rem;
+    color: var(--muted);
+}
+
+/* Kernel work: a faint glow behind the section, well under half of the one
+   at the top of the page, and one card (boxed list) per state. */
+.work {
+    position: relative;
+    isolation: isolate;
+}
+
+.work::before {
+    content: "";
+    position: absolute;
+    inset: 1rem 0 -1rem;
+    z-index: -1;
+    background: radial-gradient(closest-side,
+        rgb(51 209 122 / calc(var(--glow) * 0.4)) 0%,
+        rgb(38 162 105 / calc(var(--glow) * 0.2)) 55%,
+        rgb(24 121 78 / 0) 100%);
+    pointer-events: none;
+}
+
+@media (min-width: 64rem) {
+    .work::before {
+        inset: 1rem -8rem -1rem;
+    }
+}
+
+.card {
+    margin: 1rem 0;
+}
+
+.card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem 1rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.card-head h3 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem 0.6rem;
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 400;
+}
+
+.head-note {
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+.subsys {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.rows li {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem 1rem;
+    margin: 0;
+    padding: 0.7rem 1rem;
+}
+
+.rows li + li {
+    margin-top: 0;
+    border-top: 1px solid var(--border);
+}
+
+.row-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.row-note {
+    display: block;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.hash {
+    flex: none;
+    color: var(--muted);
+}
+
+/* On a phone the hash goes under the title. */
+@media (max-width: 40rem) {
+    .rows li {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+figure {
+    margin: 2rem 0;
+}
+
+figure img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+figcaption {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin-top: 0.25rem;
+}
+
+@media (min-width: 64rem) {
+    figure.wide {
+        margin-left: -8rem;
+        margin-right: -8rem;
+    }
+}
+
+/* The table and the kernel work cards share one look. */
+.table,
+.card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
+    box-shadow: var(--shadow);
+}
+
+.table {
+    overflow-x: auto;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 40rem;
+    font-size: 0.95rem;
+}
+
+th,
+td {
+    text-align: left;
+    vertical-align: top;
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+}
+
+tbody tr:last-child > * {
+    border-bottom: none;
+}
+
+thead th {
+    font-weight: 600;
+}
+
+tbody th {
+    font-weight: 600;
+}
+
+/* On narrow screens each row becomes a card; the column names come from
+   the data-label attribute of each cell. Below 48rem the four columns no
+   longer fit without scrolling. */
+@media (max-width: 48rem) {
+    .table {
+        overflow: visible;
+        border: none;
+        border-radius: 0;
+        background: none;
+        box-shadow: none;
+    }
+
+    table,
+    tbody,
+    tr,
+    th,
+    td {
+        display: block;
+        min-width: 0;
+    }
+
+    thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    tbody tr {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        margin-bottom: 0.75rem;
+        padding: 0.4rem 0;
+    }
+
+    tbody th,
+    td {
+        border-bottom: none;
+        padding: 0.3rem 1rem;
+    }
+
+    tbody th {
+        font-size: 1.05rem;
+    }
+
+    td::before {
+        content: attr(data-label);
+        display: block;
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+}
+
+.table,
+pre {
+    scrollbar-width: thin;
+    scrollbar-color: var(--muted) transparent;
+}
+
+code,
+pre {
+    font-family: "Adwaita Mono", ui-monospace, "DejaVu Sans Mono", monospace;
+    font-size: 0.9em;
+}
+
+code {
+    background: var(--code);
+    border-radius: 4px;
+    padding: 0.05em 0.3em;
+    white-space: nowrap;
+}
+
+pre {
+    background: var(--code);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+    line-height: 1.5;
+}
+
+pre code {
+    background: none;
+    padding: 0;
+    font-size: 1em;
+    white-space: inherit;
+}
+
+main li + li {
+    margin-top: 0.3rem;
+}
+
+footer {
+    margin-top: 4rem;
+    padding: 2rem 0 3rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+footer ul {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.5rem;
+    padding: 0;
+    margin: 0 0 1rem;
+}
+
+footer p {
+    margin: 0.5rem 0;
+}

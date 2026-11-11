@@ -240,6 +240,7 @@ packaging/rpm/              baseboard.spec
 tests/fixtures/             sztuczne drzewa sysfs (warianty sterownika z plikiem trybów) i przykładowe raporty
 docs/
 makiety/                    makiety interfejsu: HTML, OPIS.md, renderuj.sh (PNG w png/, poza repozytorium)
+website/                    strona projektu (D41): HTML i CSS bez skryptów, angielska pod /, polska pod /pl/, zrzuty w img/
 ```
 
 Walidacja bezpieczeństwa leży w `core`, więc aplikacja i pomocnik w tej samej wersji liczą to samo. Decyduje zawsze pomocnik; przy różnych wersjach (aplikacja z Flatpaka, pomocnik z pakietu systemowego) wynik aplikacji jest tylko podpowiedzią w interfejsie (§10.4).
@@ -1119,7 +1120,7 @@ Rozważone i odrzucone: GPL-2.0-or-later (szersza zgodność, słabsza ochrona) 
 
 ## 12. Decyzje
 
-Decyzje D1–D7 podjęte 2026-11-06, D8–D27 2026-11-10, D28–D36 2026-11-11. Numery etapów w D1–D8 są według numeracji z 0.6.
+Decyzje D1–D7 podjęte 2026-11-06, D8–D27 2026-11-10, D28–D41 2026-11-11. Numery etapów w D1–D8 są według numeracji z 0.6.
 
 | # | Data | Decyzja | Skutek |
 |---|---|---|---|
@@ -1163,6 +1164,7 @@ Decyzje D1–D7 podjęte 2026-11-06, D8–D27 2026-11-10, D28–D36 2026-11-11. 
 | D38 | 2026-11-11 | Poprawki interfejsu z przeglądu przed zamknięciem M1 (krok 13); lista poniżej | §3.2, §5.1, §5.4, §6.3 |
 | D39 | 2026-11-11 | Flatpak jako podstawowy sposób instalacji aplikacji, docelowo Flathub, App ID `me.bojanowski.Baseboard`. Uprawnienia minimalne i tylko do odczytu, sprawdzone na sprzęcie (§10.1); libsensors jako moduł manifestu. Pomocnik i reguła udev w osobnym pakiecie systemowym `baseboard-helper`, zgodność wersji przez `Fans1`/`ApiVersion`, rozstrzyga profil pomocnika. Zmienia plan „Flatpak później” z 0.6. Odpowiedzi właściciela przy akceptacji: `host-etc` domyślnie nie, tylko przez `flatpak override`; `flatpak-cargo-generator` z przypiętego commita oficjalnego repozytorium; zmiany kodu z §10.3 w F1; runtime GNOME 51 bez podnoszenia minimum natywnego; zgoda na katalog `build-aux/`; podsumowanie bez obietnicy sterowania już w F1 | §3.5, §3.6, §10 |
 | D40 | 2026-11-11 | Pochodzenie modułu `nct6683` (z jądra czy spoza) z `/proc/modules` zamiast `/sys/module/nct6683/taint`, natywnie i w Flatpaku; gdy listy nie da się odczytać, „pochodzenie modułu nieznane”. Zastępuje wąskie uprawnienie `--filesystem=/sys/module/nct6683:ro` z projektu D39. Sprawdzone przeładowaniem modułu przy działającej aplikacji z Flatpaka (v1 → moduł Fedory → brak modułu → v1): `/proc/modules` w piaskownicy pokazuje każdą zmianę w ciągu sekundy, aplikacja pokazała prawdę w każdym stanie. Podpięcie `/sys/module/nct6683` nie wystarcza: gdy modułu nie ma przy starcie, Flatpak go nie podpina i nie widać modułu załadowanego później; po przeładowaniu podpięty katalog znika na stałe i nowego modułu nie widać. Stara zasada „brak `taint` = wbudowany” pokazałaby wtedy fałszywe „z jądra” | §5.4, §10.1 |
+| D41 | 2026-11-11 | Strona projektu https://baseboard.bojanowski.me: statyczna, w katalogu `website/` (HTML i CSS bez skryptów, analityki i ciasteczek; angielska pod `/`, polska pod `/pl/`; jasny i ciemny motyw według systemu; zrzuty prawdziwej aplikacji), wdrażana przez GitHub Actions na GitHub Pages (`.github/workflows/website.yml`, akcje przypięte do commitów, domena własna ustawiana w repozytorium). Zgoda właściciela na katalogi `website/` i `.github/`. Sekcja o pracy w jądrze (strona i README) wymienia zmiany właściciela dotyczące tej płyty, ze stanem ustalonym w drzewie jądra: „w wydanym jądrze” tylko dla commitów w tagu wydania; hash i link do git.kernel.org tylko dla drzewa Linusa; dla `hwmon-next` i recenzji sam tytuł i stały link (patch.msgid.link, lore, patchwork). Bez wersji jądra, dat, nazwisk innych autorów i ich adresów e-mail w linkach | §3.6, §10.6 |
 
 **D8: zakres M1 (2026-11-10).**
 - Strona System tylko do odczytu jest w M1: płyta, BIOS, procesor, system, pamięć z bazy udev, karta graficzna z VBIOS, dyski z firmware, stan `nct6683`, konfiguracja lm-sensors, programy mogące konfliktować. Restart do UEFI i profile energii zostają w M4.
