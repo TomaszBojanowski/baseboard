@@ -6,3 +6,4 @@
 
 pub mod curve;
 pub mod driver;
+pub mod page;
