@@ -241,6 +241,7 @@ tests/fixtures/             sztuczne drzewa sysfs (warianty sterownika z plikiem
 docs/
 makiety/                    makiety interfejsu: HTML, OPIS.md, renderuj.sh (PNG w png/, poza repozytorium)
 website/                    strona projektu (D41): HTML i CSS bez skryptów, angielska pod /, polska pod /pl/, zrzuty w img/
+.github/workflows/          website.yml: wdrożenie website/ na GitHub Pages po zmianach na main (D41)
 ```
 
 Walidacja bezpieczeństwa leży w `core`, więc aplikacja i pomocnik w tej samej wersji liczą to samo. Decyduje zawsze pomocnik; przy różnych wersjach (aplikacja z Flatpaka, pomocnik z pakietu systemowego) wynik aplikacji jest tylko podpowiedzią w interfejsie (§10.4).
