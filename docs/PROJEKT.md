@@ -178,8 +178,10 @@ Uwaga o uaccess: każdy proces użytkownika aktywnej sesji może wysłać do kon
 
 | Właściwość | Typ | Znaczenie |
 |---|---|---|
-| `ApiVersion` | `u` | wersja interfejsu |
+| `ApiVersion` | `u` | wersja w obrębie `Fans1`; rośnie przy każdej nowej metodzie lub właściwości (§10.4) |
+| `HelperVersion` | `s` | wersja pakietu pomocnika, do strony System i zgłoszeń błędów (§10.4) |
 | `BoardId` | `s` | klucz profilu (np. `ms-7e61`); pusty, gdy brak profilu |
+| `ProfileDigest` | `s` | SHA-256 pliku profilu pomocnika; aplikacja porównuje go ze swoim (§10.4) |
 | `DriverLevel` | `s` | najniższy poziom wspólny dla kanałów sterowalnych z profilu: `read-only`, `manual`, `manual+curve-view`, `curves`, `curves+source` (§5.5.2) |
 | `Emergency` | `b` | blokada awaryjna aktywna (B4) |
 | `EmergencyReason` | `s` | czujnik i wartość, która ją wywołała |
@@ -233,13 +235,14 @@ data/
   systemd/                  baseboard-helper.service
   udev/                     60-baseboard-rgb.rules
 po/                         LINGUAS, POTFILES.in, pl.po
+build-aux/flatpak/          manifest Flatpaka (me.bojanowski.Baseboard.json), źródła Cargo dla budowania bez sieci (§10.6)
 packaging/rpm/              baseboard.spec
 tests/fixtures/             sztuczne drzewa sysfs (warianty sterownika z plikiem trybów) i przykładowe raporty
 docs/
 makiety/                    makiety interfejsu: HTML, OPIS.md, renderuj.sh (PNG w png/, poza repozytorium)
 ```
 
-Walidacja bezpieczeństwa leży w `core`, więc aplikacja i pomocnik liczą to samo. Decyduje zawsze pomocnik.
+Walidacja bezpieczeństwa leży w `core`, więc aplikacja i pomocnik w tej samej wersji liczą to samo. Decyduje zawsze pomocnik; przy różnych wersjach (aplikacja z Flatpaka, pomocnik z pakietu systemowego) wynik aplikacji jest tylko podpowiedzią w interfejsie (§10.4).
 
 ### 3.7 Warstwa sterownika wentylatorów
 
@@ -380,7 +383,7 @@ Zasady obowiązują od M2b (pierwszy zapis przez pomocnika). Testy odwołują si
   - **karta graficzna:** nazwa jak w Przeglądzie (§5.1), identyfikatory PCI, sterownik i wersja VBIOS z `/sys/class/drm/card*/device/vbios_version` (amdgpu). Gdy pliku nie ma, wiersz jest pominięty,
   - **dyski:** model, rozmiar i wersja firmware: NVMe z `/sys/class/nvme/nvme*/{model,firmware_rev}`, pozostałe z `/sys/block/*/device/{model,rev}`; rozmiar z `/sys/block/*/size`. Bez urządzeń wirtualnych (zram, loop, device mapper) i bez czytników bez nośnika (rozmiar 0); nośniki wymienne, np. pendrive, są oznaczone,
   - **karty sieciowe:** urządzenia PCI klasy 0x02, nazwa z bazy sprzętu udev (D23) i sterownik. Interfejsów sieciowych i ich adresów nie czytamy,
-  - sterownik `nct6683`: załadowany czy nie (jest `/sys/module/nct6683` albo urządzenie hwmon z profilu), moduł z jądra czy spoza niego (flaga `O` w `/sys/module/nct6683/taint`; brak flagi albo brak pliku przy sterowniku wbudowanym w jądro to moduł z jądra; tylko informacja, poziomu obsługi z tego nie wyliczamy, §5.5.2), poziom obsługi wentylatorów (`DriverLevel`, §5.5.2). Gdy jądro nie pozwala sterować wentylatorami, tekst mówi, że sterowanie wymaga nowszego jądra z rozszerzonym sterownikiem `nct6683`, bez numeru wersji jądra,
+  - sterownik `nct6683`: załadowany czy nie (jest na liście `/proc/modules` albo jest urządzenie hwmon z profilu), moduł z jądra czy spoza niego (D40: flaga `O` w nawiasie na końcu linii modułu w `/proc/modules`; linia bez flagi `O` to moduł z jądra; brak modułu na liście przy obecnym urządzeniu to sterownik wbudowany w jądro, czyli też z jądra; gdy listy nie da się odczytać, „pochodzenie modułu nieznane”, nigdy zgadywanie; lista jest czytana przy każdym odczycie strony, więc po przeładowaniu modułu pokazuje stan bieżący; tylko informacja, poziomu obsługi z tego nie wyliczamy, §5.5.2), poziom obsługi wentylatorów (`DriverLevel`, §5.5.2). Gdy jądro nie pozwala sterować wentylatorami, tekst mówi, że sterowanie wymaga nowszego jądra z rozszerzonym sterownikiem `nct6683`, bez numeru wersji jądra,
   - kontroler RGB: obecny czy nie, czy jest reguła udev, wersja firmware (od M3, §5.2),
   - konfiguracja lm-sensors dla płyty: pliki, które czyta libsensors (`/etc/sensors3.conf`, zapasowo `/etc/sensors.conf`, oraz `/etc/sensors.d/*` bez plików ukrytych), z instrukcją `chip` dla układu płyty (wzorzec, którego część przed pierwszym „-” to `[hwmon] name` z profilu, np. `nct6687-isa-*`),
   - działające programy, które mogą konfliktować przy sterowaniu wentylatorami: `fancontrol`, `coolercontrold`, `fan2go` i `thinkfan`, rozpoznawane po nazwie procesu (`/proc/<pid>/comm`, bez linii poleceń).
@@ -998,10 +1001,72 @@ Kontrakt D-Bus, zasady §4 i interfejs zostają bez zmian.
 
 ## 10. Dystrybucja
 
-**Najpierw `meson install` i RPM**
+**Zasada (D39).** Aplikację instaluje się przede wszystkim jako Flatpak, docelowo z Flathub, z App ID `me.bojanowski.Baseboard`. Pomocnik systemowy (M2) i reguła udev (M3) nie mogą być w Flatpaku, więc instaluje je osobny pakiet systemowy. Instalacja natywna (`meson install`, RPM) zostaje: do rozwoju i testów na sprzęcie oraz dla dystrybucji.
+
+### 10.1 Co widzi piaskownica Flatpak
+
+Sprawdzone 2026-11-11 na MS-7E61 (Flatpak 1.18.4, runtime GNOME 50 i 51) próbką tylko do odczytu uruchomioną w runtime z różnymi uprawnieniami.
+
+| Zasób | Bez uprawnień | Z uprawnieniem | W manifeście |
+|---|---|---|---|
+| `/sys/class/hwmon` i urządzenia pod nim: odczyty, `pwm*`, punkty krzywych, tryby plików | działa; cały `/sys` jest tylko do odczytu, próba zapisu kończy się błędem | – | – |
+| `/sys/class/dmi/id` (pola bez numerów seryjnych), `/sys/class/drm` (VBIOS), `/sys/class/nvme`, `/sys/block`, cpufreq, `/proc/cpuinfo`, wersja jądra | działa | – | – |
+| `/proc/modules` (moduł z jądra czy spoza, D40) | działa: lista modułów gospodarza z flagami skażenia, zawsze bieżąca | – | – |
+| `/sys/module/nct6683` | niewidoczne | `--filesystem=/sys/module/nct6683:ro` podpina katalog tylko wtedy, gdy istnieje przy starcie aplikacji | nie (D40): bez modułu przy starcie Flatpak po cichu pomija podpięcie i stary kod uznałby sterownik za wbudowany |
+| `/sys` jako całość | to tmpfs z podpiętymi `/sys/class`, `/sys/devices`, `/sys/bus` i innymi; libsensors 3.6.2 bez `SENSORS_SYSFS_ROOT` uznaje to za brak sysfs (`sensors_init` −4) | `--env=SENSORS_SYSFS_ROOT=/sys`: libsensors tylko ostrzega na stderr („/sys: Not a sysfs mount.”) i działa | tak |
+| baza udev `/run/udev` (pamięć, nazwy PCI z hwdb) | niewidoczna | `--filesystem=/run/udev:ro` | tak |
+| konfiguracja lm-sensors gospodarza (`/etc/sensors3.conf`, `/etc/sensors.d`), profile administratora (`/etc/baseboard/boards`) | niewidoczna; `/etc` w piaskownicy należy do runtime'u | `--filesystem=host-etc:ro`: cały `/etc` gospodarza w `/run/host/etc`, tylko do odczytu. Pojedynczych ścieżek z `/etc` Flatpak nie udostępnia („ścieżka zastrzeżona”) | nie: za szerokie. Użytkownik może je dodać sam: `flatpak override --user --filesystem=host-etc:ro me.bojanowski.Baseboard` |
+| `os-release` | `/etc/os-release` to plik runtime'u („GNOME 51 (Flatpak runtime)”); system gospodarza jest w `/run/host/os-release` | – | – |
+| procesy gospodarza (`/proc/<pid>/comm`, programy sterujące wentylatorami, §5.4) | niewidoczne: piaskownica ma własną przestrzeń PID | brak uprawnienia | – |
+| `/dev/hidraw*` (RGB, M3) | niewidoczne | tylko `--device=all`, które odsłania też m.in. `/dev/port` | otwarte (O18) |
+
+**Uprawnienia w M1** (`finish-args`): `--share=ipc`, `--socket=wayland`, `--socket=fallback-x11`, `--device=dri`, `--filesystem=/run/udev:ro` oraz zmienna `--env=SENSORS_SYSFS_ROOT=/sys`. Bez sieci, bez `host-etc`, bez `--device=all`. Od M2 dochodzi `--system-talk-name=me.bojanowski.Baseboard.Helper` (§10.4), w M5 sieć dla sprawdzania BIOS-u.
+
+### 10.2 Runtime i biblioteki
+
+- **Runtime:** GNOME 51 (GTK 4.24). Minimum budowania natywnego zostaje GNOME 50 (GTK 4.22, libadwaita 1.9). Rust z rozszerzenia `org.freedesktop.Sdk.Extension.rust-stable` (dziś 1.98, wymagamy 1.92).
+- **libudev** jest w runtime GNOME 50 i 51 (`libudev.so.1`); `dlopen` działa bez zmian w kodzie.
+- **libsensors** nie ma ani w Platform, ani w SDK GNOME 50 i 51. Dołączamy go jako moduł manifestu: sama biblioteka z lm-sensors 3.6.2 (archiwum z GitHuba z sumą SHA-256 w manifeście), zbudowana z `ETCDIR=/run/host/etc`, bez programów i bez biblioteki statycznej. W piaskownicy wymaga `SENSORS_SYSFS_ROOT=/sys` (§10.1). Bez `host-etc` libsensors nie widzi żadnej konfiguracji i daje wartości z sysfs; mnożniki napięć liczy wtedy aplikacja z profilu (§5.1), a kanały ukryte przez `ignore` w konfiguracji płyty ukrywa `[hidden]` profilu. Z `host-etc` działa konfiguracja gospodarza, tak jak w instalacji natywnej.
+
+### 10.3 Zmiany w aplikacji dla piaskownicy (M1)
+
+Aplikacja rozpoznaje piaskownicę po pliku `/.flatpak-info` i wtedy:
+- system czyta z `/run/host/os-release`;
+- pliki lm-sensors na stronie System i profile administratora czyta z `/run/host/etc`, jeśli jest widoczny. Inaczej wiersz „Konfiguracja lm-sensors” mówi, że w piaskownicy nie jest dostępna, i podaje polecenie `flatpak override` z §10.1, a przełącznik „Nazwy z lm-sensors” jest nieaktywny z tym samym wyjaśnieniem;
+- wiersz o innych programach sterujących wentylatorami mówi „Nie można sprawdzić w Flatpaku”, bez ikony stanu, nigdy z zielonym znaczkiem;
+- wiersz biblioteki lm-sensors mówi, że działa bez konfiguracji systemu, której Flatpak nie udostępnia;
+- tekst „Kopiuj informacje” dostaje pole ze sposobem instalacji (`Flatpak` z nazwą runtime'u albo `native`), także w instalacji natywnej.
+
+Podsumowanie w metainfo, w pliku `.desktop` i w oknie „O programie” nie obiecuje sterowania przed M2: „Monitor your motherboard sensors” (32 znaki), po polsku „Podgląd czujników płyty głównej”.
+
+**Różnice wobec instalacji natywnej** (porównanie 2026-11-11 na MS-7E61, moduł v1, ten sam kod w obu wersjach):
+- bez `host-etc`: konfiguracja lm-sensors gospodarza nie działa. Odczyty płyty są takie same (mnożniki i ukryte kanały z profilu), ale kanały ukryte tylko przez `ignore` w konfiguracji użytkownika wracają: na tej maszynie dwa dodatkowe czujniki pierwszego dysku NVMe („Sensor 1”, „Sensor 2”). Przełącznik etykiet z lm-sensors jest nieaktywny;
+- z `host-etc:ro`: etykiety, `ignore` i lista plików konfiguracji jak w instalacji natywnej;
+- strona System: system gospodarza, pamięć, nazwy PCI, VBIOS, dyski i stan sterownika z pochodzeniem modułu jak w instalacji natywnej; inne programy sterujące wentylatorami nie do sprawdzenia;
+- tekst do schowka różni się tylko polem `Installation`;
+- libsensors pisze na stderr jedno ostrzeżenie przy każdym starcie źródła odczytów (§10.1).
+
+Bez zmian w kodzie: własne nazwy (D22) leżą w `$XDG_DATA_HOME` piaskownicy, czyli `~/.var/app/me.bojanowski.Baseboard/data/baseboard/boards/`, a przycisk w preferencjach otwiera je przez portal. Ustawienia GSettings Flatpak trzyma osobno od instalacji natywnej. Aplikacja nie pisze do sysfs ani w piaskownicy, ani poza nią (B1); w piaskownicy `/sys` jest dodatkowo tylko do odczytu.
+
+### 10.4 Aplikacja i pomocnik (od M2)
+
+| Pakiet | Zawartość | Skąd |
+|---|---|---|
+| `me.bojanowski.Baseboard` (Flatpak) | aplikacja, profile płyt do nazw i odczytów | Flathub, lokalnie `flatpak-builder` |
+| `baseboard-helper` (pakiet systemowy) | pomocnik, jednostka systemd, aktywacja i polityka D-Bus, akcje polkit, profile płyt w `/usr/share/baseboard/boards`; od M3 reguła udev dla RGB | `meson install` z opcją budowania samego pomocnika, docelowo RPM w COPR |
+| `baseboard` (RPM, opcjonalnie) | aplikacja natywna, zależna od `baseboard-helper` | dla dystrybucji i testów |
+
+- **Uprawnienie D-Bus:** Flatpak dostaje tylko `--system-talk-name=me.bojanowski.Baseboard.Helper`. Okna polkit pokazuje agent gospodarza, a autoryzacja działa jak przy aplikacji natywnej (do potwierdzenia w M2b, O19).
+- **Brak pomocnika:** podgląd M2a działa bez pomocnika, bo czyta sysfs sam. Przy wejściu na stronę Wentylatory aplikacja odczytuje właściwość `ApiVersion`, co aktywuje pomocnika przez D-Bus. Błąd `ServiceUnknown` oznacza, że pomocnik nie jest zainstalowany: strona zostaje w podglądzie i mówi, że sterowanie wymaga pakietu `baseboard-helper`, z odnośnikiem do instrukcji. `AccessDenied` od pośrednika D-Bus Flatpaka oznacza odebrane uprawnienie: strona podaje polecenie, które je przywraca. Strona System ma wiersz „Pomocnik systemowy” (zainstalowany z wersją, brak, niezgodny), a tekst do schowka zawiera wersję pomocnika.
+- **Zgodność wersji:** nazwa interfejsu niesie wersję główną (`Fans1`, §3.5). W jej obrębie zmiany są tylko zgodne wstecz, a `ApiVersion` rośnie przy każdej nowej metodzie lub właściwości. Aplikacja korzysta tylko z tego, co zgłasza `ApiVersion`, a resztę ukrywa z dopiskiem, że wymaga nowszego pomocnika. Zmiana niezgodna wstecz to `Fans2` obok `Fans1` przez co najmniej jedno wydanie. Nowa właściwość `HelperVersion` (`s`) daje wersję pakietu do strony System i zgłoszeń błędów.
+- **Profile:** o sterowaniu rozstrzyga profil pomocnika (B9, D33): aplikacja pokazuje sterowanie tylko przy kanałach, które pomocnik zgłosił w `GetChannels` jako sterowalne. Profil aplikacji z Flatpaka służy do nazw i odczytów. Nowa właściwość `ProfileDigest` (`s`, SHA-256 pliku profilu) pozwala wykryć, że oba profile się różnią. Wtedy aplikacja trzyma się danych pomocnika i pokazuje dopisek o różnych wersjach profilu.
+- **Zasady B1–B18:** wszystkie działają po stronie pomocnika i żadna nie wymaga, żeby aplikacja była z tego samego pakietu. Wspólną instalację zakładało tylko zdanie z §3.6, że aplikacja i pomocnik „liczą to samo” z tego samego `core`. Przy różnych wersjach wynik walidacji w aplikacji (B5, B7, B14) jest tylko podpowiedzią w interfejsie. Pomocnik i tak decyduje, a jego `InvalidArgument` lub `NotSupported` aplikacja pokazuje jako zwykły komunikat. B1 piaskownica dodatkowo wymusza, bo `/sys` jest w niej tylko do odczytu.
+
+### 10.5 Instalacja natywna
+
 1. M1: `meson setup build --prefix=…` i `meson install`. Do testów wystarczy prefiks w katalogu domowym.
-2. Od M2b: `packaging/rpm/baseboard.spec` budowany lokalnie (`rpmbuild`, później ewentualnie COPR), z podpakietem `baseboard-helper` (pomocnik, jednostka systemd, pliki D-Bus, akcje polkit). Zależności Rust dołączone przez `cargo vendor`, żeby budowanie działało bez sieci.
-3. Od M3: reguła udev dla RGB w pakiecie głównym.
+2. Od M2b: `packaging/rpm/baseboard.spec` budowany lokalnie (`rpmbuild`, potem COPR), z podpakietem `baseboard-helper` (pomocnik, jednostka systemd, pliki D-Bus, akcje polkit). Zależności Rust dołączone przez `cargo vendor`, żeby budowanie działało bez sieci.
+3. Od M3: reguła udev dla RGB w pakiecie `baseboard-helper`, żeby działała też z aplikacją z Flatpaka.
 
 | Ścieżka | Zawartość |
 |---|---|
@@ -1014,13 +1079,27 @@ Kontrakt D-Bus, zasady §4 i interfejs zostają bez zmian.
 | `/usr/lib/udev/rules.d/60-baseboard-rgb.rules` | ACL dla kontrolera RGB |
 | `/usr/share/baseboard/boards/*.toml` | profile płyt |
 
-**Flatpak później. Dlaczego:**
-- Pomocnik, reguła udev, akcje polkit, pliki D-Bus i jednostka systemd muszą leżeć w systemie gospodarza, a Flatpak nie potrafi ich zainstalować. I tak potrzebny byłby osobny pakiet systemowy.
-- Dostęp do hidraw wymaga w Flatpaku `--device=all`, bo nie ma węższego uprawnienia. To szerokie uprawnienie, które recenzenci Flathub kwestionują.
-- libsensors nie ma w runtime GNOME, więc trzeba go dołączyć. Konfiguracja z `/etc/sensors.d` wymaga dostępu do `/etc` gospodarza.
-- Na etapie rozwoju natywna instalacja jest szybsza do testowania na sprzęcie.
+### 10.6 Kroki Flatpaka i wymagania Flathub
 
-Flatpak z samą aplikacją ma sens, gdy interfejs `Fans1` będzie stabilny. Pomocnik i reguła udev zostaną wtedy w małym pakiecie RPM.
+| Krok | Zakres |
+|---|---|
+| F1 (zrobione 2026-11-11) | manifest `build-aux/flatpak/me.bojanowski.Baseboard.json` (miejsce przyjęte w aplikacjach GNOME), moduł libsensors, źródła Cargo `build-aux/flatpak/cargo-sources.json`, budowanie lokalne `flatpak-builder --user` bez sieci dla Cargo, zmiany z §10.3, porównanie z wersją natywną, `strace`, sekcja README |
+| F2 (przed pierwszym wydaniem) | zamknięcie braków z tabeli niżej |
+| F3 (zgłoszenie na Flathub) | repozytorium zgłoszenia, uzasadnienie uprawnień z §10.1, weryfikacja domeny; tylko za zgodą właściciela |
+
+Wymagania Flathub, których dziś nie spełniamy:
+
+| Wymaganie | Dziś | Krok |
+|---|---|---|
+| Budowanie bez sieci: zależności Cargo jako źródła manifestu (`cargo-sources.json` z `flatpak-cargo-generator`) | zrobione w F1: `flatpak-cargo-generator.py` z oficjalnego `flatpak/flatpak-builder-tools`, commit `9d86d336a39b9af38b86f114b6ce5820fe260f91`, SHA-256 skryptu `0a2db6be87d75910facef28ab46d4d6460802e8419ab850d0caa6a364d26b380`, uruchomiony poza repozytorium; plik trzeba wygenerować od nowa po każdej zmianie `Cargo.lock` | F1 |
+| `<releases>` w metainfo z wersją i datą | brak (`appstreamcli --pedantic`: `releases-info-missing`) | F2 |
+| Wersja wydania i podpisany tag, zgodne w `meson.build`, `Cargo.toml` i metainfo | 0.1.0 bez tagu | F2 |
+| Zrzuty ekranu w metainfo pod stałymi publicznymi adresami | brak | F2 (po publikacji repozytorium i strony) |
+| Działająca strona domowa (walidator Flathub sprawdza adresy) | https://baseboard.bojanowski.me to zapowiedź | F2 |
+| Opis zgodny z tym, co aplikacja umie, `summary` najwyżej 35 znaków | zrobione w F1 (§10.3) | F1 |
+| Kolory marki w metainfo (`<branding>`), zalecane | brak | F2 |
+| Weryfikacja domeny dla App ID `me.bojanowski.*` (plik w `/.well-known` domeny) | brak | F3 |
+| Uzasadnienie uprawnienia `/run/udev:ro` i zmiennej `SENSORS_SYSFS_ROOT` | tylko w tym projekcie | F3 |
 
 ---
 
@@ -1082,6 +1161,8 @@ Decyzje D1–D7 podjęte 2026-11-06, D8–D27 2026-11-10, D28–D36 2026-11-11. 
 | D36 | 2026-11-11 | Zatwierdzone wybory z kroku 10 M1: w wąskim oknie (do 500 sp) przycisk „Kopiuj informacje” pokazuje samą ikonę, z nazwą dla czytnika ekranu; tekst do schowka zaczyna się od wersji Baseboard; grupy strony System nazywają się „Płyta” (ten sam tekst co na Przeglądzie) i „Czujniki i wentylatory” (zamiast „Sterowniki i dostęp” z makiety, bo wiersz RGB przyjdzie w M3) | §5.4 |
 | D37 | 2026-11-11 | Producent modułu pamięci na stronie System tylko wtedy, gdy SMBIOS podaje nazwę. Surowy identyfikator JEDEC (np. „Bank 8, Hex 0x5D”) trafia wyłącznie do tekstu „Kopiuj informacje” (`maker JEDEC …`). Zmienia D8 (identyfikator obok numeru części na stronie). Uzasadnienie: bez tablicy nazw kod nic nie mówi użytkownikowi, a w zgłoszeniu błędu się przydaje | §5.4, O14 |
 | D38 | 2026-11-11 | Poprawki interfejsu z przeglądu przed zamknięciem M1 (krok 13); lista poniżej | §3.2, §5.1, §5.4, §6.3 |
+| D39 | 2026-11-11 | Flatpak jako podstawowy sposób instalacji aplikacji, docelowo Flathub, App ID `me.bojanowski.Baseboard`. Uprawnienia minimalne i tylko do odczytu, sprawdzone na sprzęcie (§10.1); libsensors jako moduł manifestu. Pomocnik i reguła udev w osobnym pakiecie systemowym `baseboard-helper`, zgodność wersji przez `Fans1`/`ApiVersion`, rozstrzyga profil pomocnika. Zmienia plan „Flatpak później” z 0.6. Odpowiedzi właściciela przy akceptacji: `host-etc` domyślnie nie, tylko przez `flatpak override`; `flatpak-cargo-generator` z przypiętego commita oficjalnego repozytorium; zmiany kodu z §10.3 w F1; runtime GNOME 51 bez podnoszenia minimum natywnego; zgoda na katalog `build-aux/`; podsumowanie bez obietnicy sterowania już w F1 | §3.5, §3.6, §10 |
+| D40 | 2026-11-11 | Pochodzenie modułu `nct6683` (z jądra czy spoza) z `/proc/modules` zamiast `/sys/module/nct6683/taint`, natywnie i w Flatpaku; gdy listy nie da się odczytać, „pochodzenie modułu nieznane”. Zastępuje wąskie uprawnienie `--filesystem=/sys/module/nct6683:ro` z projektu D39. Sprawdzone przeładowaniem modułu przy działającej aplikacji z Flatpaka (v1 → moduł Fedory → brak modułu → v1): `/proc/modules` w piaskownicy pokazuje każdą zmianę w ciągu sekundy, aplikacja pokazała prawdę w każdym stanie. Podpięcie `/sys/module/nct6683` nie wystarcza: gdy modułu nie ma przy starcie, Flatpak go nie podpina i nie widać modułu załadowanego później; po przeładowaniu podpięty katalog znika na stałe i nowego modułu nie widać. Stara zasada „brak `taint` = wbudowany” pokazałaby wtedy fałszywe „z jądra” | §5.4, §10.1 |
 
 **D8: zakres M1 (2026-11-10).**
 - Strona System tylko do odczytu jest w M1: płyta, BIOS, procesor, system, pamięć z bazy udev, karta graficzna z VBIOS, dyski z firmware, stan `nct6683`, konfiguracja lm-sensors, programy mogące konfliktować. Restart do UEFI i profile energii zostają w M4.
@@ -1153,3 +1234,5 @@ Odrzucone propozycje nazw: Bellows, Fanfare, Vane, Northbridge.
 | O15 | Tempo dochodzenia wyjścia do celu w automacie na pozostałych kanałach (CPU, pompa, SYS 2–4) i przy innych czasach Step Up/Down; czas dojścia do 100 % po przejściu na automat w zdarzeniu awaryjnym. Dziś tylko pomiar na SYS Fan 1 (ok. 5 jednostek/s przy 0,1 s). | odczyty `pwmN` co 0,5 s po przełączeniu, bez dodatkowych zapisów | M2b (D14) |
 | O16 | Ostateczny kształt ABI zapisu krzywych po recenzji v1 i łatki 5 | lista linux-hwmon | M2c, M2d |
 | O17 | Czy krzywa zapisana przez v1 przetrwa hibernację (S4) i ciepły restart przez kexec | test za zgodą | M2c |
+| O18 | RGB z Flatpaka: hidraw jest dostępny tylko przez `--device=all`, które odsłania też `/dev/port` i inne urządzenia. Czy RGB przenieść do pomocnika (§3.4), czy wymagać instalacji natywnej, czy przyjąć `--device=all` | decyzja przed M3 | M3 |
+| O19 | Czy polkit z `auth_admin_keep` (D3) działa dla wywołań z Flatpaka przez pośrednika D-Bus tak jak dla aplikacji natywnej (jedno hasło na kilka minut) | test w M2b | M2b |
