@@ -240,7 +240,8 @@ packaging/rpm/              baseboard.spec
 tests/fixtures/             sztuczne drzewa sysfs (warianty sterownika z plikiem trybów) i przykładowe raporty
 docs/
 makiety/                    makiety interfejsu: HTML, OPIS.md, renderuj.sh (PNG w png/, poza repozytorium)
-website/                    strona projektu (D41): HTML i CSS bez skryptów, angielska pod /, polska pod /pl/, zrzuty w img/
+website/                    strona projektu (D41): HTML i CSS bez skryptów, angielska pod /, polska pod /pl/, zrzuty strony w img/,
+                            zrzuty metainfo w screenshots/<wersja>/ (stałe adresy, nie zmieniamy ich, D43)
 .github/workflows/          website.yml: wdrożenie website/ na GitHub Pages po zmianach na main (D41)
 ```
 
