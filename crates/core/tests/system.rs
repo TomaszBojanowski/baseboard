@@ -195,8 +195,12 @@ impl System {
                 "amd-pstate-epp\n",
             );
         }
-        // The test module of series v1: out of the kernel's tree.
-        s.file("sys/module/nct6683/taint", "O\n");
+        // The test module of series v1: out of the kernel's tree (D40).
+        s.file(
+            "proc/modules",
+            "ath12k 663552 1 ath12k_wifi7, Live 0x0000000000000000\n\
+             nct6683 53248 0 - Live 0x0000000000000000 (O)\n",
+        );
         s.file(
             "sys/devices/platform/nct6683.2592/hwmon/hwmon0/name",
             "nct6687\n",
@@ -398,10 +402,57 @@ fn system_of_ms7e61() {
     );
     assert_eq!(
         info.sensors_config,
-        [system.0.join("etc/sensors.d/msi-b850m-mortar.conf")]
+        Some(vec![system.0.join("etc/sensors.d/msi-b850m-mortar.conf")])
     );
-    assert_eq!(info.fan_programs, ["coolercontrold", "fancontrol"]);
+    assert_eq!(
+        info.fan_programs,
+        Some(vec!["coolercontrold".into(), "fancontrol".into()])
+    );
     assert_eq!(info.hwmon, ["nct6687"]);
+}
+
+/// A Flatpak sandbox (§10.3): the host's system name from /run/host, no
+/// lm-sensors files without the host's /etc, and no verdict on the fan
+/// programs, whose processes the sandbox cannot see.
+#[test]
+fn seen_from_a_sandbox() {
+    let system = System::ms7e61("sandbox");
+    let host = system.0.join("run/host");
+    system.file("run/host/os-release", "PRETTY_NAME=\"Host Linux 1\"\n");
+    let paths = Paths {
+        os_release: vec![host.join("os-release")],
+        etc: None,
+        host_processes: false,
+        ..system.paths()
+    };
+    let info = system::read(&paths, &NoUdev, Some(&profile()));
+    assert_eq!(info.os.as_deref(), Some("Host Linux 1"));
+    assert_eq!(info.sensors_config, None);
+    assert_eq!(info.fan_programs, None);
+    // The driver and its origin come from sysfs and /proc/modules, which
+    // the sandbox sees.
+    assert_eq!(info.fan_driver.origin, Some(ModuleOrigin::OutOfTree));
+
+    // With the host's /etc shared: its lm-sensors files.
+    let shared = Paths {
+        etc: Some(system.0.join("etc")),
+        ..paths
+    };
+    let info = system::read(&shared, &NoUdev, Some(&profile()));
+    assert_eq!(info.sensors_config.map(|files| files.len()), Some(1));
+}
+
+/// The runtime named in `/.flatpak-info`, for "Copy system information".
+#[test]
+fn flatpak_runtime_names() {
+    let info = "[Application]\nname=me.bojanowski.Baseboard\n\
+                runtime=runtime/org.gnome.Platform/x86_64/51\n";
+    assert_eq!(
+        system::flatpak_runtime(info).as_deref(),
+        Some("org.gnome.Platform 51")
+    );
+    assert_eq!(system::flatpak_runtime("[Runtime]\nname=x\n"), None);
+    assert_eq!(system::flatpak_runtime("runtime=app/x/x86_64/1"), None);
 }
 
 /// Serial numbers and MAC addresses in sysfs and in the udev database never
@@ -443,7 +494,7 @@ fn without_a_profile() {
             level: None,
         }
     );
-    assert!(info.sensors_config.is_empty());
+    assert_eq!(info.sensors_config, Some(Vec::new()));
     // Without the database: no memory and no names from it.
     assert_eq!(info.memory, None);
     assert_eq!(info.graphics[0].name, None);
@@ -471,7 +522,8 @@ fn empty_system() {
             level: None,
         }
     );
-    assert!(info.sensors_config.is_empty() && info.fan_programs.is_empty());
+    assert_eq!(info.sensors_config, Some(Vec::new()));
+    assert_eq!(info.fan_programs, Some(Vec::new()));
     assert!(info.hwmon.is_empty());
 }
 
@@ -571,13 +623,14 @@ fn spd_slot_names() {
 }
 
 /// The fan driver on the fake trees of the three drivers (§5.5.2): the
-/// device is found by its name and Fedora's driver has no `mode`. The tree
-/// has no `module` folder, as for a driver built into the kernel.
+/// device is found by its name and Fedora's driver has no `mode`. There is
+/// no /proc/modules, as in a kernel without loadable modules: the driver is
+/// built in.
 #[test]
 fn fan_driver_on_the_fake_trees() {
     let tree = Path::new(FIXTURES).join("sysfs-ms7e61-fedora-7.3.3");
     assert_eq!(
-        system::fan_driver(&tree, Some(&profile())),
+        system::fan_driver(&tree, &tree.join("proc"), Some(&profile())),
         FanDriver {
             loaded: true,
             origin: Some(ModuleOrigin::InTree),
@@ -587,30 +640,57 @@ fn fan_driver_on_the_fake_trees() {
     );
 }
 
-/// The module's origin from its taint flags: `O` is out of the kernel's
-/// tree, also with other flags; no flags or no `taint` file (built in) is
-/// in-tree. The text of "Copy system information" says which.
+/// The module's origin from its taint flags in /proc/modules, read each
+/// time (D40): `O` is out of the kernel's tree, also with other flags; a
+/// line without flags is in-tree, and so is a driver that is not listed
+/// while its device is there (built in). An unreadable list leaves the
+/// origin unknown rather than guessed. The text of "Copy system
+/// information" says which.
 #[test]
 fn module_origin() {
     let system = System::ms7e61("origin");
     let sys = system.0.join("sys");
-    let origin = || system::fan_driver(&sys, Some(&profile())).origin;
+    let proc = system.0.join("proc");
+    let driver = || system::fan_driver(&sys, &proc, Some(&profile()));
+    let origin = || driver().origin;
     let nct6683 = |text: &str| {
         let report = report(&system, &NoUdev, &[profile()]);
         assert!(report.contains(&format!("  nct6683: {text}\n")), "{report}");
     };
+    let modules = |text: &str| system.file("proc/modules", text);
     assert_eq!(origin(), Some(ModuleOrigin::OutOfTree));
     nct6683("loaded (out-of-tree)");
 
-    system.file("sys/module/nct6683/taint", "OE\n");
+    modules("nct6683 53248 0 - Live 0x0000000000000000 (OE)\n");
     assert_eq!(origin(), Some(ModuleOrigin::OutOfTree));
 
-    system.file("sys/module/nct6683/taint", "\n");
+    // Replaced by the kernel's own module while the app runs.
+    modules("nct6683 49152 0 - Live 0x0000000000000000\n");
     assert_eq!(origin(), Some(ModuleOrigin::InTree));
     nct6683("loaded (in-tree)");
 
-    std::fs::remove_file(sys.join("module/nct6683/taint")).unwrap();
+    // Another module's flags do not count.
+    modules("nct6683x 1 0 - Live 0x0 (O)\nnct6683 49152 0 - Live 0x0\n");
     assert_eq!(origin(), Some(ModuleOrigin::InTree));
+
+    // Not listed, device there: built into the kernel.
+    modules("ath12k 663552 1 ath12k_wifi7, Live 0x0000000000000000\n");
+    assert_eq!(origin(), Some(ModuleOrigin::InTree));
+
+    // Not listed and no device: not loaded.
+    let link = sys.join("class/hwmon/hwmon0");
+    let target = std::fs::read_link(&link).unwrap();
+    std::fs::remove_file(&link).unwrap();
+    assert!(!driver().loaded);
+    assert_eq!(origin(), None);
+    std::os::unix::fs::symlink(target, &link).unwrap();
+
+    // The list cannot be read: loaded (the device is there), origin unknown.
+    std::fs::remove_file(proc.join("modules")).unwrap();
+    std::fs::create_dir(proc.join("modules")).unwrap();
+    assert!(driver().loaded);
+    assert_eq!(origin(), None);
+    nct6683("loaded (origin unknown)");
 }
 
 /// The text of "Copy system information" for the fake MS-7E61, in full.
@@ -620,6 +700,7 @@ Baseboard 0.1.0
 System
   OS: Fedora Linux 45 (Workstation Edition)
   Kernel: 7.3.3-300.fc45.x86_64
+  Installation: native
 
 Board
   Vendor: Micro-Star International Co., Ltd.
@@ -671,11 +752,38 @@ fn report(system: &System, udev: &dyn Udev, profiles: &[Profile]) -> String {
 fn report_of(dmi: &Dmi, detection: &Detection, info: &system::SystemInfo) -> String {
     Report {
         version: "0.1.0",
+        installation: &system::Installation::Native,
         dmi,
         detection,
         info,
     }
     .text()
+}
+
+/// The way of installation in the text: native, or Flatpak with its
+/// runtime (§10.3).
+#[test]
+fn report_names_the_installation() {
+    let system = System::ms7e61("installation");
+    let dmi = Dmi::read(&system.0.join("sys"));
+    let detection = board::detect(&dmi, &[profile()]);
+    let info = system::read(&system.paths(), &NoUdev, detection.profile());
+    let text = |installation| {
+        Report {
+            version: "0.1.0",
+            installation: &installation,
+            dmi: &dmi,
+            detection: &detection,
+            info: &info,
+        }
+        .text()
+    };
+    let flatpak = text(system::Installation::Flatpak {
+        runtime: Some("org.gnome.Platform 51".into()),
+    });
+    assert!(flatpak.contains("  Installation: Flatpak (org.gnome.Platform 51)\n"));
+    let unnamed = text(system::Installation::Flatpak { runtime: None });
+    assert!(unnamed.contains("  Installation: Flatpak\n"));
 }
 
 /// The full text, the pattern for the format. The USB stick, the running
@@ -706,6 +814,7 @@ Baseboard 0.1.0
 System
   OS: unknown
   Kernel: unknown
+  Installation: native
 
 Board
   Vendor: unknown

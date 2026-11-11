@@ -5,7 +5,7 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
   <name>Baseboard</name>
-  <summary>Monitor and control your motherboard</summary>
+  <summary>Monitor your motherboard sensors</summary>
   <description>
     <p>Baseboard shows the temperatures, fan speeds and voltages reported by your motherboard, processor, graphics card, drives and memory, with the names of the fan headers printed on the board.</p>
     <p>It also shows information about the board, BIOS, processor, memory, graphics card and drives, and copies it as text for bug reports.</p>

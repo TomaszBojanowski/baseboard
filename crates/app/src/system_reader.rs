@@ -18,14 +18,19 @@ use gtk::glib;
 /// How often the hwmon devices are compared while the page is shown.
 const CHECK: Duration = Duration::from_secs(2);
 
-/// Reads the data for the sysfs `root`, with the real /proc and /etc.
+/// Reads the data for the sysfs `root`, with the real /proc and /etc; in a
+/// Flatpak sandbox with what it shows of the host (§10.3).
 pub fn read(root: &Path, profile: Option<&Profile>) -> SystemInfo {
     let libudev = crate::libudev::for_root(root);
     let udev: &dyn Udev = match &libudev {
         Some(udev) => udev,
         None => &NoUdev,
     };
-    system::read(&Paths::system(root), udev, profile)
+    let paths = match crate::config::sandbox() {
+        Some(sandbox) => Paths::flatpak(root, sandbox.host_etc),
+        None => Paths::system(root),
+    };
+    system::read(&paths, udev, profile)
 }
 
 /// What the main loop tells the worker.
@@ -91,8 +96,9 @@ impl Worker {
                         let info = read(&root, profile.as_ref());
                         glib::g_debug!(
                             "baseboard",
-                            "system information read in {} ms",
-                            start.elapsed().as_millis()
+                            "system information read in {} ms; nct6683 {:?}",
+                            start.elapsed().as_millis(),
+                            info.fan_driver
                         );
                         deliver(info);
                         devices = Some(now);
@@ -131,7 +137,10 @@ mod tests {
             Some(slots) => assert!(!slots.is_empty()),
             None => eprintln!("no memory data in the udev database here, slots not checked"),
         }
-        assert!(info.sensors_config.is_empty(), "no profile, no chip");
+        assert!(
+            info.sensors_config.unwrap_or_default().is_empty(),
+            "no profile, no chip"
+        );
         assert_eq!(info.fan_driver.level, None);
     }
 

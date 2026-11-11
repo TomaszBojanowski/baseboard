@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: baseboard\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-11 12:16+0100\n"
+"POT-Creation-Date: 2026-11-11 12:43+0100\n"
 "PO-Revision-Date: 2026-11-11 11:00+0100\n"
 "Last-Translator: Tomasz Bojanowski <tomasz@bojanowski.me>\n"
 "Language-Team: \n"
@@ -27,8 +27,8 @@ msgstr "Baseboard"
 #: data/me.bojanowski.Baseboard.desktop.in:4
 #: data/me.bojanowski.Baseboard.metainfo.xml.in:8
 #: crates/app/src/application.rs:144
-msgid "Monitor and control your motherboard"
-msgstr "Monitorowanie i sterowanie płytą główną"
+msgid "Monitor your motherboard sensors"
+msgstr "Podgląd czujników płyty głównej"
 
 #: data/me.bojanowski.Baseboard.desktop.in:10
 msgid "sensors;temperature;fan;voltage;hardware;motherboard;mainboard;RGB;"
@@ -364,7 +364,7 @@ msgstr "Wszystkie odczyty są ukryte"
 msgid "Turn them on again in Preferences."
 msgstr "Można je włączyć z powrotem w preferencjach."
 
-#: crates/app/src/overview.rs:645 crates/app/src/preferences.rs:235
+#: crates/app/src/overview.rs:645 crates/app/src/preferences.rs:243
 msgid "No sensor readings"
 msgstr "Brak odczytów czujników"
 
@@ -409,30 +409,34 @@ msgid ""
 msgstr ""
 "Takie jak w poleceniu sensors, gdy konfiguracja lm-sensors podaje etykietę"
 
-#: crates/app/src/preferences.rs:160 crates/app/src/system.rs:211
+#: crates/app/src/preferences.rs:136
+msgid "The system's lm-sensors configuration is not available in Flatpak"
+msgstr "Konfiguracja lm-sensors systemu jest niedostępna w Flatpaku"
+
+#: crates/app/src/preferences.rs:168 crates/app/src/system.rs:211
 msgid "Own names"
 msgstr "Własne nazwy"
 
-#: crates/app/src/preferences.rs:165
+#: crates/app/src/preferences.rs:173
 msgid "Open the file"
 msgstr "Otwórz plik"
 
-#: crates/app/src/preferences.rs:168
+#: crates/app/src/preferences.rs:176
 msgid "Open the folder"
 msgstr "Otwórz katalog"
 
 #. Translators: {} is a file name, e.g. ms-7e61.toml, with the user's
 #. own names for the board's readings. Keep it to one short line.
-#: crates/app/src/preferences.rs:218
+#: crates/app/src/preferences.rs:226
 #, rust-format
 msgid "File {}; changes apply after a restart"
 msgstr "Plik {}; zmiany działają po ponownym uruchomieniu"
 
-#: crates/app/src/preferences.rs:224
+#: crates/app/src/preferences.rs:232
 msgid "Readings"
 msgstr "Odczyty"
 
-#: crates/app/src/preferences.rs:227
+#: crates/app/src/preferences.rs:235
 msgid ""
 "Readings that are turned off are not shown on the Overview page, for example "
 "headers without a fan."
@@ -664,94 +668,118 @@ msgstr "Karty sieciowe"
 msgid "Hardware monitor"
 msgstr "Monitor sprzętu"
 
-#: crates/app/src/system.rs:525
+#: crates/app/src/system.rs:526
 msgid "in-tree module"
 msgstr "moduł z jądra"
 
-#: crates/app/src/system.rs:526
+#: crates/app/src/system.rs:527
 msgid "out-of-tree module"
 msgstr "moduł spoza jądra"
 
-#: crates/app/src/system.rs:531
+#: crates/app/src/system.rs:528
+msgid "module origin unknown"
+msgstr "pochodzenie modułu nieznane"
+
+#: crates/app/src/system.rs:532
 msgid "The nct6683 driver is not loaded"
 msgstr "Sterownik nct6683 nie jest załadowany"
 
 #. Translators: {} is the name of the chip, e.g. nct6687.
-#: crates/app/src/system.rs:537
+#: crates/app/src/system.rs:538
 #, rust-format
 msgid "The nct6683 driver is loaded but found no {} chip"
 msgstr "Sterownik nct6683 jest załadowany, ale nie znalazł układu {}"
 
-#: crates/app/src/system.rs:543
+#: crates/app/src/system.rs:544
 msgid "The nct6683 driver is loaded"
 msgstr "Sterownik nct6683 załadowany"
 
-#: crates/app/src/system.rs:551
+#: crates/app/src/system.rs:552
 msgid "Checking the driver"
 msgstr "Sprawdzenie sterownika"
 
-#: crates/app/src/system.rs:557
+#: crates/app/src/system.rs:558
 msgid "lm-sensors library"
 msgstr "Biblioteka lm-sensors"
 
+#. Translators: {} is the version of libsensors, e.g. 3.6.2.
+#: crates/app/src/system.rs:565
+#, rust-format
+msgid ""
+"Version {}: without the system's configuration, which Flatpak does not share"
+msgstr "Wersja {}: bez konfiguracji systemu, której Flatpak nie udostępnia"
+
 #. Translators: {} is the version of libsensors, e.g. 3.6.0.
-#: crates/app/src/system.rs:562
+#: crates/app/src/system.rs:571
 #, rust-format
 msgid "Version {}: readings with the lm-sensors configuration"
 msgstr "Wersja {}: odczyty z konfiguracją lm-sensors"
 
-#: crates/app/src/system.rs:572
+#: crates/app/src/system.rs:581
 msgid ""
 "Not used: readings straight from sysfs, without the lm-sensors configuration"
 msgstr "Nieużywana: odczyty prosto z sysfs, bez konfiguracji lm-sensors"
 
-#: crates/app/src/system.rs:579
+#: crates/app/src/system.rs:592
+msgid "lm-sensors configuration not available in Flatpak"
+msgstr "Konfiguracja lm-sensors niedostępna w Flatpaku"
+
+#: crates/app/src/system.rs:599 crates/app/src/system.rs:601
+#: crates/app/src/system.rs:607
 msgid "lm-sensors configuration"
 msgstr "Konfiguracja lm-sensors"
 
 #. Translators: {} is the name of the board's chip, e.g. nct6687;
 #. "chip" is a statement of the lm-sensors configuration.
-#: crates/app/src/system.rs:586
+#: crates/app/src/system.rs:604
 #, rust-format
 msgid "No file has a chip statement for {}"
 msgstr "Żaden plik nie ma instrukcji chip dla {}"
 
-#: crates/app/src/system.rs:602
+#: crates/app/src/system.rs:621
+msgid "Other fan control programs"
+msgstr "Inne programy sterujące wentylatorami"
+
+#: crates/app/src/system.rs:622
+msgid "Cannot be checked in Flatpak"
+msgstr "Nie można sprawdzić w Flatpaku"
+
+#: crates/app/src/system.rs:625
 msgid "No other fan control programs"
 msgstr "Brak innych programów sterujących wentylatorami"
 
 #. Translators: {} lists program names, e.g. "fancontrol, coolercontrold".
-#: crates/app/src/system.rs:604
+#: crates/app/src/system.rs:627
 #, rust-format
 msgid "Checked: {}"
 msgstr "Sprawdzono: {}"
 
-#: crates/app/src/system.rs:609
+#: crates/app/src/system.rs:631
 msgid "Other fan control programs are running"
 msgstr "Działają inne programy sterujące wentylatorami"
 
 #. Translators: {} lists program names, e.g. "fancontrol".
-#: crates/app/src/system.rs:611
+#: crates/app/src/system.rs:633
 #, rust-format
 msgid "{}: they may change the fan settings at the same time as Baseboard"
 msgstr "{}: mogą zmieniać ustawienia wentylatorów równocześnie z Baseboard"
 
-#: crates/app/src/system.rs:625
+#: crates/app/src/system.rs:647
 msgid "Sensors and fans"
 msgstr "Czujniki i wentylatory"
 
 #. Translators: Baseboard cannot control the board's fans here.
-#: crates/app/src/system.rs:633
+#: crates/app/src/system.rs:664
 msgid "Fan control unavailable"
 msgstr "Sterowanie wentylatorami niedostępne"
 
 #. Translators: {} is the name of the board's chip, e.g. nct6687.
-#: crates/app/src/system.rs:640
+#: crates/app/src/system.rs:671
 #, rust-format
 msgid "The board's {} chip was not found"
 msgstr "Nie znaleziono układu płyty {}"
 
-#: crates/app/src/system.rs:647
+#: crates/app/src/system.rs:678
 msgid ""
 "This kernel can only read the fans. Control needs a newer kernel with the "
 "extended nct6683 driver."
@@ -759,33 +787,33 @@ msgstr ""
 "To jądro pozwala tylko odczytywać wentylatory. Sterowanie wymaga nowszego "
 "jądra z rozszerzonym sterownikiem nct6683."
 
-#: crates/app/src/system.rs:655 crates/app/src/system.rs:658
+#: crates/app/src/system.rs:686 crates/app/src/system.rs:689
 msgid "Fan control"
 msgstr "Sterowanie wentylatorami"
 
 #. Translators: {} is what the driver allows, e.g. "Manual mode".
-#: crates/app/src/system.rs:660
+#: crates/app/src/system.rs:691
 #, rust-format
 msgid "{}; read only, because the PCB revision is not verified"
 msgstr "{}; tylko odczyt, bo rewizja PCB jest niesprawdzona"
 
-#: crates/app/src/system.rs:672
+#: crates/app/src/system.rs:703
 msgid "Read only"
 msgstr "Tylko odczyt"
 
-#: crates/app/src/system.rs:673
+#: crates/app/src/system.rs:704
 msgid "Manual mode"
 msgstr "Tryb ręczny"
 
-#: crates/app/src/system.rs:674
+#: crates/app/src/system.rs:705
 msgid "Manual mode and curve preview"
 msgstr "Tryb ręczny i podgląd krzywych"
 
-#: crates/app/src/system.rs:675
+#: crates/app/src/system.rs:706
 msgid "Curves in the EC"
 msgstr "Krzywe w EC"
 
-#: crates/app/src/system.rs:676
+#: crates/app/src/system.rs:707
 msgid "Curves in the EC with a choice of temperature"
 msgstr "Krzywe w EC z wyborem temperatury"
 

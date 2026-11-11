@@ -520,11 +520,12 @@ fn sensors_and_fans(detection: &Detection, info: &SystemInfo, source: Option<&Ch
     let driver = info.fan_driver;
 
     let monitor = gettext("Hardware monitor");
-    // Whether the module comes with the kernel, after the driver's state.
+    // Whether the module comes with the kernel, after the driver's state;
+    // said to be unknown rather than guessed (D40).
     let with_origin = |text: String| match driver.origin {
         Some(ModuleOrigin::InTree) => format!("{text} · {}", gettext("in-tree module")),
         Some(ModuleOrigin::OutOfTree) => format!("{text} · {}", gettext("out-of-tree module")),
-        None => text,
+        None => format!("{text} · {}", gettext("module origin unknown")),
     };
     let monitor = match (driver.loaded, driver.device, chip) {
         (false, _, _) => {
@@ -556,6 +557,14 @@ fn sensors_and_fans(detection: &Detection, info: &SystemInfo, source: Option<&Ch
 
     let library = gettext("lm-sensors library");
     let library = match source {
+        // In a Flatpak sandbox without the host's /etc there is no
+        // configuration to apply (§10.2).
+        Some(Choice::Libsensors { version }) if info.sensors_config.is_none() => Line::item(
+            library,
+            // Translators: {} is the version of libsensors, e.g. 3.6.2.
+            gettext("Version {}: without the system's configuration, which Flatpak does not share")
+                .replace("{}", version),
+        ),
         Some(Choice::Libsensors { version }) => Line::item(
             library,
             // Translators: {} is the version of libsensors, e.g. 3.6.0.
@@ -576,20 +585,29 @@ fn sensors_and_fans(detection: &Detection, info: &SystemInfo, source: Option<&Ch
         None => Line::property(library, None),
     };
 
-    let config = gettext("lm-sensors configuration");
-    let config = match chip {
-        None => Line::property(config, None),
-        Some(chip) if info.sensors_config.is_empty() => Line::item(
-            config,
+    let config = match (chip, info.sensors_config.as_deref()) {
+        // A Flatpak sandbox that cannot see the host's /etc: say so, with
+        // the command that shares it, read only (§10.1).
+        (_, None) => Line::item(
+            gettext("lm-sensors configuration not available in Flatpak"),
+            format!(
+                "flatpak override --user --filesystem=host-etc:ro {}",
+                config::APP_ID
+            ),
+        )
+        .monospace(),
+        (None, Some(_)) => Line::property(gettext("lm-sensors configuration"), None),
+        (Some(chip), Some([])) => Line::item(
+            gettext("lm-sensors configuration"),
             // Translators: {} is the name of the board's chip, e.g. nct6687;
             // "chip" is a statement of the lm-sensors configuration.
             gettext("No file has a chip statement for {}").replace("{}", chip),
         ),
-        Some(_) => Line::item(
-            config,
-            info.sensors_config
+        (Some(_), Some(files)) => Line::item(
+            gettext("lm-sensors configuration"),
+            files
                 .iter()
-                .map(|path| path.display().to_string())
+                .map(|path| host_path(path))
                 .collect::<Vec<_>>()
                 .join("\n"),
         )
@@ -597,21 +615,25 @@ fn sensors_and_fans(detection: &Detection, info: &SystemInfo, source: Option<&Ch
         .monospace(),
     };
 
-    let programs = if info.fan_programs.is_empty() {
-        Line::item(
+    let programs = match info.fan_programs.as_deref() {
+        // A sandbox sees only its own processes: never a false all-clear.
+        None => Line::item(
+            gettext("Other fan control programs"),
+            gettext("Cannot be checked in Flatpak"),
+        ),
+        Some([]) => Line::item(
             gettext("No other fan control programs"),
             // Translators: {} lists program names, e.g. "fancontrol, coolercontrold".
             gettext("Checked: {}").replace("{}", &system::FAN_PROGRAMS.join(", ")),
         )
-        .status(Some(Status::Ok))
-    } else {
-        Line::item(
+        .status(Some(Status::Ok)),
+        Some(running) => Line::item(
             gettext("Other fan control programs are running"),
             // Translators: {} lists program names, e.g. "fancontrol".
             gettext("{}: they may change the fan settings at the same time as Baseboard")
-                .replace("{}", &info.fan_programs.join(", ")),
+                .replace("{}", &running.join(", ")),
         )
-        .status(Some(Status::Warning))
+        .status(Some(Status::Warning)),
     };
 
     let mut lines = vec![monitor];
@@ -623,6 +645,16 @@ fn sensors_and_fans(detection: &Detection, info: &SystemInfo, source: Option<&Ch
         programs,
     ]);
     section(gettext("Sensors and fans"), None, lines)
+}
+
+/// A file of the host as the user knows it: in a Flatpak sandbox the host's
+/// `/etc` is under `/run/host` (§10.1).
+fn host_path(path: &std::path::Path) -> String {
+    let shown = path.strip_prefix("/run/host").map_or_else(
+        |_| path.to_owned(),
+        |rest| std::path::Path::new("/").join(rest),
+    );
+    shown.display().to_string()
 }
 
 /// What the driver allows on the board's fans, in words (§5.5.3), without
@@ -706,6 +738,8 @@ fn row(line: &Line) -> adw::ActionRow {
     }
     if line.monospace {
         row.add_css_class("monospace-value");
+        // Paths and commands can be selected and copied.
+        row.set_subtitle_selectable(true);
     }
     if let Some(status) = line.status {
         let (icon, class) = match status {
@@ -812,6 +846,7 @@ impl SystemPage {
         Some(
             Report {
                 version: config::VERSION,
+                installation: &config::installation(),
                 dmi,
                 detection,
                 info: info.as_ref()?,
@@ -1181,6 +1216,68 @@ mod tests {
                 .ends_with("libsensors.so.5: cannot open shared object file")
         );
         assert_eq!(missing.status, None);
+    }
+
+    /// In a Flatpak sandbox (§10.3): the lm-sensors configuration row says
+    /// it is not available and gives the command that shares it, the fan
+    /// programs cannot be checked (never a green tick), libsensors works
+    /// without the system's configuration, and an unknown module origin is
+    /// said, not guessed (D40).
+    #[test]
+    fn rows_in_a_sandbox() {
+        let info = SystemInfo {
+            sensors_config: None,
+            fan_programs: None,
+            fan_driver: FanDriver {
+                loaded: true,
+                origin: None,
+                device: true,
+                level: Some(DriverLevel::Curves),
+            },
+            ..SystemInfo::default()
+        };
+        let source = Choice::Libsensors {
+            version: "3.6.2".into(),
+        };
+        let sections = sections(
+            &Dmi::default(),
+            &Detection::Supported(ms7e61()),
+            &info,
+            Extras {
+                source: Some(&source),
+                skipped: &[],
+            },
+        );
+        let rows = section(&sections, "Sensors and fans");
+        let config = titled(rows, "lm-sensors configuration not available in Flatpak");
+        assert_eq!(
+            config.value,
+            "flatpak override --user --filesystem=host-etc:ro me.bojanowski.Baseboard"
+        );
+        assert!(config.monospace);
+        let programs = titled(rows, "Other fan control programs");
+        assert_eq!(programs.value, "Cannot be checked in Flatpak");
+        assert_eq!(programs.status, None);
+        let library = titled(rows, "lm-sensors library");
+        assert!(library.value.contains("Flatpak does not share"));
+        assert_eq!(library.status, None);
+        assert_eq!(
+            rows.lines[0].value,
+            "The nct6683 driver is loaded · module origin unknown"
+        );
+    }
+
+    /// A file of the host's /etc seen from the sandbox shows as on the host.
+    #[test]
+    fn host_paths() {
+        assert_eq!(
+            host_path(std::path::Path::new("/run/host/etc/sensors.d/a.conf")),
+            "/etc/sensors.d/a.conf"
+        );
+        assert_eq!(
+            host_path(std::path::Path::new("/etc/sensors3.conf")),
+            "/etc/sensors3.conf"
+        );
     }
 
     /// Wrong files are named with the reason, in a group of their own; with

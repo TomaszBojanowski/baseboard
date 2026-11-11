@@ -10,14 +10,15 @@ use std::fmt::Write;
 
 use crate::board::{Detection, Dmi, code_label};
 use crate::system::{
-    Disk, GraphicsCard, Manufacturer, MemoryModule, MemorySlot, ModuleOrigin, NetworkCard,
-    SystemInfo, short_cpu_name,
+    Disk, GraphicsCard, Installation, Manufacturer, MemoryModule, MemorySlot, ModuleOrigin,
+    NetworkCard, SystemInfo, short_cpu_name,
 };
 
 /// What the text is made of.
 pub struct Report<'a> {
     /// The version of Baseboard.
     pub version: &'a str,
+    pub installation: &'a Installation,
     pub dmi: &'a Dmi,
     pub detection: &'a Detection,
     pub info: &'a SystemInfo,
@@ -34,6 +35,14 @@ impl Report<'_> {
         text.heading("System");
         text.field("OS", info.os.as_deref());
         text.field("Kernel", info.kernel.as_deref());
+        let installation = match self.installation {
+            Installation::Native => "native".to_owned(),
+            Installation::Flatpak {
+                runtime: Some(runtime),
+            } => format!("Flatpak ({runtime})"),
+            Installation::Flatpak { runtime: None } => "Flatpak".to_owned(),
+        };
+        text.field("Installation", Some(&installation));
 
         text.heading("Board");
         text.field("Vendor", dmi.board_vendor.as_deref());
@@ -91,7 +100,7 @@ impl Report<'_> {
         let loaded = match driver.origin {
             Some(ModuleOrigin::InTree) => "loaded (in-tree)",
             Some(ModuleOrigin::OutOfTree) => "loaded (out-of-tree)",
-            None => "loaded",
+            None => "loaded (origin unknown)",
         };
         let state = match (driver.loaded, driver.device) {
             (false, _) => "not loaded".to_owned(),

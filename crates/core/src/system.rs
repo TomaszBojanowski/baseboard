@@ -24,9 +24,14 @@ pub struct Paths {
     /// `/sys`, or a fake tree.
     pub sys: PathBuf,
     pub proc: PathBuf,
-    pub etc: PathBuf,
-    /// `/usr/lib`, for `os-release` when `/etc` has none.
-    pub usr_lib: PathBuf,
+    /// The host's `/etc`, for the lm-sensors files; `None` in a sandbox that
+    /// cannot see it (docs/PROJEKT.md §10.3).
+    pub etc: Option<PathBuf>,
+    /// The `os-release` files to try, in order.
+    pub os_release: Vec<PathBuf>,
+    /// Whether `proc` shows the host's processes. A sandbox shows only its
+    /// own, so the fan programs cannot be checked there.
+    pub host_processes: bool,
 }
 
 impl Paths {
@@ -35,8 +40,25 @@ impl Paths {
         Self {
             sys: sys.to_owned(),
             proc: PathBuf::from("/proc"),
-            etc: PathBuf::from("/etc"),
-            usr_lib: PathBuf::from("/usr/lib"),
+            etc: Some(PathBuf::from("/etc")),
+            os_release: vec![
+                PathBuf::from("/etc/os-release"),
+                PathBuf::from("/usr/lib/os-release"),
+            ],
+            host_processes: true,
+        }
+    }
+
+    /// This system seen from a Flatpak sandbox (§10.1): the host's
+    /// `os-release` in `/run/host`, its `/etc` in `/run/host/etc` only when
+    /// shared (`host_etc`), and a `/proc` of the sandbox's own processes.
+    pub fn flatpak(sys: &Path, host_etc: bool) -> Self {
+        Self {
+            sys: sys.to_owned(),
+            proc: PathBuf::from("/proc"),
+            etc: host_etc.then(|| PathBuf::from("/run/host/etc")),
+            os_release: vec![PathBuf::from("/run/host/os-release")],
+            host_processes: false,
         }
     }
 
@@ -45,10 +67,31 @@ impl Paths {
         Self {
             sys: root.join("sys"),
             proc: root.join("proc"),
-            etc: root.join("etc"),
-            usr_lib: root.join("usr/lib"),
+            etc: Some(root.join("etc")),
+            os_release: vec![root.join("etc/os-release"), root.join("usr/lib/os-release")],
+            host_processes: true,
         }
     }
+}
+
+/// How Baseboard is installed, for "Copy system information".
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum Installation {
+    #[default]
+    Native,
+    /// In a Flatpak sandbox, with its runtime, e.g. `org.gnome.Platform 51`.
+    Flatpak { runtime: Option<String> },
+}
+
+/// The runtime named in the sandbox's `/.flatpak-info`, as "name branch":
+/// `runtime=runtime/org.gnome.Platform/x86_64/51` → `org.gnome.Platform 51`.
+pub fn flatpak_runtime(info: &str) -> Option<String> {
+    let reference = info
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("runtime="))?;
+    let mut parts = reference.split('/');
+    let (kind, name, _arch, branch) = (parts.next()?, parts.next()?, parts.next()?, parts.next()?);
+    (kind == "runtime" && !name.is_empty()).then(|| format!("{name} {branch}"))
 }
 
 /// The only BIOS files this module opens, relative to `class/dmi/id`.
@@ -80,8 +123,9 @@ pub const FAN_PROGRAMS: [&str; 4] = ["fancontrol", "coolercontrold", "fan2go", "
 pub const FAN_DRIVER_MODULE: &str = "nct6683";
 
 /// Everything the System page shows besides the board (`board::Dmi` and
-/// the detection).
-#[derive(Debug, Clone, Default, PartialEq)]
+/// the detection). The default is a system that can be seen whole and has
+/// nothing to show.
+#[derive(Debug, Clone, PartialEq)]
 pub struct SystemInfo {
     /// `PRETTY_NAME` of `os-release`, else `NAME`.
     pub os: Option<String>,
@@ -104,10 +148,32 @@ pub struct SystemInfo {
     pub hwmon: Vec<String>,
     pub fan_driver: FanDriver,
     /// The lm-sensors files with a `chip` statement for the board's device;
-    /// empty without a profile.
-    pub sensors_config: Vec<PathBuf>,
-    /// The programs of [`FAN_PROGRAMS`] that run, sorted, each once.
-    pub fan_programs: Vec<String>,
+    /// empty without a profile, `None` when the host's `/etc` cannot be
+    /// seen (a sandbox, §10.3).
+    pub sensors_config: Option<Vec<PathBuf>>,
+    /// The programs of [`FAN_PROGRAMS`] that run, sorted, each once; `None`
+    /// when the host's processes cannot be seen (a sandbox, §10.3).
+    pub fan_programs: Option<Vec<String>>,
+}
+
+impl Default for SystemInfo {
+    fn default() -> Self {
+        Self {
+            os: None,
+            kernel: None,
+            bios: Bios::default(),
+            cpu: None,
+            cpufreq_driver: None,
+            memory: None,
+            graphics: Vec::new(),
+            disks: Vec::new(),
+            network: Vec::new(),
+            hwmon: Vec::new(),
+            fan_driver: FanDriver::default(),
+            sensors_config: Some(Vec::new()),
+            fan_programs: Some(Vec::new()),
+        }
+    }
 }
 
 /// The BIOS from DMI. A missing or blank file is `None`.
@@ -245,8 +311,8 @@ pub struct FanDriver {
 }
 
 /// Where a loaded kernel module comes from, by its taint flags in
-/// `/sys/module/<name>/taint`. Only shown to the user: what the driver
-/// allows is never judged by this (§5.5.2).
+/// `/proc/modules` (D40). Only shown to the user: what the driver allows is
+/// never judged by this (§5.5.2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModuleOrigin {
     /// Built from the kernel's tree: no `O` flag, or built in.
@@ -269,20 +335,24 @@ pub fn read(paths: &Paths, udev: &dyn Udev, profile: Option<&Profile>) -> System
         disks: disks(&sys),
         network: network_cards(&sys, udev),
         hwmon: hwmon_names(&sys),
-        fan_driver: fan_driver(&sys, profile),
-        sensors_config: profile
-            .map(|p| sensors_config(&paths.etc, &p.hwmon.name))
-            .unwrap_or_default(),
-        fan_programs: fan_programs(&paths.proc),
+        fan_driver: fan_driver(&sys, &paths.proc, profile),
+        sensors_config: paths.etc.as_deref().map(|etc| {
+            profile
+                .map(|p| sensors_config(etc, &p.hwmon.name))
+                .unwrap_or_default()
+        }),
+        fan_programs: paths.host_processes.then(|| fan_programs(&paths.proc)),
     }
 }
 
-/// `PRETTY_NAME` from `/etc/os-release`, else from `/usr/lib/os-release`;
-/// `NAME` when there is no `PRETTY_NAME`.
+/// `PRETTY_NAME` from the first `os-release` file there is (`/etc`, then
+/// `/usr/lib`; in a sandbox the host's in `/run/host`), `NAME` when there is
+/// no `PRETTY_NAME`.
 pub fn os_name(paths: &Paths) -> Option<String> {
-    let text = std::fs::read_to_string(paths.etc.join("os-release"))
-        .or_else(|_| std::fs::read_to_string(paths.usr_lib.join("os-release")))
-        .ok()?;
+    let text = paths
+        .os_release
+        .iter()
+        .find_map(|path| std::fs::read_to_string(path).ok())?;
     os_release_value(&text, "PRETTY_NAME").or_else(|| os_release_value(&text, "NAME"))
 }
 
@@ -544,32 +614,66 @@ pub fn disks(sys: &Path) -> Vec<Disk> {
 }
 
 /// Whether the EC driver is loaded and what it allows on the profile's
-/// channels. Reads only `name` files and the modes of the `pwm` files.
-pub fn fan_driver(sys: &Path, profile: Option<&Profile>) -> FanDriver {
+/// channels. Reads only `name` files, the modes of the `pwm` files and
+/// `<proc>/modules`.
+pub fn fan_driver(sys: &Path, proc: &Path, profile: Option<&Profile>) -> FanDriver {
     let sys = canonical(sys);
     let hwmon = profile.and_then(|p| hwmon_by_name(&sys, &p.hwmon.name));
     let level = profile
         .zip(hwmon.as_deref())
         .map(|(profile, hwmon)| driver::driver_level(&driver::channels(profile, hwmon)));
-    let module = sys.join("module").join(FAN_DRIVER_MODULE);
-    let loaded = module.is_dir() || hwmon.is_some();
+    let listing = module_listing(proc, FAN_DRIVER_MODULE);
+    let loaded = matches!(listing, Listing::Listed { .. }) || hwmon.is_some();
+    let origin = match listing {
+        Listing::Listed { out_of_tree: true } => Some(ModuleOrigin::OutOfTree),
+        Listing::Listed { out_of_tree: false } => Some(ModuleOrigin::InTree),
+        // Not a loadable module, yet its device is there: built in.
+        Listing::NotListed if loaded => Some(ModuleOrigin::InTree),
+        Listing::NotListed | Listing::Unknown => None,
+    };
     FanDriver {
         loaded,
-        origin: loaded.then(|| module_origin(&module)).flatten(),
+        origin,
         device: hwmon.is_some(),
         level,
     }
 }
 
-/// The origin of a loaded module from its folder in `/sys/module`. Only a
-/// loadable module has a `taint` file (empty for an in-tree module); a
-/// module built into the kernel has none, or no folder at all.
-fn module_origin(module: &Path) -> Option<ModuleOrigin> {
-    match std::fs::read_to_string(module.join("taint")) {
-        Ok(flags) if flags.contains('O') => Some(ModuleOrigin::OutOfTree),
-        Ok(_) => Some(ModuleOrigin::InTree),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Some(ModuleOrigin::InTree),
-        Err(_) => None,
+/// What `/proc/modules` says of one module.
+enum Listing {
+    /// Loaded as a module; flag `O` among its taint flags means out of the
+    /// kernel's tree.
+    Listed { out_of_tree: bool },
+    /// Not a loaded module. A kernel without loadable modules has no list
+    /// at all, which means the same.
+    NotListed,
+    /// The list cannot be read: the origin stays unknown.
+    Unknown,
+}
+
+/// The module's line in `<proc>/modules`, e.g.
+/// `nct6683 53248 0 - Live 0x0000000000000000 (O)`; its taint flags, if
+/// any, close the line in brackets. Read each time, so a module loaded or
+/// replaced while the app runs shows as it is now (D40).
+fn module_listing(proc: &Path, name: &str) -> Listing {
+    let text = match std::fs::read_to_string(proc.join("modules")) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Listing::NotListed,
+        Err(_) => return Listing::Unknown,
+    };
+    let Some(line) = text
+        .lines()
+        .find(|line| line.split_whitespace().next() == Some(name))
+    else {
+        return Listing::NotListed;
+    };
+    let flags = line
+        .trim_end()
+        .strip_suffix(')')
+        .and_then(|rest| rest.rsplit_once('('))
+        .map_or("", |(_, flags)| flags);
+    Listing::Listed {
+        out_of_tree: flags.contains('O'),
     }
 }
 

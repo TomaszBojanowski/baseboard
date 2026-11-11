@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 [Desktop Entry]
 Name=Baseboard
-Comment=Monitor and control your motherboard
+Comment=Monitor your motherboard sensors
 Exec=baseboard
 Icon=me.bojanowski.Baseboard
 Terminal=false

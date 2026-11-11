@@ -128,6 +128,14 @@ fn general_page(setup: &DialogSetup) -> adw::PreferencesPage {
         ))
         .build();
     settings.bind(SENSORS_LABELS, &names, "active").build();
+    // A Flatpak sandbox without the host's /etc has no configuration to
+    // take names from (docs/PROJEKT.md §10.3).
+    if crate::config::sandbox().is_some_and(|sandbox| !sandbox.host_etc) {
+        names.set_sensitive(false);
+        names.set_subtitle(&gettext(
+            "The system's lm-sensors configuration is not available in Flatpak",
+        ));
+    }
     group.add(&names);
 
     if let Some(file) = &setup.labels_file {
