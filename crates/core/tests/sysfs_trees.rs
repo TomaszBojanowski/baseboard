@@ -485,6 +485,119 @@ fn this_machine_reads_like_cat() {
     }
 }
 
+/// M2 step 2 on the hardware: once a second, the source temperature, the
+/// duty cycle `pwmN` and the curve model of every channel with a curve.
+/// The output reaches the model's value gradually (about 5 steps a second
+/// on SYS_FAN1, §4), so besides all samples the test compares the settled
+/// ones: the model's value unchanged for the last 10 s and `pwmN` for the
+/// last 3 s. Only reads. `BASEBOARD_SECONDS` sets the length (default 300),
+/// `BASEBOARD_CSV` a file for the samples. Run on MS-7E61:
+/// `cargo test -p baseboard-core --test sysfs_trees -- --ignored
+/// this_machine_follows --nocapture`.
+#[test]
+#[ignore = "reads the real /sys of an MS-7E61 for minutes"]
+fn this_machine_follows_the_curve_model() {
+    use std::collections::BTreeMap;
+    use std::fmt::Write as _;
+    use std::time::{Duration, Instant};
+
+    use baseboard_core::fans::curve;
+
+    const SETTLED_MODEL: usize = 10;
+    const SETTLED_DUTY: usize = 3;
+
+    let seconds: usize = std::env::var("BASEBOARD_SECONDS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(300);
+    let chips = SysfsSource::new(Path::new("/sys")).chips();
+    let profile = profile();
+    let hwmon = sensors::find(&chips, &profile.hwmon.name)
+        .expect("no nct6687 device")
+        .path
+        .clone();
+    let driver = SysfsDriver::new(&hwmon);
+    // (key, pwm, source temperature N, curve)
+    let channels: Vec<(String, u8, u8, Vec<CurvePoint>)> = driver::channels(&profile, &hwmon)
+        .into_iter()
+        .filter_map(|c| {
+            let curve = driver.curve(c.pwm).ok()?;
+            let Ok(Source::Temp(input)) = driver.source(c.pwm) else {
+                return None;
+            };
+            Some((c.key, c.pwm, input, curve))
+        })
+        .collect();
+    assert!(!channels.is_empty(), "no channel with a curve");
+
+    // Each row is written as soon as it is sampled, so a run stopped early
+    // keeps its samples.
+    let mut file = std::env::var("BASEBOARD_CSV")
+        .ok()
+        .map(|path| std::fs::File::create(path).unwrap());
+    let mut row = String::from("second");
+    for (key, ..) in &channels {
+        write!(row, ",{key}_temp_mC,{key}_pwm,{key}_model").unwrap();
+    }
+    // Per channel: (model, pwm) for every second.
+    let mut samples: Vec<Vec<(u8, u8)>> = vec![Vec::new(); channels.len()];
+    let start = Instant::now();
+    for second in 0..seconds {
+        if let Some(file) = &mut file {
+            use std::io::Write as _;
+            writeln!(file, "{row}").unwrap();
+        }
+        row = second.to_string();
+        for (i, (_, pwm, input, points)) in channels.iter().enumerate() {
+            let temp = cat(&hwmon, &format!("temp{input}_input"));
+            let duty = driver.duty(*pwm).unwrap();
+            let model = curve::expected_duty(points, temp).unwrap();
+            samples[i].push((model, duty));
+            write!(row, ",{temp},{duty},{model}").unwrap();
+        }
+        let next = start + Duration::from_secs(second as u64 + 1);
+        std::thread::sleep(next.saturating_duration_since(Instant::now()));
+    }
+    if let Some(file) = &mut file {
+        use std::io::Write as _;
+        writeln!(file, "{row}").unwrap();
+    }
+
+    // The curves must not change while sampling.
+    for (key, pwm, _, points) in &channels {
+        assert_eq!(&driver.curve(*pwm).unwrap(), points, "{key}: curve changed");
+    }
+
+    let mut worst_settled = 0;
+    for ((key, ..), series) in channels.iter().zip(&samples) {
+        let mut all: BTreeMap<i32, usize> = BTreeMap::new();
+        let mut settled: BTreeMap<i32, usize> = BTreeMap::new();
+        for (j, &(model, duty)) in series.iter().enumerate() {
+            let diff = i32::from(duty) - i32::from(model);
+            *all.entry(diff).or_default() += 1;
+            let stable = |len: usize, value: fn(&(u8, u8)) -> u8| {
+                j + 1 >= len
+                    && series[j + 1 - len..=j]
+                        .iter()
+                        .all(|s| value(s) == value(&series[j]))
+            };
+            if stable(SETTLED_MODEL, |s| s.0) && stable(SETTLED_DUTY, |s| s.1) {
+                *settled.entry(diff).or_default() += 1;
+                worst_settled = worst_settled.max(diff.abs());
+            }
+        }
+        let models: std::collections::BTreeSet<u8> = series.iter().map(|s| s.0).collect();
+        println!(
+            "{key}: model values {models:?}; pwm − model, all samples {all:?}, settled {settled:?}"
+        );
+    }
+    println!("largest settled difference: {worst_settled}");
+    assert_eq!(
+        worst_settled, 0,
+        "the controller differs from the model when settled"
+    );
+}
+
 /// One channel whose curve did not pass the driver's check at load keeps a
 /// read-only curve; the others can still write theirs.
 #[test]
