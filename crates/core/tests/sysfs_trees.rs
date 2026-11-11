@@ -13,7 +13,9 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use baseboard_core::fans::driver::{self, Capability, DriverLevel};
+use baseboard_core::fans::driver::{
+    self, Capability, CurvePoint, DriverLevel, FanDriver, Mode, Source, SysfsDriver,
+};
 use baseboard_core::overview;
 use baseboard_core::profile::{self, Profile};
 use baseboard_core::sensors::{self, Chip, Kind, SensorSource, SysfsSource};
@@ -328,6 +330,159 @@ fn v1_writes_curves() {
         controllable,
         ["cpu1", "pump1", "sys1", "sys2", "sys3", "sys4"]
     );
+}
+
+/// The value of one attribute, read here on its own, as `cat` shows it.
+fn cat(hwmon: &Path, attribute: &str) -> i64 {
+    std::fs::read_to_string(hwmon.join(attribute))
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap()
+}
+
+/// The curve of channel `pwm` from its files: millidegrees to °C.
+fn cat_curve(hwmon: &Path, pwm: u8) -> Vec<CurvePoint> {
+    (1..=7)
+        .map(|k| CurvePoint {
+            temp: u8::try_from(cat(hwmon, &format!("pwm{pwm}_auto_point{k}_temp")) / 1000).unwrap(),
+            duty: u8::try_from(cat(hwmon, &format!("pwm{pwm}_auto_point{k}_pwm"))).unwrap(),
+        })
+        .collect()
+}
+
+/// M2 step 1: Fedora's driver gives duty cycles of pwm1, pwm2 and pwm4,
+/// and no mode, curve or source.
+#[test]
+fn fedora_reads_duty_cycles_only() {
+    let tree = Tree::new(FEDORA, &[]);
+    let hwmon = tree.board_chip().path;
+    let driver = SysfsDriver::new(&hwmon);
+    for channel in tree.channels() {
+        let reading = driver::read(&driver, channel.pwm);
+        assert_eq!(reading.mode, None, "{}", channel.key);
+        assert_eq!(reading.curve, None, "{}", channel.key);
+        assert_eq!(reading.source, None, "{}", channel.key);
+        let expected = [1, 2, 4]
+            .contains(&channel.pwm)
+            .then(|| Ok(u8::try_from(cat(&hwmon, &format!("pwm{}", channel.pwm))).unwrap()));
+        assert_eq!(reading.duty, expected, "{}", channel.key);
+    }
+}
+
+/// M2 step 1: with `hwmon-next` and with v1 (also with one read-only
+/// curve), every controllable channel reads its mode, duty cycle, curve and
+/// source as the files have them; the source is temp1, which the profile
+/// names `cpu` with the emergency threshold 95 °C. EZ Conn has only a duty
+/// cycle.
+#[test]
+fn hwmon_next_and_v1_read_curves_and_sources() {
+    for (name, extra) in [(HWMON_NEXT, &[][..]), (V1, &[]), (V1, &["tryby-mieszane"])] {
+        let tree = Tree::new(name, extra);
+        let hwmon = tree.board_chip().path;
+        let driver = SysfsDriver::new(&hwmon);
+        for channel in tree.channels() {
+            let reading = driver::read(&driver, channel.pwm);
+            let duty = u8::try_from(cat(&hwmon, &format!("pwm{}", channel.pwm))).unwrap();
+            assert_eq!(reading.duty, Some(Ok(duty)), "{name} {}", channel.key);
+            if channel.key == "ezconn" {
+                assert_eq!(
+                    (reading.mode, reading.curve, reading.source),
+                    (None, None, None)
+                );
+                continue;
+            }
+            assert_eq!(reading.mode, Some(Ok(Mode::Auto)), "{name} {}", channel.key);
+            assert_eq!(
+                reading.curve,
+                Some(Ok(cat_curve(&hwmon, channel.pwm))),
+                "{name} {}",
+                channel.key
+            );
+            assert_eq!(
+                reading.source,
+                Some(Ok(Source::Temp(1))),
+                "{name} {}",
+                channel.key
+            );
+        }
+        let profile = profile();
+        let cpu = driver::source_temp(&profile, Source::Temp(1)).unwrap();
+        assert_eq!((cpu.key.as_str(), cpu.emergency_c), ("cpu", Some(95)));
+
+        // Known curves from §6.3: CPU_FAN1 and SYS_FAN1 with the owner's
+        // BIOS settings; points 5–7 copy point 4.
+        let curve = |points: [(u8, u8); 4]| {
+            let mut curve: Vec<_> = points
+                .iter()
+                .map(|&(temp, duty)| CurvePoint { temp, duty })
+                .collect();
+            curve.extend([curve[3]; 3]);
+            curve
+        };
+        assert_eq!(
+            driver.curve(1),
+            Ok(curve([(0, 122), (75, 124), (80, 191), (85, 255)]))
+        );
+        assert_eq!(
+            driver.curve(16),
+            Ok(curve([(0, 94), (5, 96), (84, 99), (85, 255)]))
+        );
+    }
+}
+
+/// M2 step 1 on the hardware: the board's device in the real `/sys` read
+/// through the driver layer equals its files read on their own. Only reads.
+/// Run on MS-7E61: `cargo test -p baseboard-core --test sysfs_trees --
+/// --ignored this_machine`.
+#[test]
+#[ignore = "reads the real /sys of an MS-7E61"]
+fn this_machine_reads_like_cat() {
+    let chips = SysfsSource::new(Path::new("/sys")).chips();
+    let profile = profile();
+    let hwmon = sensors::find(&chips, &profile.hwmon.name)
+        .expect("no nct6687 device")
+        .path
+        .clone();
+    let driver = SysfsDriver::new(&hwmon);
+    for channel in driver::channels(&profile, &hwmon) {
+        let pwm = channel.pwm;
+        let reading = driver::read(&driver, pwm);
+        let exists = |attribute: &str| hwmon.join(attribute).exists();
+        if exists(&format!("pwm{pwm}_enable")) {
+            let expected = match cat(&hwmon, &format!("pwm{pwm}_enable")) {
+                1 => Mode::Manual,
+                _ => Mode::Auto,
+            };
+            assert_eq!(reading.mode, Some(Ok(expected)), "{}", channel.key);
+        } else {
+            assert_eq!(reading.mode, None, "{}", channel.key);
+        }
+        if channel.capabilities.contains(Capability::CurveRead) {
+            assert_eq!(
+                reading.curve,
+                Some(Ok(cat_curve(&hwmon, pwm))),
+                "{}",
+                channel.key
+            );
+            let bits = cat(&hwmon, &format!("pwm{pwm}_auto_channels_temp"));
+            assert_eq!(bits, 1, "{}: the BIOS curves follow temp1", channel.key);
+            assert_eq!(reading.source, Some(Ok(Source::Temp(1))), "{}", channel.key);
+        } else {
+            assert_eq!(reading.curve, None, "{}", channel.key);
+        }
+        // The duty cycle may move between the two reads in automatic mode.
+        if let Some(duty) = &reading.duty {
+            let read = i64::from(*duty.as_ref().unwrap());
+            let file = cat(&hwmon, &format!("pwm{pwm}"));
+            assert!(
+                (read - file).abs() <= 5,
+                "{}: {read} and {file}",
+                channel.key
+            );
+        }
+        println!("{}: {:?}", channel.key, reading);
+    }
 }
 
 /// One channel whose curve did not pass the driver's check at load keeps a
