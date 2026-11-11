@@ -10,7 +10,8 @@
 //!
 //! Speeds and duty cycles are inscriptions, whose size does not depend on
 //! their text: a new value every second redraws them without laying out
-//! the window again.
+//! the window again. The speed is as wide as its text, which with tabular
+//! digits changes only with the number of digits.
 
 use adw::prelude::*;
 use baseboard_core::fans::driver::Mode;
@@ -219,6 +220,23 @@ fn set_markup(inscription: &gtk::Inscription, markup: &str) {
     }
 }
 
+/// Makes `inscription` as wide as `markup` in its font, with tabular
+/// digits as the `numeric` style draws them. The width changes only with
+/// the number of digits, so a new speed rarely lays out the window, and
+/// "0 rpm" takes no more room than it needs.
+fn fit_width(inscription: &gtk::Inscription, markup: &str) {
+    let layout = inscription.create_pango_layout(None);
+    layout.set_markup(markup);
+    let attributes = layout.attributes().unwrap_or_default();
+    attributes.insert(pango::AttrFontFeatures::new("tnum"));
+    layout.set_attributes(Some(&attributes));
+    let (ink, logical) = layout.pixel_extents();
+    let width = (ink.x() + ink.width()).max(logical.x() + logical.width());
+    if inscription.width_request() != width {
+        inscription.set_width_request(width);
+    }
+}
+
 /// The text of `markup` without its tags.
 fn markup_text(markup: &str) -> String {
     pango::parse_markup(markup, '\0')
@@ -242,21 +260,18 @@ impl CardWidgets {
             .column_spacing(12)
             .row_spacing(4)
             .build();
-        let icon_box = gtk::Box::builder()
-            .css_classes(["fan-icon"])
-            .halign(gtk::Align::Start)
-            .valign(gtk::Align::Center)
-            .build();
+        // The image is the tinted square (style.css): GTK draws the icon in
+        // the middle of the image, while a box would put it at its start.
         let icon = gtk::Image::builder()
             .icon_name(match card.role {
                 FanRole::Pump => "baseboard-pump-symbolic",
                 _ => "baseboard-fan-symbolic",
             })
-            .halign(gtk::Align::Center)
+            .css_classes(["fan-icon"])
+            .halign(gtk::Align::Start)
             .valign(gtk::Align::Center)
             .accessible_role(gtk::AccessibleRole::Presentation)
             .build();
-        icon_box.append(&icon);
         let texts = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .spacing(3)
@@ -276,8 +291,9 @@ impl CardWidgets {
             .orientation(gtk::Orientation::Vertical)
             .valign(gtk::Align::Center)
             .build();
-        // "1024 rpm": the unit at the size of normal text.
-        let rpm = big_value("fan-rpm", 7);
+        // "1024 rpm": the unit at the size of normal text. As wide as the
+        // text (`fit_width`), not a fixed number of characters.
+        let rpm = big_value("fan-rpm", 0);
         // A label as wide as its text: it changes only with the duty cycle,
         // not with every sample.
         let duty = gtk::Label::builder()
@@ -286,7 +302,7 @@ impl CardWidgets {
             .build();
         values.append(&rpm);
         values.append(&duty);
-        head.attach(&icon_box, 0, 0, 1, 1);
+        head.attach(&icon, 0, 0, 1, 1);
         head.attach(&texts, 1, 0, 1, 1);
         head.attach(&values, 2, 0, 1, 1);
         box_.append(&head);
@@ -529,11 +545,14 @@ impl CardWidgets {
         });
         self.duty.set_xalign(if narrow { 0.0 } else { 1.0 });
         self.rpm.set_xalign(if narrow { 0.0 } else { 1.0 });
-        self.duty.set_valign(if narrow {
-            gtk::Align::Baseline
+        // Side by side on one baseline, as in the mockup.
+        let valign = if narrow {
+            gtk::Align::BaselineFill
         } else {
             gtk::Align::Fill
-        });
+        };
+        self.rpm.set_valign(valign);
+        self.duty.set_valign(valign);
         if let BodyWidgets::Chart(chart) = &self.body {
             chart.set_compact(narrow);
         }
@@ -553,7 +572,9 @@ impl CardWidgets {
         let speed = numbers.value(Kind::Fan, card.row.value);
         let (number, unit) = speed.split_once(UNIT_SPACE).unwrap_or((&speed, ""));
         // The unit at the size of normal text: 100 / 175.
-        set_markup(&self.rpm, &big_markup(number, unit, 57));
+        let markup = big_markup(number, unit, 57);
+        fit_width(&self.rpm, &markup);
+        set_markup(&self.rpm, &markup);
         let quiet = card.maybe_empty();
         if quiet != self.card.has_css_class("quiet") {
             if quiet {

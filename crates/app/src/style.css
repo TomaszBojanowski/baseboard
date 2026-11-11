@@ -27,26 +27,21 @@ row.monospace-value .subtitle {
 }
 
 /* The icon of a header: accent on a tint of it; grey for a header without
-   speed since the start. */
-.fan-card .fan-icon {
+   speed since the start. The image is the square itself, so that GTK
+   draws the icon in its middle. */
+.fan-card image.fan-icon {
   min-width: 40px;
   min-height: 40px;
   border-radius: 10px;
   background-color: color-mix(in srgb, var(--accent-bg-color) 14%, transparent);
   color: var(--accent-color);
-}
-
-.fan-card .fan-icon image {
   -gtk-icon-size: 20px;
 }
 
-.fan-card.quiet .fan-icon {
+.fan-card.quiet image.fan-icon {
   background-color: color-mix(in srgb, currentColor 8%, transparent);
   color: inherit;
-}
-
-.fan-card.quiet .fan-icon image {
-  opacity: 0.6;
+  -gtk-icon-filter: opacity(0.6);
 }
 
 /* The mode switch of 0.2.0 only shows the mode. libadwaita draws the

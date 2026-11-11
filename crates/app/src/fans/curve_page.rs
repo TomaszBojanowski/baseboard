@@ -16,7 +16,7 @@ use baseboard_core::fans::page::{Card, SourceRow};
 use baseboard_core::sensors::Kind;
 use baseboard_core::units::{UNIT_SPACE, duty_to_percent};
 use gettextrs::{gettext, ngettext};
-use gtk::glib;
+use gtk::{glib, pango};
 
 use super::{Layout, PageContext, percent, source_name};
 use crate::fan_chart::{ChartCurve, FanChart, Reading, Size};
@@ -29,6 +29,18 @@ struct PointRow {
     duty: gtk::Label,
 }
 
+/// The parts under the chart, in two columns or in one.
+struct Columns {
+    grid: gtk::Grid,
+    points_header: gtk::Widget,
+    points: gtk::Widget,
+    source_header: gtk::Widget,
+    /// The source list and how a curve works.
+    side: gtk::Widget,
+    /// Two columns, once laid out.
+    wide: Cell<Option<bool>>,
+}
+
 pub(super) struct CurvePage {
     pub(super) key: String,
     pub(super) page: adw::NavigationPage,
@@ -39,7 +51,7 @@ pub(super) struct CurvePage {
     legend_now: gtk::Label,
     legend_target: gtk::Box,
     legend_target_label: gtk::Label,
-    columns: gtk::Box,
+    columns: Columns,
     points: gtk::ListBox,
     rows: RefCell<Vec<PointRow>>,
     shown: RefCell<Vec<CurvePoint>>,
@@ -49,14 +61,55 @@ pub(super) struct CurvePage {
     labelled: Rc<Cell<bool>>,
 }
 
-fn group(title: &str, description: Option<&str>) -> adw::PreferencesGroup {
-    let group = adw::PreferencesGroup::builder()
+fn group(title: &str) -> adw::PreferencesGroup {
+    adw::PreferencesGroup::builder()
         .title(glib::markup_escape_text(title))
+        .build()
+}
+
+/// A boxed list without rows yet.
+fn boxed_list() -> gtk::ListBox {
+    gtk::ListBox::builder()
+        .selection_mode(gtk::SelectionMode::None)
+        .css_classes(["boxed-list"])
+        .build()
+}
+
+/// The title of `list` and its description, as AdwPreferencesGroup draws
+/// them, but as a widget of its own: the page puts the headers of both
+/// columns in one grid row, so that the titles stand on one line and the
+/// lists start at one height, also when only one header has a description.
+fn list_header(list: &gtk::ListBox, title: &str, description: Option<&str>) -> gtk::Box {
+    // The spacing and margin of AdwPreferencesGroup in libadwaita 1.10.
+    let header = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(6)
+        .margin_bottom(12)
+        .valign(gtk::Align::Start)
         .build();
+    let title = gtk::Label::builder()
+        .label(title)
+        .xalign(0.0)
+        .wrap(true)
+        .natural_wrap_mode(gtk::NaturalWrapMode::Word)
+        .css_classes(["heading"])
+        .build();
+    header.append(&title);
+    list.update_relation(&[gtk::accessible::Relation::LabelledBy(&[title.upcast_ref()])]);
     if let Some(description) = description {
-        group.set_description(Some(&glib::markup_escape_text(description)));
+        let description = gtk::Label::builder()
+            .label(description)
+            .xalign(0.0)
+            .wrap(true)
+            .wrap_mode(pango::WrapMode::WordChar)
+            .css_classes(["body", "dimmed"])
+            .build();
+        header.append(&description);
+        list.update_relation(&[gtk::accessible::Relation::DescribedBy(&[
+            description.upcast_ref()
+        ])]);
     }
-    group
+    header
 }
 
 fn info_row(icon: &str, title: &str, subtitle: &str) -> adw::ActionRow {
@@ -138,22 +191,24 @@ impl CurvePage {
         content.append(&chart_card);
 
         // Points on the left; source and how it works on the right, or
-        // under them in a narrow window.
-        let columns = gtk::Box::builder()
-            .spacing(24)
+        // under them in a narrow window (`set_layout`).
+        let columns = gtk::Grid::builder()
+            .column_spacing(24)
+            .column_homogeneous(true)
             .margin_top(24)
-            .homogeneous(true)
             .build();
-        let points_group = group(
+        let points = boxed_list();
+        let points_header = list_header(
+            &points,
             &gettext("Points"),
             // Translators: under "Points" on the curve page in the preview.
             Some(&gettext("Values read from the board's controller.")),
         );
-        let points = gtk::ListBox::builder()
-            .selection_mode(gtk::SelectionMode::None)
-            .css_classes(["boxed-list"])
+        let points_body = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .valign(gtk::Align::Start)
             .build();
-        points_group.add(&points);
+        points_body.append(&points);
         let repeats = gtk::Label::builder()
             .xalign(0.0)
             .wrap(true)
@@ -163,16 +218,15 @@ impl CurvePage {
             .visible(false)
             .css_classes(["caption", "dimmed"])
             .build();
-        points_group.add(&repeats);
-        points_group.set_valign(gtk::Align::Start);
-        columns.append(&points_group);
+        points_body.append(&repeats);
 
         let side = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .spacing(24)
             .valign(gtk::Align::Start)
             .build();
-        let source_group = group(&gettext("Temperature source"), None);
+        let source_list = boxed_list();
+        let source_header = list_header(&source_list, &gettext("Temperature source"), None);
         let source_row = adw::ActionRow::builder().use_markup(false).build();
         let thermometer = gtk::Image::from_icon_name("baseboard-temperature-symbolic");
         thermometer.set_accessible_role(gtk::AccessibleRole::Presentation);
@@ -187,9 +241,9 @@ impl CurvePage {
             "Cannot be changed",
         ))]);
         source_row.add_suffix(&lock);
-        source_group.add(&source_row);
-        side.append(&source_group);
-        let how = group(&gettext("How the curve works"), None);
+        source_list.append(&source_row);
+        side.append(&source_list);
+        let how = group(&gettext("How the curve works"));
         how.add(&info_row(
             "baseboard-curve-symbolic",
             &gettext("The duty cycle changes linearly between the points"),
@@ -201,7 +255,6 @@ impl CurvePage {
             &gettext("Neither the app nor the helper has to run for it."),
         ));
         side.append(&how);
-        columns.append(&side);
         content.append(&columns);
 
         let clamp = adw::Clamp::builder()
@@ -243,7 +296,14 @@ impl CurvePage {
             legend_now,
             legend_target,
             legend_target_label,
-            columns,
+            columns: Columns {
+                grid: columns,
+                points_header: points_header.upcast(),
+                points: points_body.upcast(),
+                source_header: source_header.upcast(),
+                side: side.upcast(),
+                wide: Cell::new(None),
+            },
             points,
             rows: RefCell::new(Vec::new()),
             shown: RefCell::new(Vec::new()),
@@ -254,11 +314,35 @@ impl CurvePage {
     }
 
     pub(super) fn set_layout(&self, layout: Layout) {
-        self.columns.set_orientation(if layout == Layout::Wide {
-            gtk::Orientation::Horizontal
+        let columns = &self.columns;
+        let wide = layout == Layout::Wide;
+        if columns.wide.replace(Some(wide)) == Some(wide) {
+            return;
+        }
+        let parts = [
+            &columns.points_header,
+            &columns.points,
+            &columns.source_header,
+            &columns.side,
+        ];
+        for part in parts {
+            if part.parent().is_some() {
+                columns.grid.remove(part);
+            }
+        }
+        // Wide: the headers in the first row, the lists in the second.
+        // Otherwise one column.
+        let places = if wide {
+            [(0, 0), (0, 1), (1, 0), (1, 1)]
         } else {
-            gtk::Orientation::Vertical
-        });
+            [(0, 0), (0, 1), (0, 2), (0, 3)]
+        };
+        for (part, (column, row)) in parts.into_iter().zip(places) {
+            columns.grid.attach(part, column, row, 1, 1);
+        }
+        columns
+            .source_header
+            .set_margin_top(if wide { 0 } else { 24 });
     }
 
     /// The values of the header's card; `note` says what this version does
