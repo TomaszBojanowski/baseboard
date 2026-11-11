@@ -2,7 +2,7 @@
 
 A native GNOME app for the sensors and fans of motherboards on Linux.
 
-Website: https://baseboard.bojanowski.me (coming soon)
+Website: https://baseboard.bojanowski.me
 
 > **Early version.** Baseboard has finished its first milestone (M1): it only reads. There are no releases or packages yet; build it from source. The design, in Polish, is in [docs/PROJEKT.md](docs/PROJEKT.md).
 
@@ -50,6 +50,20 @@ These are ideas without a schedule, and they may not happen:
 - onboard RGB lighting (M3);
 - power profiles and restarting into the firmware setup (M4);
 - help with BIOS updates without flashing from the running system (M5).
+
+## Kernel work
+
+Support for this board in the Linux kernel is being developed alongside the app, in the mainline kernel tree.
+
+hwmon (sensors and fans):
+
+- In the mainline tree, not in a released kernel yet: the board added to the [list of tested boards](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=f9c5d495e22f77c0455dacfca627e06219f05881) in the `nct6683` documentation (`f9c5d495e22f`).
+- In `hwmon-next`: a [driver for the voltage sensors of the RGB controller](https://patch.msgid.link/20261107082821.8257-1-tomasz@bojanowski.me) (`msi_mystic_light`) with documentation and a MAINTAINERS entry; in `nct6683`, the [32 mV voltage scale removed](https://patch.msgid.link/20261107150619.297999-1-tomasz@bojanowski.me), the [fan curves reported](https://patch.msgid.link/20261109015759.24284-1-tomasz@bojanowski.me) with documentation and [manual fan control restored after resume](https://patch.msgid.link/20261109163328.61787-1-tomasz@bojanowski.me); Tested-by on [four changes to the `msi_mystic_light` driver](https://patchwork.kernel.org/series/1205153/).
+- In review: [two `nct6683` patches](https://lore.kernel.org/linux-hwmon/20261109223442.509238-1-tomasz@bojanowski.me/) that make the fan curves writable, with documentation.
+
+Sound:
+
+- In released kernels: a [usb-audio mixer mapping](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=7b457ae8cf711831f19d20963f5ed2fdf4842d3a) for this board (`7b457ae8cf71`).
 
 ## Report your board
 
