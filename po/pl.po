@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: baseboard\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-11 23:55+0100\n"
+"POT-Creation-Date: 2026-11-12 00:41+0100\n"
 "PO-Revision-Date: 2026-11-11 20:30+0100\n"
 "Last-Translator: Tomasz Bojanowski <tomasz@bojanowski.me>\n"
 "Language-Team: \n"
@@ -498,28 +498,28 @@ msgstr "Ukryjesz je w Preferencjach, w zakładce Odczyty."
 
 #. Translators: a button on a fan card that opens a page with the
 #. large chart of its curve and the values of its points.
-#: crates/app/src/fans/card.rs:474
+#: crates/app/src/fans/card.rs:477
 msgid "Curve Details"
 msgstr "Szczegóły krzywej"
 
 #. Translators: the duty cycle of a fan moving to the one
 #. its curve gives, e.g. "duty 30 % → 38 %".
-#: crates/app/src/fans/card.rs:569 crates/app/src/fans/card.rs:730
+#: crates/app/src/fans/card.rs:571 crates/app/src/fans/card.rs:732
 #, rust-format
 msgid "duty {duty} → {target}"
 msgstr "wypełnienie {duty} → {target}"
 
 #. Translators: the duty cycle of a fan, e.g. "duty 49 %".
-#: crates/app/src/fans/card.rs:574 crates/app/src/fans/card.rs:641
+#: crates/app/src/fans/card.rs:576 crates/app/src/fans/card.rs:643
 #, rust-format
 msgid "duty {duty}"
 msgstr "wypełnienie {duty}"
 
-#: crates/app/src/fans/card.rs:657
+#: crates/app/src/fans/card.rs:659
 msgid "In automatic mode the controller changes the duty cycle gradually."
 msgstr "W automacie kontroler zmienia wypełnienie stopniowo."
 
-#: crates/app/src/fans/card.rs:662
+#: crates/app/src/fans/card.rs:664
 #, rust-format
 msgid "{duty} stops the fan"
 msgstr "{duty} zatrzymuje wentylator"
@@ -527,47 +527,47 @@ msgstr "{duty} zatrzymuje wentylator"
 #. Translators: read by screen readers for the button that opens
 #. the details of the curve of a fan; {name} is the fan, e.g.
 #. "CPU fan 1".
-#: crates/app/src/fans/card.rs:681
+#: crates/app/src/fans/card.rs:683
 #, rust-format
 msgid "Curve details: {name}"
 msgstr "Szczegóły krzywej: {name}"
 
 #. Translators: read by screen readers on a fan card, e.g.
 #. "mode: Automatic BIOS".
-#: crates/app/src/fans/card.rs:696
+#: crates/app/src/fans/card.rs:698
 #, rust-format
 msgid "mode: {mode}"
 msgstr "tryb: {mode}"
 
 #. Translators: in place of the mode switch of a fan header whose
 #. channel nobody has checked on this board.
-#: crates/app/src/fans/card.rs:702 crates/app/src/fans/card.rs:802
+#: crates/app/src/fans/card.rs:704 crates/app/src/fans/card.rs:819
 msgid "This header was not checked on this board."
 msgstr "Złącza nie sprawdzono na tej płycie."
 
 #. Translators: read by screen readers next to the mode of a fan, which
 #. this version does not change.
-#: crates/app/src/fans/card.rs:777 crates/app/src/fans/curve_page.rs:247
+#: crates/app/src/fans/card.rs:779 crates/app/src/fans/curve_page.rs:247
 msgid "Cannot be changed"
 msgstr "Nie można zmienić"
 
-#: crates/app/src/fans/card.rs:815
+#: crates/app/src/fans/card.rs:827
 msgid "Automatic BIOS"
 msgstr "Automat BIOS"
 
-#: crates/app/src/fans/card.rs:816
+#: crates/app/src/fans/card.rs:828
 msgid "Manual"
 msgstr "Ręczny"
 
 #. Translators: in the status box of a fan card when the kernel driver
 #. gives no mode.
-#: crates/app/src/fans/card.rs:823
+#: crates/app/src/fans/card.rs:835
 msgid "The mode could not be read"
 msgstr "Nie udało się odczytać trybu"
 
 #. Translators: in the status box of a fan card, e.g. "Mode:
 #. Automatic BIOS"; {mode} is shown in bold.
-#: crates/app/src/fans/card.rs:832
+#: crates/app/src/fans/card.rs:844
 #, rust-format
 msgid "Mode: {mode}"
 msgstr "Tryb: {mode}"
@@ -576,23 +576,23 @@ msgstr "Tryb: {mode}"
 #. Translators: on a fan card when the fan has not turned since
 #. Baseboard started; nothing tells an empty header from a fan that
 #. does not start.
-#: crates/app/src/fans/card.rs:845
+#: crates/app/src/fans/card.rs:857
 msgid "No speed since the app started: the header may be empty."
 msgstr "Brak obrotów od startu aplikacji: złącze może być puste."
 
 #. Translators: the lowest duty cycle of a fan, e.g. "minimum 30 %".
-#: crates/app/src/fans/card.rs:856
+#: crates/app/src/fans/card.rs:868
 #, rust-format
 msgid "minimum {duty}"
 msgstr "minimum {duty}"
 
 #. Translators: nobody has yet checked on this board that the
 #. reading belongs to this header.
-#: crates/app/src/fans/card.rs:868
+#: crates/app/src/fans/card.rs:880
 msgid "header not tested"
 msgstr "złącze nietestowane"
 
-#: crates/app/src/fans/card.rs:874
+#: crates/app/src/fans/card.rs:886
 #, rust-format
 msgid "source: {source}"
 msgstr "źródło: {source}"

@@ -31,7 +31,7 @@ use gtk::{glib, pango};
 
 use super::layout::{CardHead, HeadNeeds, HeadParts, PageLayout};
 use super::slot::StatusSlot;
-use super::{Layout, PageContext, percent, source_name};
+use super::{Layout, PageContext, keep_last_words, percent, source_name};
 use crate::fan_chart::{ChartCurve, FanChart, Reading, Size};
 use crate::overview;
 
@@ -798,17 +798,27 @@ pub(super) fn unchecked_box() -> (gtk::Box, gtk::Label) {
         .valign(gtk::Align::Center)
         .hexpand(true)
         .build();
-    lines.append(&caption(
-        // Translators: in place of the mode switch of a fan header whose
-        // channel nobody has checked on this board.
-        &gettext("This header was not checked on this board."),
-        false,
-    ));
-    let empty = caption(&empty_text(), true);
+    let [checked, empty] = unchecked_texts();
+    lines.append(&caption(&checked, false));
+    let empty = caption(&empty, true);
     lines.append(&empty);
     frame.append(&icon);
     frame.append(&lines);
     (frame, empty)
+}
+
+// The two sentences of the box of an unchecked header, neither leaving
+// fewer than three words alone on its last line, as the description of the
+// temperature source (D60). No doc comment right above: xgettext would take
+// it for translators.
+
+fn unchecked_texts() -> [String; 2] {
+    let checked = gettext(
+        // Translators: in place of the mode switch of a fan header whose
+        // channel nobody has checked on this board.
+        "This header was not checked on this board.",
+    );
+    [checked, empty_text()].map(|text| keep_last_words(&text, 3))
 }
 
 /// The name of a mode, as the mode switch of the editor will name it.
@@ -905,6 +915,19 @@ mod tests {
         assert_eq!(mode_markup(Some(Mode::Auto)), "Mode: <b>Automatic BIOS</b>");
         assert_eq!(mode_markup(Some(Mode::Manual)), "Mode: <b>Manual</b>");
         assert_eq!(mode_markup(None), "The mode could not be read");
+    }
+
+    /// The box of an unchecked header never leaves fewer than three words
+    /// alone on the last line of a sentence.
+    #[test]
+    fn unchecked_box_keeps_last_words() {
+        assert_eq!(
+            unchecked_texts(),
+            [
+                "This header was not checked on\u{a0}this\u{a0}board.",
+                "No speed since the app started: the header may\u{a0}be\u{a0}empty.",
+            ]
+        );
     }
 
     /// The card of a CPU fan in automatic mode at `rpm`, its duty cycle
