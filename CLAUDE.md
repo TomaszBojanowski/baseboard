@@ -47,7 +47,7 @@ Zasady lokalne właściciela (notatki na jego komputerze, uprawnienia, git, pami
 
 - gettext od pierwszego kodu. Każdy tekst widoczny dla użytkownika przechodzi przez `gettext`/`ngettext`/`pgettext`. msgid po angielsku.
 - Nowy lub zmieniony tekst: zaktualizuj `po/POTFILES.in` i `po/pl.po` w tym samym commicie.
-- Plik `.desktop`, metainfo i akcje polkit tłumaczone przez `i18n.merge_file`.
+- Plik `.desktop`, metainfo i akcje polkit tłumaczone przez `msgfmt` w meson: `custom_target` zależny od `po/LINGUAS` i plików `.po` (nie `i18n.merge_file`, który nie przebudowuje pliku po zmianie tłumaczeń).
 - Nie składaj zdań z kawałków. Liczby formatuj zgodnie z lokalizacją.
 
 ## Kod i jakość

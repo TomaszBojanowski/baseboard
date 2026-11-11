@@ -1,10 +1,25 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-desktop_file = i18n.merge_file(
+# The .desktop file and the metainfo take their translations from po/ with
+# msgfmt, as i18n.merge_file does. merge_file depends only on its input, so
+# a changed translation would not rebuild them; these targets depend on
+# po/LINGUAS and every .po file it lists.
+fs = import('fs')
+msgfmt = find_program('msgfmt')
+po_dir = meson.project_source_root() / 'po'
+po_files = files('../po/LINGUAS')
+foreach line : fs.read('../po/LINGUAS').split('\n')
+  lang = line.strip()
+  if lang != '' and not lang.startswith('#')
+    po_files += files('../po' / lang + '.po')
+  endif
+endforeach
+
+desktop_file = custom_target('desktop-file',
   input: app_id + '.desktop.in',
   output: app_id + '.desktop',
-  type: 'desktop',
-  po_dir: '../po',
+  command: [msgfmt, '--desktop', '--template=@INPUT@', '-d', po_dir, '-o', '@OUTPUT@'],
+  depend_files: po_files,
   install: true,
   install_dir: datadir / 'applications',
 )
@@ -14,10 +29,11 @@ if desktop_file_validate.found()
   test('validate-desktop', desktop_file_validate, args: [desktop_file])
 endif
 
-metainfo_file = i18n.merge_file(
+metainfo_file = custom_target('metainfo-file',
   input: app_id + '.metainfo.xml.in',
   output: app_id + '.metainfo.xml',
-  po_dir: '../po',
+  command: [msgfmt, '--xml', '--template=@INPUT@', '-d', po_dir, '-o', '@OUTPUT@'],
+  depend_files: po_files,
   install: true,
   install_dir: datadir / 'metainfo',
 )
