@@ -8,10 +8,12 @@
 //! - Between two points the duty cycle follows a straight line.
 //! - Below the first point and above the last one it is the duty cycle of
 //!   that point.
-//! - The controller rounds the line up to a whole step of 0–255. Seen on
-//!   MS-7E61 (§4): every settled sample of six channels over 939 s at
-//!   temp1 42–73 °C, with the steps between values exactly where rounding
-//!   up puts them. The steep parts above 75 °C are not checked yet.
+//! - The controller rounds the line up to a whole step of 0–255, and it
+//!   computes from whole degrees, as the source reports them. Seen on
+//!   MS-7E61 (§4): every settled sample of six channels at temp1 42–86 °C,
+//!   with the steps between values exactly where rounding up puts them;
+//!   at the 84 → 85 °C jump of SYS_FAN1 and 2 the output held its value
+//!   through every reading of 84 °C.
 //! - Points repeated at the end (the BIOS fills points 5–7 with point 4)
 //!   and steps (two points at one temperature) make segments of zero width.
 //!   The model never interpolates over them: a temperature between two
