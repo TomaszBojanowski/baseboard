@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use adw::prelude::*;
-use baseboard_core::overview::Group;
+use baseboard_core::overview::{self as model, Group, RowId, Visibility};
 use baseboard_core::units::{Numbers, UNIT_SPACE};
 use gettextrs::gettext;
 use gtk::{gio, glib};
@@ -24,6 +24,8 @@ pub const INTERVAL: &str = "refresh-interval";
 pub const SENSORS_LABELS: &str = "sensors-labels";
 /// The keys of hidden rows (`RowId::key`), sorted.
 pub const HIDDEN: &str = "hidden-readings";
+/// The keys of rows hidden by default that were turned on (D42), sorted.
+pub const SHOWN: &str = "shown-readings";
 
 /// The longest refresh interval the schema allows.
 const MAX_INTERVAL: u32 = 10;
@@ -45,24 +47,56 @@ pub fn set_interval(settings: &gio::Settings, seconds: u32) -> Result<(), glib::
     settings.set_uint(INTERVAL, seconds.clamp(1, MAX_INTERVAL))
 }
 
-/// The keys of the hidden rows.
-pub fn hidden(settings: &gio::Settings) -> HashSet<String> {
+/// The rows turned off and on.
+pub fn visibility(settings: &gio::Settings) -> Visibility {
+    Visibility {
+        hidden: listed(settings, HIDDEN),
+        shown: listed(settings, SHOWN),
+    }
+}
+
+/// Turns the row with `id` on or off. A row hidden by default (D42) is on
+/// while its key is in the shown readings; any other row is off while its
+/// key is in the hidden ones.
+pub fn set_visible(settings: &gio::Settings, id: &RowId, on: bool) -> Result<(), glib::BoolError> {
+    let key = id.key();
+    if model::hidden_by_default(id) {
+        set_listed(settings, SHOWN, &key, on)?;
+        if on {
+            set_listed(settings, HIDDEN, &key, false)?;
+        }
+        Ok(())
+    } else {
+        set_listed(settings, HIDDEN, &key, !on)
+    }
+}
+
+/// The keys in the list `name`.
+fn listed(settings: &gio::Settings, name: &str) -> HashSet<String> {
     settings
-        .strv(HIDDEN)
+        .strv(name)
         .iter()
         .map(|key| key.to_string())
         .collect()
 }
 
-/// Hides the row with `key`, or shows it again. The list stays sorted and
-/// has each key once.
-pub fn set_hidden(settings: &gio::Settings, key: &str, hide: bool) -> Result<(), glib::BoolError> {
-    let mut keys: Vec<String> = hidden(settings).into_iter().filter(|k| k != key).collect();
-    if hide {
+/// Puts `key` into the list `name`, or takes it out. The list stays sorted
+/// and has each key once.
+fn set_listed(
+    settings: &gio::Settings,
+    name: &str,
+    key: &str,
+    present: bool,
+) -> Result<(), glib::BoolError> {
+    let mut keys: Vec<String> = listed(settings, name)
+        .into_iter()
+        .filter(|k| k != key)
+        .collect();
+    if present {
         keys.push(key.to_owned());
     }
     keys.sort();
-    settings.set_strv(HIDDEN, keys)
+    settings.set_strv(name, keys)
 }
 
 /// What the dialog shows besides the settings.
@@ -233,7 +267,8 @@ fn readings_page(setup: &DialogSetup) -> adw::PreferencesPage {
         .icon_name("view-reveal-symbolic")
         .description(gettext(
             "Readings that are turned off are not shown on the Overview page, \
-             for example headers without a fan.",
+             for example headers without a fan. The numbered temperature \
+             sensors of drives are off until turned on.",
         ))
         .build();
     if setup.groups.is_empty() {
@@ -247,7 +282,7 @@ fn readings_page(setup: &DialogSetup) -> adw::PreferencesPage {
         page.add(&group);
         return page;
     }
-    let hidden = hidden(setup.settings);
+    let visibility = visibility(setup.settings);
     for data in setup.groups {
         let group = adw::PreferencesGroup::builder()
             .title(glib::markup_escape_text(&overview::group_title(data.kind)))
@@ -256,7 +291,7 @@ fn readings_page(setup: &DialogSetup) -> adw::PreferencesPage {
             group.set_description(Some(&glib::markup_escape_text(&description)));
         }
         for row in data.rows.iter().chain(&data.auxiliary) {
-            let key = row.id.key();
+            let id = row.id.clone();
             let title = overview::name(&row.name, setup.numbers);
             let line = adw::ActionRow::builder()
                 .use_markup(false)
@@ -275,7 +310,7 @@ fn readings_page(setup: &DialogSetup) -> adw::PreferencesPage {
                 .build();
             line.add_suffix(&value);
             let switch = gtk::Switch::builder()
-                .active(!hidden.contains(&key))
+                .active(visibility.shows(&id))
                 .valign(gtk::Align::Center)
                 .build();
             switch.update_property(&[gtk::accessible::Property::Label(&title)]);
@@ -285,7 +320,7 @@ fn readings_page(setup: &DialogSetup) -> adw::PreferencesPage {
                 #[strong(rename_to = settings)]
                 setup.settings,
                 move |switch| {
-                    if let Err(e) = set_hidden(&settings, &key, !switch.is_active()) {
+                    if let Err(e) = set_visible(&settings, &id, switch.is_active()) {
                         eprintln!("baseboard: cannot save the hidden readings: {e}");
                     }
                 }
@@ -341,7 +376,7 @@ mod tests {
             return;
         };
         assert_eq!(options(&settings), Options::default());
-        assert!(hidden(&settings).is_empty());
+        assert_eq!(visibility(&settings), Visibility::default());
     }
 
     #[test]
@@ -377,23 +412,67 @@ mod tests {
         }
     }
 
+    fn id(chip: &str, channel: &str, device: &str) -> RowId {
+        RowId {
+            chip: chip.into(),
+            device: Some(PathBuf::from(device)),
+            channel: channel.into(),
+        }
+    }
+
+    fn stored(settings: &gio::Settings, name: &str) -> Vec<String> {
+        settings.strv(name).iter().map(|k| k.to_string()).collect()
+    }
+
     #[test]
     fn hidden_readings() {
         let Some(settings) = settings("hidden") else {
             return;
         };
-        let pump = "nct6687/fan2@devices/platform/nct6683.2592";
-        let aux = "nct6687/fan4@devices/platform/nct6683.2592";
-        set_hidden(&settings, pump, true).unwrap();
-        set_hidden(&settings, aux, true).unwrap();
-        set_hidden(&settings, pump, true).unwrap();
-        let stored: Vec<String> = settings
-            .strv(HIDDEN)
-            .iter()
-            .map(|k| k.to_string())
-            .collect();
-        assert_eq!(stored, [pump, aux], "sorted, each once");
-        set_hidden(&settings, pump, false).unwrap();
-        assert_eq!(hidden(&settings), HashSet::from([aux.to_owned()]));
+        let board = "devices/platform/nct6683.2592";
+        let pump = id("nct6687", "fan2", board);
+        let aux = id("nct6687", "fan4", board);
+        set_visible(&settings, &pump, false).unwrap();
+        set_visible(&settings, &aux, false).unwrap();
+        set_visible(&settings, &pump, false).unwrap();
+        assert_eq!(
+            stored(&settings, HIDDEN),
+            [pump.key(), aux.key()],
+            "sorted, each once"
+        );
+        set_visible(&settings, &pump, true).unwrap();
+        assert_eq!(stored(&settings, HIDDEN), [aux.key()]);
+        assert!(stored(&settings, SHOWN).is_empty());
+        let visibility = visibility(&settings);
+        assert!(visibility.shows(&pump));
+        assert!(!visibility.shows(&aux));
+    }
+
+    /// D42: a drive's numbered sensor is off by default and on while its
+    /// key is in the shown readings; the composite temperature is like any
+    /// other row.
+    #[test]
+    fn disk_sensors_turned_on() {
+        let Some(settings) = settings("shown") else {
+            return;
+        };
+        let disk = "devices/pci0000:00/0000:00:01.2/0000:04:00.0/nvme/nvme0";
+        let sensor = id("nvme", "temp2", disk);
+        let composite = id("nvme", "temp1", disk);
+        assert!(!visibility(&settings).shows(&sensor));
+        assert!(visibility(&settings).shows(&composite));
+
+        set_visible(&settings, &sensor, true).unwrap();
+        assert_eq!(stored(&settings, SHOWN), [sensor.key()]);
+        assert!(stored(&settings, HIDDEN).is_empty());
+        assert!(visibility(&settings).shows(&sensor));
+
+        set_visible(&settings, &sensor, false).unwrap();
+        assert!(stored(&settings, SHOWN).is_empty());
+        assert!(!visibility(&settings).shows(&sensor));
+
+        set_visible(&settings, &composite, false).unwrap();
+        assert_eq!(stored(&settings, HIDDEN), [composite.key()]);
+        assert!(!visibility(&settings).shows(&composite));
     }
 }

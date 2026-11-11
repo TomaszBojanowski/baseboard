@@ -11,7 +11,9 @@ use std::collections::HashSet;
 
 use baseboard_core::fans::driver;
 use baseboard_core::labels::{self, UserLabels};
-use baseboard_core::overview::{self, Board, Context, Group, GroupKind, Name, Rating, Subtitle};
+use baseboard_core::overview::{
+    self, Board, Context, Group, GroupKind, Name, Rating, Row, Subtitle, Visibility,
+};
 use baseboard_core::profile::{self, FanRole, Profile, TempRole, VoltageRole};
 use baseboard_core::sensors::{self, Chip, Kind, SensorSource, SysfsSource};
 use baseboard_core::system;
@@ -459,12 +461,19 @@ fn graphics_card_disks_and_memory() {
             sensor: None
         }
     );
-    // Without lm-sensors' `ignore`, the other sensors of a disk show too,
-    // with their labels.
-    assert!(disks.rows.iter().any(|r| matches!(
-        &r.name,
-        Name::Disk { model, sensor: Some(label) } if model == "CT2000P3PSSD8" && label == "Sensor 1"
-    )));
+    // Without lm-sensors' `ignore`, the numbered sensors of a disk are in the
+    // model too, by number; the page leaves them out by default (D42).
+    let sensor = disks
+        .rows
+        .iter()
+        .find(|r| {
+            matches!(
+                &r.name,
+                Name::DiskSensor { model, number: 1 } if model == "CT2000P3PSSD8"
+            )
+        })
+        .unwrap();
+    assert!(overview::hidden_by_default(&sensor.id));
 
     let memory = group(&groups, GroupKind::Memory);
     assert_eq!(
@@ -673,7 +682,13 @@ fn hidden_readings() {
         .into_iter()
         .chain(memory.iter().cloned())
         .collect();
-    let shown = overview::visible(&all, &hidden);
+    let shown = overview::visible(
+        &all,
+        &Visibility {
+            hidden,
+            ..Default::default()
+        },
+    );
     let fans = group(&shown, GroupKind::Fans);
     assert_eq!(fans.rows.len(), group(&all, GroupKind::Fans).rows.len() - 1);
     assert!(fans.rows.iter().all(|r| r.id.key() != pump));
@@ -683,8 +698,77 @@ fn hidden_readings() {
     );
     assert!(shown.iter().all(|g| g.kind != GroupKind::Memory));
     assert_eq!(shown.len(), all.len() - 1);
-    // Nothing hidden: the same model.
-    assert_eq!(overview::visible(&all, &HashSet::new()), all);
+    // Nothing turned off and every row hidden by default turned on: the
+    // same model.
+    let every: HashSet<String> = rows(&all)
+        .filter(|r| overview::hidden_by_default(&r.id))
+        .map(|r| r.id.key())
+        .collect();
+    let all_on = Visibility {
+        shown: every,
+        ..Default::default()
+    };
+    assert_eq!(overview::visible(&all, &all_on), all);
+}
+
+/// Every row of the model, the folded ones too.
+fn rows(groups: &[Group]) -> impl Iterator<Item = &Row> {
+    groups
+        .iter()
+        .flat_map(|g| g.rows.iter().chain(&g.auxiliary))
+}
+
+/// D42: the numbered temperature sensors of an NVMe drive are off until the
+/// user turns them on, the composite temperature is always on, and turning
+/// a row off wins over turning it on. Natively and in Flatpak alike: the
+/// rule needs no lm-sensors configuration (the trees are raw sysfs).
+#[test]
+fn disk_sensors_hidden_by_default() {
+    let all = model(TREES[0]);
+    let disks = group(&all, GroupKind::Disks);
+    let (extra, composite): (Vec<&Row>, Vec<&Row>) = disks
+        .rows
+        .iter()
+        .partition(|r| overview::hidden_by_default(&r.id));
+    assert!(!extra.is_empty());
+    assert!(
+        extra
+            .iter()
+            .all(|r| matches!(r.name, Name::DiskSensor { .. }))
+    );
+    assert!(!composite.is_empty());
+    assert!(composite.iter().all(|r| r.id.channel == "temp1"));
+
+    // By default only the composite temperatures.
+    let page = overview::visible(&all, &Visibility::default());
+    assert_eq!(group(&page, GroupKind::Disks).rows.len(), composite.len());
+
+    // One sensor turned on.
+    let key = extra[0].id.key();
+    let on = Visibility {
+        shown: HashSet::from([key.clone()]),
+        ..Default::default()
+    };
+    let page = overview::visible(&all, &on);
+    let disks_on = &group(&page, GroupKind::Disks).rows;
+    assert_eq!(disks_on.len(), composite.len() + 1);
+    assert!(disks_on.iter().any(|r| r.id.key() == key));
+
+    // Turned on and off: off wins.
+    let both = Visibility {
+        hidden: HashSet::from([key.clone()]),
+        shown: HashSet::from([key]),
+    };
+    assert!(!both.shows(&extra[0].id));
+
+    // No other device has rows hidden by default.
+    for tree in TREES {
+        assert!(
+            rows(&model(tree))
+                .filter(|r| overview::hidden_by_default(&r.id))
+                .all(|r| r.id.chip == "nvme" && r.id.channel != "temp1")
+        );
+    }
 }
 
 #[test]

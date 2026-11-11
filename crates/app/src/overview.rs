@@ -7,11 +7,12 @@
 //! are made again only when the rows change, otherwise their texts are set.
 
 use std::cell::{Cell, OnceCell, RefCell};
-use std::collections::HashSet;
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
-use baseboard_core::overview::{self, Group, GroupKind, Name, Rating, Row, RowId, Subtitle};
+use baseboard_core::overview::{
+    self, Group, GroupKind, Name, Rating, Row, RowId, Subtitle, Visibility,
+};
 use baseboard_core::profile::{FanRole, TempRole, VoltageRole};
 use baseboard_core::sensors::Kind;
 use baseboard_core::system;
@@ -87,6 +88,12 @@ pub fn name(name: &Name, numbers: &Numbers) -> String {
             Some(sensor) => format!("{model} · {sensor}"),
             None => model.clone(),
         },
+        Name::DiskSensor { model, number } => {
+            // Translators: {} is the number a drive gives one of its
+            // temperature sensors, 1 to 8; their place is not documented.
+            let sensor = numbered(gettext("Temperature sensor {}"), number);
+            format!("{model} · {sensor}")
+        }
         // Translators: {} counts the memory modules from 1.
         Name::MemoryModule(number) => numbered(gettext("Memory module {}"), number),
         Name::WifiCard => gettext("Wi-Fi card"),
@@ -489,8 +496,8 @@ mod imp {
         pub(super) numbers: OnceCell<Numbers>,
         /// The latest sample with every row; `None` before the first one.
         pub(super) last: RefCell<Option<Vec<Group>>>,
-        /// The keys of the rows not shown (settings).
-        pub(super) hidden: RefCell<HashSet<String>>,
+        /// The rows turned off and on in the settings.
+        pub(super) visibility: RefCell<Visibility>,
         /// How the latest sample was read; `None` before the first one.
         pub(super) reading: RefCell<Option<Status>>,
         /// Told when that changes (the window passes it on).
@@ -569,9 +576,9 @@ impl OverviewPage {
         }
     }
 
-    /// The rows not to show, by their keys; the page changes at once.
-    pub fn set_hidden(&self, hidden: HashSet<String>) {
-        self.imp().hidden.replace(hidden);
+    /// The rows turned off and on in the settings; the page changes at once.
+    pub fn set_visibility(&self, visibility: Visibility) {
+        self.imp().visibility.replace(visibility);
         self.display();
     }
 
@@ -624,7 +631,7 @@ impl OverviewPage {
             None => return,
             Some(all) => (
                 !all.is_empty(),
-                overview::visible(all, &imp.hidden.borrow()),
+                overview::visible(all, &imp.visibility.borrow()),
             ),
         };
         // Without any readings the status page says more than the banner.

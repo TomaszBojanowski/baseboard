@@ -94,12 +94,44 @@ impl RowId {
     }
 }
 
-/// The groups without the rows whose [`RowId::key`] is in `hidden`, and
-/// without groups left empty (§5.1: hidden readings and headers).
-pub fn visible(groups: &[Group], hidden: &HashSet<String>) -> Vec<Group> {
+/// What the user turned off or on in the settings (§5.1), by
+/// [`RowId::key`]: rows turned off, and rows hidden by default
+/// ([`hidden_by_default`]) that were turned on.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Visibility {
+    pub hidden: HashSet<String>,
+    pub shown: HashSet<String>,
+}
+
+impl Visibility {
+    /// Whether the row with `id` is on the page.
+    pub fn shows(&self, id: &RowId) -> bool {
+        let key = id.key();
+        !self.hidden.contains(&key) && (!hidden_by_default(id) || self.shown.contains(&key))
+    }
+}
+
+/// Rows left off the page until the user turns them on (D42): the
+/// temperature sensors 1–8 of an NVMe drive, `temp2`–`temp9` of the `nvme`
+/// driver. The driver reads them from the drive's SMART log without saying
+/// where they are, and the drives do not set thresholds for them. The
+/// composite temperature, `temp1`, is the one the drive checks against its
+/// own limits; it is always shown.
+pub fn hidden_by_default(id: &RowId) -> bool {
+    id.chip == "nvme"
+        && id
+            .channel
+            .strip_prefix("temp")
+            .and_then(|n| n.parse::<u8>().ok())
+            .is_some_and(|n| (2..=9).contains(&n))
+}
+
+/// The groups with only the rows `visibility` shows, and without groups
+/// left empty (§5.1: hidden readings and headers).
+pub fn visible(groups: &[Group], visibility: &Visibility) -> Vec<Group> {
     let shown = |rows: &[Row]| -> Vec<Row> {
         rows.iter()
-            .filter(|row| !hidden.contains(&row.id.key()))
+            .filter(|row| visibility.shows(&row.id))
             .cloned()
             .collect()
     };
@@ -164,11 +196,15 @@ pub enum Name {
     /// The board's backup battery, `VBAT` of the `nct6683` driver.
     BatteryVoltage,
     /// A disk: its model from sysfs, not translated, and the driver's label
-    /// of a sensor other than the composite temperature.
+    /// of a sensor other than the composite temperature and the numbered
+    /// ones.
     Disk {
         model: String,
         sensor: Option<String>,
     },
+    /// A numbered temperature sensor of a disk, "Sensor 1" of the `nvme`
+    /// driver: the model and the number (D42).
+    DiskSensor { model: String, number: u8 },
     /// A memory module by its slot on the board, e.g. `DIMMA2`, from the
     /// udev database; not translated.
     MemorySlot(String),
@@ -541,8 +577,14 @@ fn generic_name(
     match chip.name.as_str() {
         "nvme" => {
             if let Some(model) = device.and_then(|d| attribute(context.sysfs_root, d, "model")) {
-                let sensor =
-                    (reading.label.as_deref() != Some("Composite")).then(|| driver_label(reading));
+                let label = reading.label.as_deref();
+                if let Some(number) = label
+                    .and_then(|l| l.strip_prefix("Sensor "))
+                    .and_then(|n| n.parse().ok())
+                {
+                    return Name::DiskSensor { model, number };
+                }
+                let sensor = (label != Some("Composite")).then(|| driver_label(reading));
                 return Name::Disk { model, sensor };
             }
         }

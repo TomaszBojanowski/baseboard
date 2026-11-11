@@ -175,8 +175,10 @@ mod imp {
                                 .set_options(preferences::options(settings));
                             obj.show_selected_page_title();
                         }
-                        preferences::HIDDEN => {
-                            obj.imp().overview.set_hidden(preferences::hidden(settings));
+                        preferences::HIDDEN | preferences::SHOWN => {
+                            obj.imp()
+                                .overview
+                                .set_visibility(preferences::visibility(settings));
                         }
                         _ => {}
                     }
@@ -221,7 +223,7 @@ impl BaseboardWindow {
         let settings = self.settings();
         setup.options = preferences::options(settings);
         let overview = &self.imp().overview;
-        overview.set_hidden(preferences::hidden(settings));
+        overview.set_visibility(preferences::visibility(settings));
         overview.start(setup);
         self.update_reading();
     }
