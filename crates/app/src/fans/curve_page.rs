@@ -226,7 +226,13 @@ impl CurvePage {
             .valign(gtk::Align::Start)
             .build();
         let source_list = boxed_list();
-        let source_header = list_header(&source_list, &gettext("Temperature source"), None);
+        let source_header = list_header(
+            &source_list,
+            &gettext("Temperature source"),
+            // Translators: under "Temperature source" on the curve page;
+            // "it" is the temperature. One line in two columns.
+            Some(&gettext("The controller computes the duty from it.")),
+        );
         let source_row = adw::ActionRow::builder().use_markup(false).build();
         let thermometer = gtk::Image::from_icon_name("baseboard-temperature-symbolic");
         thermometer.set_accessible_role(gtk::AccessibleRole::Presentation);

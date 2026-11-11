@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: baseboard\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-11 22:35+0100\n"
+"POT-Creation-Date: 2026-11-11 22:55+0100\n"
 "PO-Revision-Date: 2026-11-11 20:30+0100\n"
 "Last-Translator: Tomasz Bojanowski <tomasz@bojanowski.me>\n"
 "Language-Team: \n"
@@ -227,7 +227,7 @@ msgid "Temperature source: {source}."
 msgstr "Źródło temperatury: {source}."
 
 #. Translators: a point of a fan curve, e.g. "Point 3: 60 °C, 35 %."
-#: crates/app/src/fan_chart.rs:328 crates/app/src/fans/curve_page.rs:461
+#: crates/app/src/fan_chart.rs:328 crates/app/src/fans/curve_page.rs:467
 #, rust-format
 msgid "Point {number}: {temperature}, {duty}."
 msgstr "Punkt {number}: {temperature}, {duty}."
@@ -416,7 +416,7 @@ msgstr "Odczyt czujników…"
 msgid "Details"
 msgstr "Szczegóły"
 
-#: crates/app/src/fans.ui:85 crates/app/src/fans/curve_page.rs:229
+#: crates/app/src/fans.ui:85 crates/app/src/fans/curve_page.rs:231
 msgid "Temperature source"
 msgstr "Źródło temperatury"
 
@@ -563,63 +563,69 @@ msgstr "Punkty"
 msgid "Values read from the board's controller."
 msgstr "Wartości odczytane z kontrolera płyty."
 
-#: crates/app/src/fans/curve_page.rs:241
+#. Translators: under "Temperature source" on the curve page;
+#. "it" is the temperature. One line in two columns.
+#: crates/app/src/fans/curve_page.rs:234
+msgid "The controller computes the duty from it."
+msgstr "Według niej kontroler liczy wypełnienie."
+
+#: crates/app/src/fans/curve_page.rs:247
 msgid "Cannot be changed"
 msgstr "Nie można zmienić"
 
-#: crates/app/src/fans/curve_page.rs:246
+#: crates/app/src/fans/curve_page.rs:252
 msgid "How the curve works"
 msgstr "Jak działa krzywa"
 
-#: crates/app/src/fans/curve_page.rs:249
+#: crates/app/src/fans/curve_page.rs:255
 msgid "The duty cycle changes linearly between the points"
 msgstr "Między punktami wypełnienie zmienia się liniowo"
 
-#: crates/app/src/fans/curve_page.rs:250
+#: crates/app/src/fans/curve_page.rs:256
 msgid "Below the first point and above the last one their duty cycle holds."
 msgstr ""
 "Poniżej pierwszego punktu i powyżej ostatniego obowiązuje ich wypełnienie."
 
-#: crates/app/src/fans/curve_page.rs:254
+#: crates/app/src/fans/curve_page.rs:260
 msgid "The board's controller runs the curve"
 msgstr "Krzywą wykonuje kontroler płyty"
 
-#: crates/app/src/fans/curve_page.rs:255
+#: crates/app/src/fans/curve_page.rs:261
 msgid "Neither the app nor the helper has to run for it."
 msgstr "Aplikacja ani pomocnik nie muszą przy tym działać."
 
-#: crates/app/src/fans/curve_page.rs:361
+#: crates/app/src/fans/curve_page.rs:367
 #, rust-format
 msgid "{header} · preview"
 msgstr "{header} · podgląd"
 
 #. Translators: in the legend under a fan curve, the operating
 #. point, e.g. "Now: 46.0 °C, 38 %".
-#: crates/app/src/fans/curve_page.rs:386
+#: crates/app/src/fans/curve_page.rs:392
 #, rust-format
 msgid "Now: {temperature}, {duty}"
 msgstr "Teraz: {temperature}, {duty}"
 
-#: crates/app/src/fans/curve_page.rs:402
+#: crates/app/src/fans/curve_page.rs:408
 #, rust-format
 msgid "Target: {duty}"
 msgstr "Cel: {duty}"
 
 #. Translators: under the list of points of a curve, e.g.
 #. "Point 7 is the same as point 6."
-#: crates/app/src/fans/curve_page.rs:479
+#: crates/app/src/fans/curve_page.rs:485
 #, rust-format
 msgid "Point {last} is the same as point {first}."
 msgstr "Punkt {last} jest taki sam jak punkt {first}."
 
 #. Translators: under the list of points of a curve, e.g.
 #. "Points 5–7 are the same as point 4."
-#: crates/app/src/fans/curve_page.rs:484
+#: crates/app/src/fans/curve_page.rs:490
 #, rust-format
 msgid "Points {from}–{last} are the same as point {first}."
 msgstr "Punkty {from}–{last} są takie same jak punkt {first}."
 
-#: crates/app/src/fans/curve_page.rs:491
+#: crates/app/src/fans/curve_page.rs:497
 #, rust-format
 msgid ""
 "The controller has {} point, and a curve with fewer levels repeats the last "
@@ -792,7 +798,7 @@ msgstr "Karta sieciowa"
 
 #. Translators: {header} is a fan header on the board, e.g.
 #. CPU_FAN1, and {duty} its duty cycle, e.g. "49 %".
-#: crates/app/src/overview.rs:141
+#: crates/app/src/overview.rs:144
 #, rust-format
 msgid "{header} · duty {duty}"
 msgstr "{header} · wypełnienie {duty}"
@@ -800,62 +806,56 @@ msgstr "{header} · wypełnienie {duty}"
 #. Translators: nobody has yet checked on this board that
 #. the reading belongs to this header. Keep it short: it
 #. has to fit in one line with the header and duty cycle.
-#: crates/app/src/overview.rs:145
+#: crates/app/src/overview.rs:148
 #, rust-format
 msgid "{header} · duty {duty} · header not tested"
 msgstr "{header} · wypełnienie {duty} · złącze nietestowane"
 
-#: crates/app/src/overview.rs:147
+#: crates/app/src/overview.rs:150
 #, rust-format
 msgid "{header} · header not tested"
 msgstr "{header} · złącze nietestowane"
 
-#. Translators: {mode} is the mode of the fan, "automatic
-#. BIOS" or "manual mode", e.g. "CPU_FAN1 · duty 49 % ·
-#. automatic BIOS".
-#: crates/app/src/overview.rs:151
+#. Translators: {mode} is "manual mode" for a fan in manual
+#. mode, e.g. "CPU_FAN1 · duty 45 % · manual mode".
+#: crates/app/src/overview.rs:153
 #, rust-format
 msgid "{header} · duty {duty} · {mode}"
 msgstr "{header} · wypełnienie {duty} · {mode}"
 
 #. Translators: as "{header} · duty {duty} · {mode}", for
 #. a header nobody has checked on this board.
-#: crates/app/src/overview.rs:155
+#: crates/app/src/overview.rs:157
 #, rust-format
 msgid "{header} · duty {duty} · {mode} · header not tested"
 msgstr "{header} · wypełnienie {duty} · {mode} · złącze nietestowane"
 
-#. Translators: {mode} is the mode of the fan, "automatic
-#. BIOS" or "manual mode"; the driver gives no duty cycle.
-#: crates/app/src/overview.rs:159
+#. Translators: {mode} is "manual mode" for a fan in manual
+#. mode; the driver gives no duty cycle.
+#: crates/app/src/overview.rs:161
 #, rust-format
 msgid "{header} · {mode}"
 msgstr "{header} · {mode}"
 
 #. Translators: as "{header} · {mode}", for a header nobody
 #. has checked on this board.
-#: crates/app/src/overview.rs:162
+#: crates/app/src/overview.rs:164
 #, rust-format
 msgid "{header} · {mode} · header not tested"
 msgstr "{header} · {mode} · złącze nietestowane"
 
 #. Translators: {driver} is a driver name, {address} the SMBus
 #. address of a memory module, e.g. 0x51.
-#: crates/app/src/overview.rs:172
+#: crates/app/src/overview.rs:179
 #, rust-format
 msgid "{driver} · address {address}"
 msgstr "{driver} · adres {address}"
 
-#. Translators: the mode of a fan in its subtitle on the Overview:
-#. the board's controller runs its curve, as "Automatic BIOS" on
-#. the Fans page.
-#: crates/app/src/overview.rs:186
-msgid "automatic BIOS"
-msgstr "automat BIOS"
-
-#. Translators: the mode of a fan in its subtitle on the Overview:
-#. a fixed duty cycle.
-#: crates/app/src/overview.rs:189
+#. / Manual mode in the subtitle of a fan (§5.5.3, D59); a line may break
+#. / around it, not inside it.
+#. Translators: in the subtitle of a fan on the Overview: the fan runs
+#. at a fixed duty cycle, as "Manual" on the Fans page.
+#: crates/app/src/overview.rs:191
 msgid "manual mode"
 msgstr "tryb ręczny"
 
@@ -1375,6 +1375,9 @@ msgstr "Kopiuje informacje o systemie do schowka, np. do zgłoszenia błędu"
 #: crates/app/src/window.ui:172 crates/app/src/window.ui:178
 msgid "Copy Information"
 msgstr "Kopiuj informacje"
+
+#~ msgid "automatic BIOS"
+#~ msgstr "automat BIOS"
 
 #~ msgid "Monitor your motherboard sensors"
 #~ msgstr "Podgląd czujników płyty głównej"
