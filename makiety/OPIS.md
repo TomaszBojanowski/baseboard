@@ -1,19 +1,24 @@
 # Makiety interfejsu
 
-Stan na 2026-11-06, po pierwszym przeglądzie (decyzja D6 w `docs/PROJEKT.md`). Przegląd poprawiony 2026-11-10 (krok 8 M1): teksty jak w aplikacji, według D23, D25–D27. System poprawiony 2026-11-11 (krok 10 M1): zakres M1 i teksty jak w aplikacji. To makiety HTML, bez kodu Rust. `renderuj.sh` tworzy z nich obrazy w trybie jasnym i ciemnym w `png/`; obrazy nie są w repozytorium.
+Stan na 2026-11-06, po pierwszym przeglądzie (decyzja D6 w `docs/PROJEKT.md`). Przegląd poprawiony 2026-11-10 (krok 8 M1): teksty jak w aplikacji, według D23, D25–D27. System poprawiony 2026-11-11 (krok 10 M1): zakres M1 i teksty jak w aplikacji. Wentylatory przebudowane 2026-11-11 do planu M2 (§7 w `docs/PROJEKT.md`), poprawione według D45 i zaakceptowane przez właściciela tego samego dnia (z dwiema drobnymi poprawkami: jeden komunikat o czasie działania zmian, bez etykiety „Krzywa z BIOS-u”). To makiety HTML, bez kodu Rust. `renderuj.sh` tworzy z nich obrazy w trybie jasnym i ciemnym w `png/`; obrazy nie są w repozytorium.
 
 | Strona | Plik | Etap | Dane |
 |---|---|---|---|
 | Przegląd | `przeglad.html` | M1 | prawdziwe odczyty z tej maszyny |
-| Wentylatory | `wentylatory.html` | M2 (podgląd) | obroty prawdziwe; tryby i wypełnienie przykładowe |
-| Krzywa wentylatora (podstrona) | `wentylatory-krzywa.html` | M2 (podgląd) | temperatura procesora prawdziwa; punkty krzywej przykładowe |
+| Wentylatory (układ A, D45) | `wentylatory.html`; `?stan=podglad`, `?stan=tylko-odczyt` | M2 | obroty, wypełnienie, tryby i krzywe prawdziwe; własna krzywa SYS_FAN1, tryb ręczny SYS_FAN2 i ich obroty przykładowe |
+| Krzywa wentylatora (podstrona, edytor) | `wentylatory-krzywa.html`; `?stan=blad`, `?stan=bios-cpu`, `?stan=podglad` | M2 | temperatura prawdziwa; edytowane krzywe przykładowe; krzywa CPU z BIOS-u według §6.3 |
+| Wentylatory: wszystkie stany | `wentylatory-stany.html` (arkusz bez okna) | M2 | stany błędów i pompa ze sterowaniem przykładowe |
 | RGB | `rgb.html` | M3 (zarys) | przykładowe |
 | Wydajność | `wydajnosc.html` | M4 (zarys) | prawdziwe |
 | System | `system.html` | M1 (bez kontrolera RGB z M3 i restartu do UEFI z M4) | prawdziwe |
 
-**Oglądanie:** plik HTML w przeglądarce. Dopisek `?theme=dark` albo `?theme=light` wymusza tryb, bez niego obowiązuje ustawienie systemu.
+**Oglądanie:** plik HTML w przeglądarce. Dopisek `?theme=dark` albo `?theme=light` wymusza tryb, bez niego obowiązuje ustawienie systemu. `width=narrow` daje wąskie okno (400 px, pasek boczny zwinięty jak w aplikacji poniżej 600 sp), `stan=…` wybiera stan strony, a `accent=…` inny kolor akcentu libadwaita (`teal`, `green`, `yellow`, `orange`, `red`, `pink`, `purple`, `slate`), np. `wentylatory.html?stan=podglad&width=narrow&accent=purple`.
 
-**Nowe PNG:** `makiety/renderuj.sh` (headless Chromium, skala ×2). `SCALE=1` daje mniejsze pliki.
+**Pasek boczny** ma tylko strony, które aplikacja ma albo dostaje w M2 (Przegląd, Wentylatory, System); RGB i Wydajność dojdą ze swoimi etapami, choć ich zarysy (`rgb.html`, `wydajnosc.html`) zostają.
+
+**Nowe PNG:** `makiety/renderuj.sh [strona[@stan] …]` (headless Chromium, skala ×2). `SCALE=1` daje mniejsze pliki, `NARROW=1` dodaje wąskie okno, `ACCENT=…` inny akcent, `OUT=katalog` zmienia katalog wyjściowy (domyślnie `png/`).
+
+**Pliki wspólne wentylatorów:** `wykres.js` rysuje wykres krzywej w SVG w rzeczywistym rozmiarze pola (tekst się nie skaluje), `wentylatory.js` ma dane i elementy kart, `wentylatory.css` style. Wykres rysuje się po zbudowaniu okna (`window.afterBuild` w `wspolne.js`).
 
 ## Skąd dane
 
@@ -28,10 +33,11 @@ Stan na 2026-11-06, po pierwszym przeglądzie (decyzja D6 w `docs/PROJEKT.md`). 
 1. **Przegląd** przy szerokim oknie ma dwie kolumny, a przy wąskim jedną. Kolejność w jednej kolumnie: Procesor, Płyta, Wentylatory, Napięcia, Karta graficzna, Dyski, Pamięć, Inne. W dwóch kolumnach Pamięć trafia do lewej, żeby wyrównać wysokość kolumn.
 2. **Minimum i maksimum** stoją jako szary zakres obok bieżącej wartości. Objaśnia je jedno zdanie nad grupami.
 3. **Napięcia** oceniamy ikoną i tekstem, nie samym kolorem.
-4. **Wentylatory:** tryb wybiera się przełącznikiem segmentowym (AdwToggleGroup) w karcie złącza. Karta w trybie Krzywa ma strzałkę i otwiera podstronę z edytorem (AdwNavigationPage, przycisk „Wstecz” w nagłówku).
-5. **Baner** „Ustawienia działają do restartu komputera” z przyciskiem „Przywróć automat BIOS” widać tylko wtedy, gdy któryś kanał jest przejęty. Jest na stronie Wentylatory i na podstronie krzywej. Pasek nagłówka nie ma osobnego przycisku.
-6. **Edytor krzywej:** wykres z punktem pracy („Teraz”), wartościami poza skrajnymi punktami (linia przerywana) i progiem awaryjnym źródła, obok lista punktów. Zmiany zaczynają działać po „Zastosuj”, bo zapis wymaga autoryzacji polkit (D3).
-7. **Wydajność:** EPP i tryb sterownika są opisane po polsku, a surowa wartość jest w podtytule.
+4. **Wentylatory:** nad kartami jeden wiersz „Źródło temperatury” z wartością, zakresem i progiem awaryjnym. Tryb wybiera się przełącznikiem segmentowym (AdwToggleGroup) w karcie złącza. Karta ma wykres krzywej z punktem pracy na żywo, bez napisów (minimum w podtytule, próg w wierszu źródła), a w trybie ręcznym zamiast wykresu dużą wartość wypełnienia i suwak. Osobny przycisk „Edytuj krzywą” (albo „Pokaż krzywą”) otwiera podstronę z edytorem (AdwNavigationPage, przycisk „Wstecz” w nagłówku). Sama karta nie jest klikalna, żeby przełącznik nie leżał w innym elemencie aktywnym. W wąskim oknie obroty schodzą pod nazwę złącza.
+5. **Baner** „Zmiany działają także po zamknięciu aplikacji, do restartu komputera” z przyciskiem „Przywróć automat BIOS” widać tylko wtedy, gdy któryś kanał jest przejęty. Jest na stronie Wentylatory i na podstronie krzywej; to jedyny komunikat o tym, jak długo działają zmiany. Pasek nagłówka nie ma osobnego przycisku. Karty nie mają etykiety „Krzywa z BIOS-u”: tryb pokazuje przełącznik („Automat BIOS” to krzywa z BIOS-u, D11).
+6. **Edytor krzywej:** duży wykres z 7 numerowanymi uchwytami (punkty o tych samych wartościach jako jeden uchwyt „6–7”), punktem pracy („Teraz”, z wypełnieniem po zastosowaniu), krzywą wykonywaną teraz przez kontroler (linia przerywana), strefą poniżej minimum (kreskowanie z opisem) i progiem awaryjnym źródła (linia, kolor i poziomy napis nad wykresem). Legenda tylko dla oznaczeń bez własnego podpisu. Pod wykresem lista punktów; wartości zmienia się przyciskami albo wpisuje z klawiatury. Zmiany zaczynają działać po „Zastosuj” na dolnym pasku, bo zapis wymaga autoryzacji polkit (D3).
+7. **Wykres** ma odcinki proste, bo kontroler liczy wypełnienie liniowo między punktami (SYS_FAN1 przy 46 °C: 98/255, prosta między punktami daje 97,6). Poza skrajnymi punktami linia jest przerywana. Kolory: krzywa i uchwyty w akcencie systemu, punkt pracy w zieleni z ikony aplikacji, próg w kolorze błędu libadwaita; każde oznaczenie ma też opis albo wzór linii.
+8. **Wydajność:** EPP i tryb sterownika są opisane po polsku, a surowa wartość jest w podtytule.
 
 ## Uwagi
 

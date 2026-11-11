@@ -1,0 +1,141 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baseboard – Wentylatory, stany (makieta)</title>
+<link rel="stylesheet" href="wspolne.css">
+<link rel="stylesheet" href="wentylatory.css">
+</head>
+<body data-page="wentylatory-stany" data-sheet="1">
+
+<!--
+  M2: every state of the fan page (layout A, D45), with its look and text.
+  Cards are as wide as in the window (two columns wide, one column narrow).
+  The grey line over each tile says when the state occurs; it is a note for
+  the review, not text of the app. Speeds and curves as in wentylatory.js;
+  the error states, the pump with tested writes and its speed are
+  illustrative.
+-->
+
+<main id="content" class="sheet"></main>
+
+<script src="wykres.js"></script>
+<script src="wentylatory.js"></script>
+<script>
+(function () {
+  const F = window.FANS;
+  const { CH, NB, P, C, pct, f1 } = F;
+  const cpu = CH.cpu1, pump = CH.pump1, s1 = CH.sys1, s2 = CH.sys2, s3 = CH.sys3, s4 = CH.sys4;
+  let n = 0;
+  const tile = (title, when, ...parts) => `<section class="tile">
+    <div class="tile-h"><div class="heading"><span class="num">${++n}.</span>${title}</div><div class="caption dim">${when}</div></div>
+    ${parts.join("")}</section>`;
+  const bar = c => `<div class="levelrow"><div class="levelbar"><span style="width:${pct(c.duty)}%"></span></div><span class="caption">wypełnienie ${P(pct(c.duty))}</span></div>`;
+
+  const tiles = [
+    tile("Sterownik bez sterowania", "Jądro bez sterowania wentylatorami (dziś Fedora 7.3.3). Wiersz nad złączami, niskie karty.",
+      F.statusRow("warning", "warning", "Sterowanie wentylatorami niedostępne",
+        "Wymaga nowszego jądra z rozszerzonym sterownikiem nct6683. Wypełnienia wentylatorów systemowych ten sterownik nie podaje."),
+      F.card([F.head(cpu, { dutyLine: "", sub: F.subtitle(cpu, { min: false }) }), bar(cpu)]),
+      F.card([F.head(s1, { dutyLine: "" })])),
+
+    tile("Wersja 0.2.0: sam podgląd", "Etap M2a, przed pomocnikiem. Krzywe widać przy sterowniku, który je podaje; przełącznik tylko pokazuje tryb.",
+      F.statusRow("info", "", "Ta wersja Baseboard pokazuje ustawienia wentylatorów bez możliwości zmiany."),
+      F.card([F.head(cpu), F.toggles(3, "bios", true), F.miniChart(cpu), F.foot("", "Pokaż krzywą")])),
+
+    tile("Brak pomocnika", "Od 0.3.0, gdy pakiet baseboard-helper nie jest zainstalowany, natywnie i we Flatpaku. Karty jak w podglądzie.",
+      F.statusRow("package", "", "Podgląd bez sterowania",
+        "Do zmiany ustawień wentylatorów potrzebny jest pomocnik systemowy baseboard-helper.",
+        `<span class="btn">Jak zainstalować<i data-ic="external"></i></span>`)),
+
+    tile("Flatpak bez uprawnienia do pomocnika", "Pośrednik D-Bus Flatpaka odmawia połączenia, bo uprawnienie odebrano przez flatpak override.",
+      F.statusRow("lock", "", "Flatpak nie pozwala połączyć się z pomocnikiem",
+        `Uprawnienie zostało odebrane. Przywraca je polecenie:<br><span class="mono">flatpak override --user --system-talk-name=me.bojanowski.Baseboard.Helper me.bojanowski.Baseboard</span>`,
+        `<span class="btn image" title="Kopiuj polecenie"><i data-ic="copy"></i></span>`)),
+
+    tile("Pomocnik w starszej wersji", "ApiVersion pomocnika nie obejmuje funkcji, której wymaga strona (§10.4).",
+      F.statusRow("info", "", "Edycja krzywych wymaga nowszego pomocnika",
+        "Zainstalowany baseboard-helper 0.3.0 obsługuje tylko tryb ręczny. Zaktualizuj pakiet.")),
+
+    tile("Różne wersje profilu płyty", "ProfileDigest pomocnika różni się od profilu aplikacji, np. Flatpak jest nowszy od pakietu.",
+      F.statusRow("info", "", "Pomocnik używa innej wersji profilu płyty",
+        "Sterowanie działa według profilu pomocnika. Nazwy i odczyty pochodzą z profilu aplikacji.")),
+
+    tile("Sterownik bez podglądu krzywych", "Poziom manual: tryb ręczny jest, krzywych sterownik nie podaje. Przełącznik dwupozycyjny.",
+      F.card([F.head(s3), F.toggles(2, "bios"),
+        F.infoLine("info", "Obroty ustala krzywa w kontrolerze płyty. Ten sterownik jej nie pokazuje.")])),
+
+    tile("Sterownik bez zapisu krzywych", "Poziom manual+curve-view: przełącznik dwupozycyjny, krzywa tylko do podglądu.",
+      F.card([F.head(s3), F.toggles(2, "bios"), F.miniChart(s3), F.foot("", "Pokaż krzywą")])),
+
+    tile("Tryb ręczny z minimum", "Wentylator procesora: suwak nie schodzi poniżej minimum B5; zakres poniżej jest zakreskowany.",
+      F.card([F.head(cpu, { rpm: 702, dutyLine: "" }), F.toggles(3, "manual"), F.manualPanel(cpu, 89), F.manualFoot(cpu)])),
+
+    tile("Pompa ze sterowaniem", "Płyta, na której zapis na złączu pompy sprawdzono (D16). Stałe ostrzeżenie, bez zatrzymania (B6).",
+      F.card([F.head({ ...pump, untested: false }, { rpm: 2640 }), F.toggles(3, "bios"),
+        F.notice("warning", "warning", "Pompa chłodzenia cieczą nie może się zatrzymać, także w krzywej.", ""),
+        F.miniChart(pump), F.foot("", "Edytuj krzywą")])),
+
+    tile("Wentylator stoi", "Wentylator systemowy z wypełnieniem 0 % z suwaka albo z krzywej. Stan zamierzony, bez ostrzeżenia.",
+      F.card([F.head(s4, { rpm: 0, dutyLine: "" }), F.toggles(3, "manual"), F.manualPanel(s4, 0), F.manualFoot(s4)])),
+
+    tile("Wentylator stanął", "B11: wentylator procesora albo pompa miały obroty, a teraz stoją od 5 s.",
+      F.card([F.head(cpu, { value: `<div class="rpm error"><span class="n">0</span><span class="u">${NB}rpm</span></div>` }), F.toggles(3, "bios"),
+        F.notice("error", "error", "Wentylator stanął",
+          "Obroty spadły do zera mimo wypełnienia powyżej minimum. Wentylatory, którymi sterował Baseboard, wróciły do automatu BIOS. Sprawdź wentylator i jego przewód.")], "alert")),
+
+    tile("Złącze puste", "Złącze ze sterowaniem bez obrotów od uruchomienia. Aplikacja nie odróżni pustego złącza od wentylatora, który nie ruszył.",
+      F.card([F.head(s4, { rpm: 0 }), F.toggles(3, "bios"), F.miniChart(s4),
+        F.infoLine("info", `${F.EMPTY} Ukryjesz je w Preferencjach, w zakładce Odczyty.`), F.foot("", "Edytuj krzywą")], "quiet")),
+
+    tile("Krzywa zmieniona i niezapisana", "Wyjście z edytora („Wstecz”, inna strona, zamknięcie okna) przed zastosowaniem zmian.",
+      `<div class="stage"><div class="dialog"><div class="d-body"><div class="title-4">Odrzucić zmiany krzywej?</div>
+        <div>Wentylator systemowy 1: kontroler płyty wykonuje nadal poprzednią krzywą.</div></div>
+        <div class="d-actions"><span class="btn">Wróć do edycji</span><span class="btn destructive">Odrzuć</span></div></div></div>`),
+
+    tile("Błąd zapisu w trybie ręcznym", "Sterownik zgłosił Timeout albo odczyt po zapisie się nie zgadza (B10). Kanał wraca do automatu.",
+      F.card([F.head(s2), F.toggles(3, "bios"),
+        F.notice("error", "error", "Kontroler płyty nie odpowiedział",
+          "Nie udało się ustawić wypełnienia, więc wentylator wrócił do automatu.", "Spróbuj ponownie")])),
+
+    tile("Dochodzenie do celu", "Po przełączeniu na automat wyjście zmienia się stopniowo; karta pokazuje cel, dopóki go nie osiągnie.",
+      F.card([F.head(s1, { rpm: 812, duty: 76, dutyLine: `wypełnienie ${P(30)} → ${P(38)}` }), F.toggles(3, "bios"),
+        F.miniChart(s1, { duty: 76, target: 98 }),
+        F.foot(`<span class="caption soft">W automacie kontroler zmienia wypełnienie stopniowo.</span>`, "Edytuj krzywą")])),
+
+    tile("Blokada awaryjna", "B4 (D48): temperatura osiągnęła próg. Wiersz zostaje do zdjęcia blokady, także po ponownym uruchomieniu aplikacji.",
+      `<div class="notice error"><i data-ic="error" class="error"></i><div class="grow">
+        <div class="heading">Blokada awaryjna</div>
+        <div class="caption">${F.SOURCE} osiągnął ${C(95)}. Wentylatory, którymi sterował Baseboard, pracują z pełnym wypełnieniem, a zmiany są wyłączone. Po zdjęciu blokady wrócą do automatu BIOS.</div>
+        <div class="caption soft">Możliwe poniżej ${C(85)}, teraz ${C(f1(91))}.</div></div>
+        <span class="btn small disabled">Zdejmij blokadę</span></div>`),
+
+    tile("Inny program zmienił ustawienia", "B10: tryb albo krzywą kanału zmienił ktoś inny. Baseboard przestaje sterować kanałem.",
+      F.card([F.head(s2, { duty: 153, rpm: 1180 }), F.toggles(3, "manual"),
+        F.notice("warning", "warning", "Inny program zmienił tryb tego wentylatora",
+          "Baseboard przestał nim sterować i nie nadpisze tej zmiany. Wybierz tryb, żeby znowu sterować.")])),
+
+    tile("Pomocnik przestał działać", "Awaria pomocnika (B3 b): tryb ręczny wrócił do automatu, krzywe w kontrolerze działają dalej.",
+      F.statusRow("error", "error", "Pomocnik systemowy przestał działać",
+        "Wentylatory w trybie ręcznym wróciły do automatu BIOS. Krzywe w kontrolerze płyty działają dalej.",
+        `<span class="btn">Połącz ponownie</span>`)),
+
+    tile("Komunikaty krótkie", "AdwToast na dole okna: anulowana autoryzacja polkit, zastosowana krzywa, powrót do automatu BIOS.",
+      `<div class="stage" style="flex-direction:column;align-items:center;gap:10px">
+        <span class="toast">Nie zmieniono ustawień: brak autoryzacji</span>
+        <span class="toast">Krzywa zastosowana</span>
+        <span class="toast">Wszystkie wentylatory wróciły do automatu BIOS</span>
+      </div>`),
+  ];
+
+  document.getElementById("content").innerHTML = `<header>
+      <div class="title-2">Wentylatory: stany strony</div>
+      <div class="dim">Układ A (D45). Szary wiersz nad każdym stanem mówi, kiedy występuje; to uwaga do przeglądu, nie tekst aplikacji.</div>
+    </header>${tiles.join("")}`;
+})();
+</script>
+<script src="wspolne.js"></script>
+</body>
+</html>

@@ -138,6 +138,9 @@ svg.ic {
   background: var(--window-bg);
 }
 
+/* below 600 sp the app collapses the sidebar; the page gets a back button */
+.window.narrow { width: 400px; }
+
 .sidebar-pane {
   width: 280px;
   flex: none;
@@ -153,7 +156,20 @@ svg.ic {
   display: flex;
   flex-direction: column;
   background: var(--window-bg);
+  /* page layouts react to the width of the content, like AdwBreakpoint */
+  container-type: inline-size;
 }
+
+/* bottom bar of AdwToolbarView */
+.bottombar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 47px;
+  padding: 6px 12px;
+  box-shadow: 0 -1px var(--card-shade);
+}
+.bottombar .spacer { flex: 1; }
 
 .headerbar {
   min-height: 47px;
@@ -443,6 +459,32 @@ svg.ic {
 }
 .notice svg.ic { margin-top: 1px; }
 .notice.info { background: color-mix(in srgb, currentColor 6%, transparent); }
+.notice.error { background: color-mix(in srgb, var(--error-bg) 13%, transparent); }
+.notice.accent { background: color-mix(in srgb, var(--accent-bg) 12%, transparent); }
+.notice .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.notice .btn { align-self: center; }
+
+/* toast (AdwToast) */
+.toast {
+  display: inline-flex; align-items: center; gap: 12px;
+  min-height: 42px; padding: 4px 6px 4px 16px; border-radius: 99px;
+  background: color-mix(in srgb, var(--window-fg) 80%, var(--window-bg));
+  color: var(--window-bg); font-weight: 700;
+  box-shadow: 0 2px 8px 2px rgb(0 0 6 / 14%);
+}
+
+/* alert dialog (AdwAlertDialog) */
+.dialog {
+  width: 360px; border-radius: 15px; overflow: hidden;
+  background: var(--surface); box-shadow: var(--window-shadow);
+  text-align: center;
+}
+.dialog .d-body { padding: 30px 24px 24px; display: flex; flex-direction: column; gap: 10px; }
+.dialog .d-actions { display: flex; gap: 12px; padding: 0 24px 24px; }
+.dialog .d-actions .btn { flex: 1; min-height: 40px; }
+
+/* focus ring of libadwaita: accent at half opacity */
+.focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-bg) 55%, transparent); }
 
 /* chart */
 .chart text { fill: currentColor; font-size: 12px; font-family: "Adwaita Sans", sans-serif; }

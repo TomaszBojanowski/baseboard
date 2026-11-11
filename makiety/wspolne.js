@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Shared scaffolding for the HTML mockups: theme switch, icons, window frame.
-// Open a page with ?theme=dark or ?theme=light to force a color scheme.
+// Open a page with ?theme=dark or ?theme=light to force a color scheme, and
+// with ?width=narrow for a narrow window (collapsed sidebar, as in the app
+// below 600 sp). A page can push functions to window.afterBuild; they run
+// once the window exists, e.g. to draw charts at their final size.
 
 (function () {
   const params = new URLSearchParams(location.search);
@@ -9,6 +12,18 @@
   if (theme === "dark" || theme === "light") {
     document.documentElement.dataset.theme = theme;
   }
+  const narrow = params.get("width") === "narrow";
+  if (narrow) document.documentElement.dataset.width = "narrow";
+  window.afterBuild = window.afterBuild || [];
+
+  // ?accent=purple and so on: the accent colors of libadwaita, to check that
+  // a page follows the accent the user picked in the system settings.
+  const ACCENTS = {
+    blue: "#3584e4", teal: "#2190a4", green: "#3a944a", yellow: "#c88800", orange: "#ed5b00",
+    red: "#e62d42", pink: "#d56199", purple: "#9141ac", slate: "#6f8396",
+  };
+  const accent = ACCENTS[params.get("accent")];
+  if (accent) document.documentElement.style.setProperty("--accent-bg", accent);
 
   // Simple 16x16 symbolic icons drawn for these mockups.
   const F = 'style="fill:currentColor;stroke:none"';
@@ -42,19 +57,40 @@
     reboot: `<path d="M4 3.5 A6 6 0 1 0 8 2"/><path d="M8 2 L5.6 0.6M8 2 L6.4 4.4"/>`,
     lock: `<rect x="3" y="7" width="10" height="7.5" rx="1.5"/><path d="M5.2 7V5a2.8 2.8 0 0 1 5.6 0v2"/>`,
     pencil: `<path d="M10.5 2.5 L13.5 5.5 L5.5 13.5 H2.5 V10.5 Z"/>`,
+    error: `<circle cx="8" cy="8" r="6.5"/><path d="M5.7 5.7l4.6 4.6M10.3 5.7l-4.6 4.6"/>`,
+    curve: `<path d="M1.5 13.5 H14.5M1.5 13.5 V2"/><path d="M3 11.5 L6.5 10 L9.5 6.5 L13.5 3"/>`,
+    hand: `<path d="M5 8.5V3.6a1.1 1.1 0 0 1 2.2 0V7.5M7.2 7V2.6a1.1 1.1 0 0 1 2.2 0V7M9.4 7V3.4a1.1 1.1 0 0 1 2.2 0V9.5c0 2.8-1.8 4.8-4.4 4.8-2 0-3-1-4-2.6L1.9 9.6a1.1 1.1 0 0 1 1.8-1.2L5 9.8"/>`,
+    package: `<path d="M8 1.6 L14 4.6 V11.4 L8 14.4 L2 11.4 V4.6 Z"/><path d="M2 4.6 L8 7.6 L14 4.6M8 7.6 V14.4"/>`,
+    keyboard: `<rect x="1.5" y="4" width="13" height="8.5" rx="1.5"/><path d="M4 6.8h.1M6.6 6.8h.1M9.3 6.8h.1M12 6.8h.1M5 9.8h6"/>`,
   };
+
+  window.iconPaths = ICONS;
 
   window.icon = function (name, extra = "") {
     return `<svg class="ic ${extra}" viewBox="0 0 16 16" aria-hidden="true">${ICONS[name] || ""}</svg>`;
   };
 
+  // Only the pages the app has (M1) or gets next (M2); RGB and Performance
+  // join the sidebar with their milestones.
   const PAGES = [
     ["przeglad", "Przegląd", "gauge"],
     ["wentylatory", "Wentylatory", "fan"],
-    ["rgb", "RGB", "rgb"],
-    ["wydajnosc", "Wydajność", "bolt"],
     ["system", "System", "chip"],
   ];
+
+  function replaceIcons() {
+    // Replace <i data-ic="name"> placeholders with icons.
+    document.querySelectorAll("i[data-ic]").forEach(el => {
+      el.outerHTML = icon(el.dataset.ic, el.className);
+    });
+  }
+
+  function finish() {
+    window.afterBuild.forEach(f => f());
+    // Let the render script know how tall the page is.
+    document.documentElement.dataset.height =
+      Math.ceil(document.documentElement.getBoundingClientRect().height);
+  }
 
   function build() {
     const body = document.body;
@@ -62,15 +98,23 @@
     const content = document.getElementById("content");
     const headEnd = document.getElementById("header-end");
     const banner = document.getElementById("banner");
+    const bottom = document.getElementById("bottom-bar");
+
+    // A sheet of components, without the window around it.
+    if (body.dataset.sheet) {
+      replaceIcons();
+      finish();
+      return;
+    }
 
     const nav = PAGES.map(([id, label, ic]) =>
       `<div class="nav-row${id === page ? " selected" : ""}" role="link">${icon(ic)}<span>${label}</span></div>`
     ).join("");
 
     const win = document.createElement("div");
-    win.className = "window";
+    win.className = narrow ? "window narrow" : "window";
     win.innerHTML = `
-      <aside class="sidebar-pane" aria-label="Pasek boczny">
+      ${narrow ? "" : `<aside class="sidebar-pane" aria-label="Pasek boczny">
         <div class="headerbar">
           <div class="start"></div>
           <div class="wtitle"><div class="t">Baseboard</div></div>
@@ -84,10 +128,10 @@
             <div class="dim">MS-7E61 · BIOS 1.A68</div>
           </div>
         </div>
-      </aside>
+      </aside>`}
       <section class="content-pane">
         <div class="headerbar">
-          <div class="start">${body.dataset.back ? `<span class="btn flat image" title="Wstecz">${icon("back")}</span>` : ""}</div>
+          <div class="start">${body.dataset.back || narrow ? `<span class="btn flat image" title="Wstecz">${icon("back")}</span>` : ""}</div>
           <div class="wtitle">
             <div class="t">${body.dataset.title}</div>
             ${body.dataset.subtitle ? `<div class="s">${body.dataset.subtitle}</div>` : ""}
@@ -107,18 +151,19 @@
       pane.appendChild(b);
     }
     pane.appendChild(content);
+    if (bottom) {
+      const b = document.createElement("div");
+      b.className = "bottombar";
+      b.innerHTML = bottom.innerHTML;
+      pane.appendChild(b);
+      bottom.remove();
+    }
     if (headEnd) headEnd.remove();
     if (banner) banner.remove();
     body.prepend(win);
 
-    // Replace <i data-ic="name"> placeholders with icons.
-    document.querySelectorAll("i[data-ic]").forEach(el => {
-      el.outerHTML = icon(el.dataset.ic, el.className);
-    });
-
-    // Let the render script know how tall the page is.
-    document.documentElement.dataset.height =
-      Math.ceil(document.documentElement.getBoundingClientRect().height);
+    replaceIcons();
+    finish();
   }
 
   if (document.readyState === "loading") {

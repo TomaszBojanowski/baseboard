@@ -8,148 +8,117 @@
 <link rel="stylesheet" href="wspolne.css">
 <link rel="stylesheet" href="wentylatory.css">
 </head>
-<body data-page="wentylatory" data-title="Wentylatory">
+<body data-page="wentylatory" data-title="Wentylatory" data-subtitle="Odświeżanie co 1 s">
 
 <!--
-  M4 preview. Speeds (rpm) are real readings from this machine; modes and
-  duty cycles of controlled channels are illustrative, because the current
-  kernel cannot control these fans yet. The banner is shown only while the
-  helper controls at least one channel.
+  M2, layout A (D45): one card per header with a live mini chart of its
+  curve, the source of the curves in one row above. ?stan= picks the state:
+    (none)        helper installed, driver with curve writes (`curves`):
+                  BIOS curves, an own curve, manual mode, pump without
+                  tested writes and with an empty header;
+    podglad       no helper (Flatpak or native): preview only;
+    tylko-odczyt  driver without fan control (kernel of Fedora 7.3.3).
+  Data: see wentylatory.js.
 -->
 
 <template id="banner">
-  <span>Ustawienia działają do restartu komputera</span>
+  <span>Zmiany działają także po zamknięciu aplikacji, do restartu komputera</span>
   <span class="btn">Przywróć automat BIOS</span>
 </template>
 
-<main id="content" class="page">
-  <div class="clamp wide">
-    <p class="intro dim">Zmienione ustawienia działają także po zamknięciu aplikacji. Po restarcie komputera wentylatorami znowu steruje BIOS.</p>
+<main id="content" class="page"></main>
 
+<script src="wykres.js"></script>
+<script src="wentylatory.js"></script>
+<script>
+(function () {
+  const F = window.FANS;
+  const { CH, P, pct } = F;
+  const state = F.state;
+
+  // Helper installed, curves writable. No card names the curve with a
+  // label: the switch shows the mode ("Automat BIOS" is the BIOS curve,
+  // D11), and the pump without a switch says in its box that it is only a
+  // preview.
+  function full() {
+    const cpu = CH.cpu1, pump = CH.pump1, s1 = CH.sys1, s2 = CH.sys2, s3 = CH.sys3, s4 = CH.sys4;
+    const s1duty = Math.round(F.dutyAt(F.OLD_CURVE, F.TEMP1));
+    const bios = c => F.card([F.head(c), F.toggles(3, "bios"), F.miniChart(c), F.foot("", "Edytuj krzywą")]);
+    return [
+      bios(cpu),
+      F.card([F.head(pump, { sub: F.subtitle(pump, { untested: false }) }),
+        F.lockRow("lock", "Tylko podgląd: złącza nie sprawdzono na tej płycie.", F.EMPTY),
+        F.miniChart(pump), F.foot("", "Pokaż krzywą")], "quiet"),
+      F.card([F.head(s1, { rpm: 731, duty: s1duty }), F.toggles(3, "curve"),
+        F.miniChart(s1, { points: F.OLD_CURVE, duty: s1duty }), F.foot("", "Edytuj krzywą")]),
+      F.card([F.head(s2, { rpm: 812, dutyLine: "" }), F.toggles(3, "manual"), F.manualPanel(s2, 114), F.manualFoot(s2)]),
+      bios(s3),
+      bios(s4),
+    ];
+  }
+
+  // No helper: the cards keep their shape, the switch only shows the mode
+  // (insensitive); the pump has the same status box as with the helper.
+  function preview() {
+    return ["cpu1", "pump1", "sys1", "sys2", "sys3", "sys4"].map(k => {
+      const c = CH[k];
+      if (c.untested) {
+        return F.card([F.head(c, { sub: F.subtitle(c, { untested: false }) }),
+          F.lockRow("info", "Złącza nie sprawdzono na tej płycie.", c.rpm === 0 ? F.EMPTY : ""),
+          F.miniChart(c), F.foot("", "Pokaż krzywą")], "quiet");
+      }
+      return F.card([F.head(c), F.toggles(3, "bios", true), F.miniChart(c), F.foot("", "Pokaż krzywą")]);
+    });
+  }
+
+  // Driver of Fedora 7.3.3: speeds of all headers, duty cycles only of
+  // pwm1, pwm2 and pwm4; the row on top says that once. Nothing can be
+  // controlled, so the subtitles leave out the minimum.
+  function readOnly() {
+    return ["cpu1", "pump1", "sys1", "sys2", "sys3", "sys4", "ezconn"].map(k => {
+      const c = CH[k];
+      const body = c.role === "sys" ? "" :
+        `<div class="levelrow"><div class="levelbar" role="progressbar" aria-label="Wypełnienie: ${c.name}" aria-valuenow="${pct(c.duty)}"><span style="width:${pct(c.duty)}%"></span></div><span class="caption">wypełnienie ${P(pct(c.duty))}</span></div>`;
+      return F.card([F.head(c, { dutyLine: "", sub: F.subtitle(c, { min: false }) }), body], c.rpm === 0 ? "quiet" : "");
+    });
+  }
+
+  let top;
+  let cards;
+  let rest = "";
+  if (state === "podglad") {
+    document.getElementById("banner").remove();
+    top = F.statusRow("package", "", "Podgląd bez sterowania",
+      "Do zmiany ustawień wentylatorów potrzebny jest pomocnik systemowy baseboard-helper.",
+      `<span class="btn">Jak zainstalować<i data-ic="external"></i></span>`) + F.sourceGroup();
+    cards = preview();
+    rest = F.readOnlyGroup();
+  } else if (state === "tylko-odczyt") {
+    document.getElementById("banner").remove();
+    top = F.statusRow("warning", "warning", "Sterowanie wentylatorami niedostępne",
+      "Wymaga nowszego jądra z rozszerzonym sterownikiem nct6683. Wypełnienia wentylatorów systemowych ten sterownik nie podaje.");
+    cards = readOnly();
+  } else {
+    top = F.sourceGroup();
+    cards = full();
+    rest = F.readOnlyGroup();
+  }
+
+  document.getElementById("content").innerHTML = `<div class="clamp wide">
     <div class="stack">
-      <section class="group">
-        <div class="group-header"><div class="labels"><div class="heading">Złącza</div></div></div>
-        <div class="fan-grid">
-
-          <!-- CPU: manual, with the B5 floor -->
-          <div class="card fan-card">
-            <div class="fc-head">
-              <div class="fc-ic"><i data-ic="fan"></i></div>
-              <div class="tb"><div class="heading">Wentylator procesora 1</div><div class="caption dim">CPU_FAN1 · minimum 30 %</div></div>
-              <div class="fc-val"><div class="rpm">888 rpm</div></div>
-            </div>
-            <div class="toggle-group full">
-              <span class="toggle">Automat BIOS</span><span class="toggle checked">Ręczny</span><span class="toggle">Krzywa</span>
-            </div>
-            <div class="fc-body">
-              <div class="scale" aria-label="Wypełnienie" title="Poniżej 30 % suwak się nie przesunie">
-                <div class="trough"></div><div class="floor" style="width:30%"></div>
-                <div class="fill" style="width:45%"></div><div class="knob" style="left:45%"></div>
-              </div>
-              <span class="pct">45 %</span>
-            </div>
-          </div>
-
-          <!-- Pump: BIOS auto, permanent warning -->
-          <div class="card fan-card">
-            <div class="fc-head">
-              <div class="fc-ic"><i data-ic="drop"></i></div>
-              <div class="tb"><div class="heading">Pompa 1</div><div class="caption dim">PUMP_SYS1 · minimum 50 %</div></div>
-              <div class="fc-val"><div class="rpm dim">0 rpm</div><div class="caption dim">100 %</div></div>
-            </div>
-            <div class="toggle-group full">
-              <span class="toggle checked">Automat BIOS</span><span class="toggle">Ręczny</span><span class="toggle">Krzywa</span>
-            </div>
-            <div class="notice">
-              <i data-ic="warning" class="warning"></i>
-              <div>
-                <div>Pompa chłodzenia cieczą nie może się zatrzymać. Wypełnienie nie spadnie poniżej 50 %.</div>
-                <div class="caption dim">Przypisanie złącza nie zostało jeszcze sprawdzone na tej płycie.</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- SYS 1: software curve; the card opens the curve subpage -->
-          <div class="card fan-card activatable" title="Otwórz edytor krzywej">
-            <div class="fc-head">
-              <div class="fc-ic"><i data-ic="fan"></i></div>
-              <div class="tb"><div class="heading">Wentylator systemowy 1</div><div class="caption dim">SYS_FAN1</div></div>
-              <div class="fc-val"><div class="rpm">916 rpm</div><div class="caption dim">25 %</div></div>
-            </div>
-            <div class="toggle-group full">
-              <span class="toggle">Automat BIOS</span><span class="toggle">Ręczny</span><span class="toggle checked">Krzywa</span>
-            </div>
-            <div class="fc-body">
-              <svg class="curve-mini" width="96" height="32" viewBox="0 0 96 32" aria-hidden="true">
-                <polyline fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"
-                  points="2,25 12,25 36,22 54,16 72,8 84,2 94,2"/>
-              </svg>
-              <div class="caption" style="flex:1"><div>Procesor (Tctl): 39,8 °C → 25 %</div><div class="dim">Krzywa z 5 punktów</div></div>
-              <i data-ic="next" class="dim"></i>
-            </div>
-          </div>
-
-          <!-- SYS 2: manual, no floor -->
-          <div class="card fan-card">
-            <div class="fc-head">
-              <div class="fc-ic"><i data-ic="fan"></i></div>
-              <div class="tb"><div class="heading">Wentylator systemowy 2</div><div class="caption dim">SYS_FAN2</div></div>
-              <div class="fc-val"><div class="rpm">771 rpm</div></div>
-            </div>
-            <div class="toggle-group full">
-              <span class="toggle">Automat BIOS</span><span class="toggle checked">Ręczny</span><span class="toggle">Krzywa</span>
-            </div>
-            <div class="fc-body">
-              <div class="scale" aria-label="Wypełnienie">
-                <div class="trough"></div><div class="fill" style="width:40%"></div><div class="knob" style="left:40%"></div>
-              </div>
-              <span class="pct">40 %</span>
-            </div>
-          </div>
-
-          <!-- SYS 3, SYS 4: BIOS auto -->
-          <div class="card fan-card">
-            <div class="fc-head">
-              <div class="fc-ic"><i data-ic="fan"></i></div>
-              <div class="tb"><div class="heading">Wentylator systemowy 3</div><div class="caption dim">SYS_FAN3</div></div>
-              <div class="fc-val"><div class="rpm">749 rpm</div></div>
-            </div>
-            <div class="toggle-group full">
-              <span class="toggle checked">Automat BIOS</span><span class="toggle">Ręczny</span><span class="toggle">Krzywa</span>
-            </div>
-            <div class="fc-body"><span class="dim">Obroty ustala krzywa zapisana w BIOS-ie.</span></div>
-          </div>
-
-          <div class="card fan-card">
-            <div class="fc-head">
-              <div class="fc-ic"><i data-ic="fan"></i></div>
-              <div class="tb"><div class="heading">Wentylator systemowy 4</div><div class="caption dim">SYS_FAN4</div></div>
-              <div class="fc-val"><div class="rpm">970 rpm</div></div>
-            </div>
-            <div class="toggle-group full">
-              <span class="toggle checked">Automat BIOS</span><span class="toggle">Ręczny</span><span class="toggle">Krzywa</span>
-            </div>
-            <div class="fc-body"><span class="dim">Obroty ustala krzywa zapisana w BIOS-ie.</span></div>
-          </div>
-        </div>
-      </section>
-
+      ${top}
       <section class="group">
         <div class="group-header"><div class="labels">
-          <div class="heading">Tylko odczyt</div>
+          <div class="heading">Złącza</div>
+          <div class="desc">W kolejności złączy na płycie</div>
         </div></div>
-        <div class="boxed-list">
-          <div class="row">
-            <div class="prefix"><i data-ic="fan" class="dim"></i></div>
-            <div class="tb"><div class="t">Wentylator dodatkowy 1</div><div class="sub">JAF_1 · sterownik jądra nie obsługuje sterowania tym złączem</div></div>
-            <div class="suffix"><span class="v-range">wypełnienie 60 %</span><span class="v-now muted">0 rpm</span></div>
-          </div>
-        </div>
+        <div class="fan-grid">${cards.join("")}</div>
       </section>
+      ${rest}
     </div>
-  </div>
-</main>
-
+  </div>`;
+})();
+</script>
 <script src="wspolne.js"></script>
 </body>
 </html>
