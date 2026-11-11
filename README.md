@@ -1,8 +1,21 @@
-# Baseboard
+<p align="center">
+  <img src="data/icons/hicolor/scalable/apps/me.bojanowski.Baseboard.svg" width="128" height="128" alt="">
+</p>
 
-A native GNOME app for the sensors and fans of motherboards on Linux.
+<h1 align="center">Baseboard</h1>
 
-Website: https://baseboard.bojanowski.me
+<p align="center">A native GNOME app for the sensors and fans of motherboards on Linux.</p>
+
+<p align="center">
+  <a href="https://baseboard.bojanowski.me">Website</a> ·
+  <a href="#install">Install</a> ·
+  <a href="#report-your-board">Report a board</a>
+</p>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="website/screenshots/0.1.0/overview-dark-en.png">
+  <img src="website/screenshots/0.1.0/overview-en.png" alt="The Overview page: processor and mainboard temperatures and the first fan, named after its header, CPU_FAN1, with the lowest and highest value since the app started.">
+</picture>
 
 > **Early version.** Baseboard has finished its first milestone (M1): it only reads. The first release is 0.1.0, see [Install](#install). The design, in Polish, is in [docs/PROJEKT.md](docs/PROJEKT.md).
 
