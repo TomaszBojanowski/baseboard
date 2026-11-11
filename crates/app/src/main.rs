@@ -8,6 +8,7 @@ mod config;
 mod fan_chart;
 #[cfg(debug_assertions)]
 mod fan_chart_demo;
+mod fans;
 mod i18n;
 mod libsensors;
 mod libudev;

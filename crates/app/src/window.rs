@@ -11,25 +11,28 @@ use gettextrs::{gettext, ngettext};
 use gtk::{gio, glib};
 
 use crate::config;
+use crate::fans::FansPage;
 use crate::overview::OverviewPage;
 use crate::preferences::{self, DialogSetup};
-use crate::sampler::Setup;
+use crate::sampler::{Sample, Setup, Worker};
 use crate::system::{self, SystemPage};
 
 /// The pages, in the order of the sidebar items in window.ui.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Page {
     Overview,
+    Fans,
     System,
 }
 
 impl Page {
-    const ALL: [Self; 2] = [Self::Overview, Self::System];
+    const ALL: [Self; 3] = [Self::Overview, Self::Fans, Self::System];
 
     fn index(self) -> u32 {
         match self {
             Self::Overview => 0,
-            Self::System => 1,
+            Self::Fans => 1,
+            Self::System => 2,
         }
     }
 
@@ -44,6 +47,7 @@ impl Page {
     fn name(self) -> &'static str {
         match self {
             Self::Overview => "overview",
+            Self::Fans => "fans",
             Self::System => "system",
         }
     }
@@ -51,13 +55,14 @@ impl Page {
     fn title(self) -> String {
         match self {
             Self::Overview => gettext("Overview"),
+            Self::Fans => gettext("Fans"),
             Self::System => gettext("System"),
         }
     }
 }
 
 mod imp {
-    use std::cell::{OnceCell, RefCell};
+    use std::cell::{Cell, OnceCell, RefCell};
 
     use super::*;
 
@@ -77,6 +82,10 @@ mod imp {
         #[template_child]
         pub content_page: TemplateChild<adw::NavigationPage>,
         #[template_child]
+        pub content_nav: TemplateChild<adw::NavigationView>,
+        #[template_child]
+        pub root_page: TemplateChild<adw::NavigationPage>,
+        #[template_child]
         pub content_title: TemplateChild<adw::WindowTitle>,
         #[template_child]
         pub copy_button: TemplateChild<gtk::Button>,
@@ -87,11 +96,17 @@ mod imp {
         #[template_child]
         pub overview: TemplateChild<OverviewPage>,
         #[template_child]
+        pub fans: TemplateChild<FansPage>,
+        #[template_child]
         pub system: TemplateChild<SystemPage>,
         pub settings: OnceCell<gio::Settings>,
         pub copy_action: OnceCell<gio::SimpleAction>,
         /// The file with the user's own names for the board (D22).
         pub labels_file: RefCell<Option<PathBuf>>,
+        /// The sensor reader of the Overview and Fans pages.
+        pub worker: RefCell<Option<Worker>>,
+        /// Whether the reader was last told to read the fan channels.
+        pub reading_fans: Cell<Option<bool>>,
     }
 
     #[glib::object_subclass]
@@ -102,6 +117,7 @@ mod imp {
 
         fn class_init(klass: &mut Self::Class) {
             OverviewPage::ensure_type();
+            FansPage::ensure_type();
             SystemPage::ensure_type();
             klass.bind_template();
         }
@@ -155,6 +171,19 @@ mod imp {
             ));
             obj.add_action(&show_system);
 
+            // "Show Curve" on a fan card: the curve page of that header.
+            let show_curve = gio::SimpleAction::new("show-curve", Some(glib::VariantTy::STRING));
+            show_curve.connect_activate(glib::clone!(
+                #[weak]
+                obj,
+                move |_, key| {
+                    if let Some(key) = key.and_then(|k| k.get::<String>()) {
+                        obj.show_curve(&key);
+                    }
+                }
+            ));
+            obj.add_action(&show_curve);
+
             // How the Overview reads the sensors, for the System page.
             self.overview.connect_status(glib::clone!(
                 #[weak(rename_to = system)]
@@ -170,15 +199,15 @@ mod imp {
                     obj,
                     move |settings, key| match key {
                         preferences::INTERVAL | preferences::SENSORS_LABELS => {
-                            obj.imp()
-                                .overview
-                                .set_options(preferences::options(settings));
+                            if let Some(worker) = obj.imp().worker.borrow().as_ref() {
+                                worker.set_options(preferences::options(settings));
+                            }
                             obj.show_selected_page_title();
                         }
                         preferences::HIDDEN | preferences::SHOWN => {
-                            obj.imp()
-                                .overview
-                                .set_visibility(preferences::visibility(settings));
+                            let visibility = preferences::visibility(settings);
+                            obj.imp().fans.set_visibility(visibility.clone());
+                            obj.imp().overview.set_visibility(visibility);
                         }
                         _ => {}
                     }
@@ -218,14 +247,48 @@ impl BaseboardWindow {
         glib::Object::builder().property("application", app).build()
     }
 
-    /// Starts reading the sensors for the Overview page.
-    pub fn start_overview(&self, mut setup: Setup) {
+    /// Starts reading the sensors in a worker thread for the Overview and
+    /// Fans pages; samples come to both through the main loop.
+    pub fn start_readings(&self, mut setup: Setup) {
         let settings = self.settings();
         setup.options = preferences::options(settings);
-        let overview = &self.imp().overview;
-        overview.set_visibility(preferences::visibility(settings));
-        overview.start(setup);
+        let imp = self.imp();
+        let visibility = preferences::visibility(settings);
+        imp.fans.set_visibility(visibility.clone());
+        imp.overview.set_visibility(visibility);
+        let window = glib::SendWeakRef::from(self.downgrade());
+        let worker = Worker::start(setup, move |sample| {
+            let window = window.clone();
+            glib::idle_add_once(move || {
+                if let Some(window) = window.upgrade() {
+                    window.show_sample(sample);
+                }
+            });
+        });
+        imp.worker.replace(Some(worker));
+        imp.reading_fans.set(None);
         self.update_reading();
+    }
+
+    fn show_sample(&self, sample: Sample) {
+        let imp = self.imp();
+        imp.fans.show(&sample);
+        imp.overview.show(sample);
+    }
+
+    /// Opens the curve page of header `key` over the Fans page.
+    fn show_curve(&self, key: &str) {
+        let imp = self.imp();
+        if let Some(page) = imp.fans.curve_page(key) {
+            imp.content_nav.push(&page);
+        }
+    }
+
+    /// Debug builds: opens the curve page of header `key`, as "Show Curve"
+    /// would.
+    #[cfg(debug_assertions)]
+    pub fn open_curve(&self, key: &str) {
+        self.show_curve(key);
     }
 
     /// Starts the reader of the System page, which reads when the page is
@@ -265,6 +328,7 @@ impl BaseboardWindow {
         }
         match self.page() {
             Page::Overview => self.imp().overview.scroll_to_end(),
+            Page::Fans => self.imp().fans.scroll_to_end(),
             Page::System => self.imp().system.scroll_to_end(),
         }
     }
@@ -284,23 +348,31 @@ impl BaseboardWindow {
     fn show_selected_page(&self) {
         let imp = self.imp();
         let page = self.page();
+        // Another page in the sidebar closes a subpage.
+        if imp.content_nav.visible_page().as_ref() != Some(&*imp.root_page) {
+            imp.content_nav.pop_to_tag("root");
+        }
         imp.pages.set_visible_child_name(page.name());
         self.show_selected_page_title();
         imp.copy_button.set_visible(page == Page::System);
         imp.system
             .set_active(page == Page::System && self.running(), true);
+        self.update_reading();
     }
 
-    /// The title of the page shown, and on the Overview the refresh
-    /// interval from the settings.
+    /// The title of the page shown, and on the Overview and Fans pages the
+    /// refresh interval from the settings.
     fn show_selected_page_title(&self) {
         let imp = self.imp();
         let page = self.page();
         let title = page.title();
         imp.content_page.set_title(&title);
+        imp.root_page.set_title(&title);
         imp.content_title.set_title(&title);
         let subtitle = match page {
-            Page::Overview => refresh_subtitle(preferences::interval_seconds(self.settings())),
+            Page::Overview | Page::Fans => {
+                refresh_subtitle(preferences::interval_seconds(self.settings()))
+            }
             Page::System => String::new(),
         };
         imp.content_title.set_subtitle(&subtitle);
@@ -349,16 +421,25 @@ impl BaseboardWindow {
     }
 
     /// Reads while the window is visible and not suspended: the sensors
-    /// always, the system information on its page only.
+    /// always, the fan channels on the Fans page and its subpages, the
+    /// system information on its page only.
     fn update_reading(&self) {
         let running = self.running();
+        let fans = running && self.page() == Page::Fans;
         glib::g_debug!(
             "baseboard",
-            "readings {}",
-            if running { "running" } else { "paused" }
+            "readings {}{}",
+            if running { "running" } else { "paused" },
+            if fans { ", with the fan channels" } else { "" }
         );
         let imp = self.imp();
-        imp.overview.set_running(running);
+        if let Some(worker) = imp.worker.borrow().as_ref() {
+            worker.set_running(running);
+            // Each change gives a sample at once, so only changes go.
+            if imp.reading_fans.replace(Some(fans)) != Some(fans) {
+                worker.set_fans(fans);
+            }
+        }
         imp.system
             .set_active(running && self.page() == Page::System, false);
     }
@@ -401,6 +482,13 @@ impl BaseboardWindow {
             Detection::OtherModel { code, .. } => (dmi_model(), system::other_model(code), false),
             Detection::Generic => (dmi_model(), system::no_profile(), false),
         };
+        // The Fans page needs a profile; without one it says why, as the
+        // System page does.
+        let no_profile = match detection {
+            Detection::OtherModel { code, .. } => system::other_model(code),
+            _ => system::no_profile(),
+        };
+        imp.fans.set_board(detection.profile().cloned(), no_profile);
         imp.board_model.set_label(&model);
         imp.board_model.set_tooltip_text(Some(&model));
         imp.board_detail.set_label(&detail);

@@ -4,6 +4,10 @@ data/me.bojanowski.Baseboard.gschema.xml
 data/me.bojanowski.Baseboard.metainfo.xml.in
 crates/app/src/application.rs
 crates/app/src/fan_chart.rs
+crates/app/src/fans.rs
+crates/app/src/fans.ui
+crates/app/src/fans/card.rs
+crates/app/src/fans/curve_page.rs
 crates/app/src/overview.rs
 crates/app/src/overview.ui
 crates/app/src/preferences.rs

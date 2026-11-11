@@ -6,15 +6,18 @@
 //! the fan channels and the check for `compute` statements are made in that
 //! thread, and made again when the hwmon devices change (a driver loaded
 //! again), without a restart. New options from the settings apply at once.
-//! Only reads sysfs and the udev database.
+//! While the Fans page is shown, each sample also has the fan modes, and
+//! the curves and their sources, read on entering the page and every 10 s
+//! (§7 M2, M2.4). Only reads sysfs and the udev database.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, RecvTimeoutError};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use baseboard_core::fans::driver::Channel;
+use baseboard_core::fans::driver::{Channel, SysfsDriver};
+use baseboard_core::fans::page::{ChannelReading, CurveRead, SourceRead};
 use baseboard_core::labels::UserLabels;
 use baseboard_core::overview::{self, Board, Context, Extremes, Group};
 use baseboard_core::profile::Profile;
@@ -58,12 +61,18 @@ pub struct Setup {
     pub options: Options,
 }
 
+/// The curves are read again after this long while the Fans page is
+/// shown: each read of a point goes to the board's controller.
+const CURVES_EVERY: Duration = Duration::from_secs(10);
+
 /// Takes samples; lives in the worker thread.
 pub struct Sampler {
     setup: Setup,
     devices: Vec<Device>,
     reader: Option<Reader>,
     extremes: Extremes,
+    /// The Fans page is shown: read the fan channels too.
+    fans: bool,
     /// How many times the reader was made, for the tests.
     made: usize,
 }
@@ -74,6 +83,9 @@ struct Reader {
     choice: Choice,
     channels: Vec<Channel>,
     udev: Box<dyn Udev>,
+    /// The curves and sources by N of `pwmN`, and when they were read.
+    curves: HashMap<u8, (CurveRead, SourceRead)>,
+    curves_read: Option<Instant>,
 }
 
 /// One sample for the main loop.
@@ -82,6 +94,9 @@ pub struct Sample {
     /// The model with every row, also the hidden ones.
     pub groups: Vec<Group>,
     pub status: Status,
+    /// The fan channels of the profile, while the Fans page is shown and
+    /// the board's device is there.
+    pub fans: Option<Vec<ChannelReading>>,
 }
 
 /// How the sample was read, for the notes on the pages (§5.1, §5.4).
@@ -101,8 +116,21 @@ impl Sampler {
             devices: Vec::new(),
             reader: None,
             extremes: Extremes::default(),
+            fans: false,
             made: 0,
         }
+    }
+
+    /// Reads the fan channels too, from the next sample on; turning it on
+    /// reads the curves again at once.
+    pub fn set_fans(&mut self, fans: bool) {
+        if fans
+            && !self.fans
+            && let Some(reader) = &mut self.reader
+        {
+            reader.curves_read = None;
+        }
+        self.fans = fans;
     }
 
     /// One sample: the model with the minimum and maximum of every row.
@@ -142,12 +170,22 @@ impl Sampler {
         };
         let mut groups = overview::build(&chips, &context);
         self.extremes.update(&mut groups);
+        let board = self
+            .setup
+            .profile
+            .as_ref()
+            .and_then(|profile| sensors::find(&chips, &profile.hwmon.name))
+            .map(|chip| chip.path.clone());
+        let fans = board
+            .filter(|_| self.fans)
+            .map(|hwmon| reader.read_fans(&SysfsDriver::new(hwmon)));
         Sample {
             groups,
             status: Status {
                 source: reader.choice.clone(),
                 missing_chip,
             },
+            fans,
         }
     }
 
@@ -178,7 +216,32 @@ impl Reader {
             choice,
             channels,
             udev,
+            curves: HashMap::new(),
+            curves_read: None,
         }
+    }
+
+    /// The modes of the fan channels, and their curves and sources when
+    /// they are due; otherwise the ones read before.
+    fn read_fans(&mut self, driver: &SysfsDriver) -> Vec<ChannelReading> {
+        let due = self
+            .curves_read
+            .is_none_or(|read| read.elapsed() >= CURVES_EVERY);
+        if due {
+            self.curves.clear();
+            self.curves_read = Some(Instant::now());
+        }
+        self.channels
+            .iter()
+            .map(|channel| {
+                let known = self.curves.get(&channel.pwm).cloned();
+                let reading = ChannelReading::read(driver, channel, known);
+                self.curves
+                    .entry(channel.pwm)
+                    .or_insert_with(|| (reading.curve.clone(), reading.source.clone()));
+                reading
+            })
+            .collect()
     }
 }
 
@@ -216,6 +279,9 @@ enum Command {
     Pause,
     /// New settings; a running worker takes a sample with them at once.
     Options(Options),
+    /// The Fans page is shown or not; a running worker takes a sample at
+    /// once.
+    Fans(bool),
 }
 
 /// The worker thread; it ends when this is dropped.
@@ -246,6 +312,7 @@ impl Worker {
                         Ok(Command::Run) => running = true,
                         Ok(Command::Pause) => running = false,
                         Ok(Command::Options(options)) => sampler.set_options(options),
+                        Ok(Command::Fans(fans)) => sampler.set_fans(fans),
                         Err(RecvTimeoutError::Timeout) => {}
                         Err(RecvTimeoutError::Disconnected) => break,
                     }
@@ -271,6 +338,11 @@ impl Worker {
     /// New settings, applied at once.
     pub fn set_options(&self, options: Options) {
         let _ = self.commands.send(Command::Options(options));
+    }
+
+    /// Reads the fan channels too while `fans` (the Fans page is shown).
+    pub fn set_fans(&self, fans: bool) {
+        let _ = self.commands.send(Command::Fans(fans));
     }
 }
 
@@ -378,6 +450,42 @@ mod tests {
         let memory = third.iter().find(|g| g.kind == GroupKind::Memory).unwrap();
         assert_eq!(memory.rows.len(), 1);
         assert!(memory.rows.iter().all(|r| r.kind == Kind::Temp));
+    }
+
+    /// While the Fans page is shown, every sample has the modes, and the
+    /// curves read on entering the page are kept for 10 s; leaving and
+    /// entering it reads them again. Without the page nothing is read.
+    #[test]
+    fn fan_channels_while_the_page_is_shown() {
+        use baseboard_core::fans::driver::Mode;
+
+        let tree = Tree::new("sysfs-ms7e61-hwmon-next", "fans");
+        let mut sampler = Sampler::new(setup(&tree, Options::default()));
+        assert_eq!(sampler.sample().fans, None);
+        sampler.set_fans(true);
+        let first = sampler.sample().fans.unwrap();
+        let keys: Vec<_> = first.iter().map(|c| c.key.as_str()).collect();
+        assert_eq!(
+            keys,
+            ["cpu1", "pump1", "sys1", "sys2", "sys3", "sys4", "ezconn"]
+        );
+        let sys1 = |fans: &[ChannelReading]| fans.iter().find(|c| c.key == "sys1").unwrap().clone();
+        let point1 = |reading: &ChannelReading| reading.curve.clone().unwrap().unwrap()[0].duty;
+        assert_eq!(sys1(&first).mode, Some(Ok(Mode::Auto)));
+        assert_eq!(point1(&sys1(&first)), 94);
+
+        let hwmon = tree.0.join("devices/platform/nct6683.2592/hwmon/hwmon3");
+        std::fs::write(hwmon.join("pwm16_enable"), "1\n").unwrap();
+        std::fs::write(hwmon.join("pwm16_auto_point1_pwm"), "50\n").unwrap();
+        let second = sampler.sample().fans.unwrap();
+        assert_eq!(sys1(&second).mode, Some(Ok(Mode::Manual)), "at once");
+        assert_eq!(point1(&sys1(&second)), 94, "not before 10 s");
+
+        sampler.set_fans(false);
+        assert_eq!(sampler.sample().fans, None);
+        sampler.set_fans(true);
+        let third = sampler.sample().fans.unwrap();
+        assert_eq!(point1(&sys1(&third)), 50, "read again on entering");
     }
 
     fn kinds(groups: &[Group]) -> Vec<GroupKind> {

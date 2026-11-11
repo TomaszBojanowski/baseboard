@@ -3,7 +3,8 @@
 //! The Overview page (docs/PROJEKT.md §5.1): the groups and rows of the
 //! model from `core::overview`, with names, subtitles and ratings through
 //! gettext and numbers through `core::units`. A worker thread
-//! (`sampler`) takes the samples; the page only shows them. The widgets
+//! (`sampler`, started by the window) takes the samples; the page only
+//! shows them. The widgets
 //! are made again only when the rows change, otherwise their texts are set.
 
 use std::cell::{Cell, OnceCell, RefCell};
@@ -20,7 +21,7 @@ use baseboard_core::units::Numbers;
 use gettextrs::{gettext, pgettext};
 use gtk::glib;
 
-use crate::sampler::{Options, Sample, Setup, Status, Worker};
+use crate::sampler::{Sample, Status};
 
 /// The title of a group.
 pub fn group_title(kind: GroupKind) -> String {
@@ -202,8 +203,8 @@ impl Shape {
 /// Values and ranges are inscriptions, not labels: their size does not
 /// depend on their text, so a new value every second redraws them without
 /// laying out the whole window again.
-struct RowWidgets {
-    row: adw::ActionRow,
+pub(crate) struct RowWidgets {
+    pub(crate) row: adw::ActionRow,
     value: gtk::Inscription,
     range: gtk::Inscription,
     icon: Option<gtk::Image>,
@@ -212,7 +213,7 @@ struct RowWidgets {
 }
 
 impl RowWidgets {
-    fn new(rated: bool) -> Self {
+    pub(crate) fn new(rated: bool) -> Self {
         let row = adw::ActionRow::builder().use_markup(false).build();
         // Wide enough for "1020–1022 rpm" and "12,10–12,10 V", so that a
         // narrow window wraps the name rather than cutting the range.
@@ -247,7 +248,7 @@ impl RowWidgets {
         }
     }
 
-    fn update(&self, data: &Row, numbers: &Numbers) {
+    pub(crate) fn update(&self, data: &Row, numbers: &Numbers) {
         let nominal = nominal(data);
         let title = name(&data.name, numbers);
         let subtitle = subtitle(data, numbers);
@@ -492,7 +493,6 @@ mod imp {
         #[template_child]
         pub scrolled: TemplateChild<gtk::ScrolledWindow>,
         pub(super) state: RefCell<State>,
-        pub(super) worker: RefCell<Option<Worker>>,
         pub(super) numbers: OnceCell<Numbers>,
         /// The latest sample with every row; `None` before the first one.
         pub(super) last: RefCell<Option<Vec<Group>>>,
@@ -547,35 +547,6 @@ glib::wrapper! {
 }
 
 impl OverviewPage {
-    /// Starts reading the sensors in a worker thread; samples come to
-    /// [`show`](Self::show) through the main loop.
-    pub fn start(&self, setup: Setup) {
-        let page = glib::SendWeakRef::from(self.downgrade());
-        let worker = Worker::start(setup, move |sample| {
-            let page = page.clone();
-            glib::idle_add_once(move || {
-                if let Some(page) = page.upgrade() {
-                    page.show(sample);
-                }
-            });
-        });
-        self.imp().worker.replace(Some(worker));
-    }
-
-    /// Reads the sensors while `running`: the window is visible.
-    pub fn set_running(&self, running: bool) {
-        if let Some(worker) = self.imp().worker.borrow().as_ref() {
-            worker.set_running(running);
-        }
-    }
-
-    /// New settings for the reader, applied at once.
-    pub fn set_options(&self, options: Options) {
-        if let Some(worker) = self.imp().worker.borrow().as_ref() {
-            worker.set_options(options);
-        }
-    }
-
     /// The rows turned off and on in the settings; the page changes at once.
     pub fn set_visibility(&self, visibility: Visibility) {
         self.imp().visibility.replace(visibility);
@@ -598,7 +569,8 @@ impl OverviewPage {
         self.imp().on_status.replace(Some(Box::new(f)));
     }
 
-    fn show(&self, sample: Sample) {
+    /// A new sample from the window's sensor reader.
+    pub fn show(&self, sample: Sample) {
         let imp = self.imp();
         imp.last.replace(Some(sample.groups));
         if imp.reading.borrow().as_ref() != Some(&sample.status) {

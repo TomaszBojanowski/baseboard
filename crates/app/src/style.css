@@ -6,3 +6,180 @@
 row.monospace-value .subtitle {
   font-family: monospace;
 }
+
+/* ---------- Fans page (docs/PROJEKT.md §7 M2, M2.4) ---------- */
+
+/* Values and header names: 72 % instead of the dimmed 55 %, which gives
+   3.2:1 in the light style; 72 % gives 5.2:1 (light) and 7.3:1 (dark). */
+.fan-soft {
+  opacity: 0.72;
+}
+
+.fan-card {
+  padding: 16px 18px 12px;
+}
+
+/* A card takes the keyboard focus, so that it is read; it shows the focus
+   ring as other widgets of libadwaita do. */
+.fan-card:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent-color) 50%, transparent);
+  outline-offset: -2px;
+}
+
+/* The icon of a header: accent on a tint of it; grey for a header without
+   speed since the start. */
+.fan-card .fan-icon {
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 10px;
+  background-color: color-mix(in srgb, var(--accent-bg-color) 14%, transparent);
+  color: var(--accent-color);
+}
+
+.fan-card .fan-icon image {
+  -gtk-icon-size: 20px;
+}
+
+.fan-card.quiet .fan-icon {
+  background-color: color-mix(in srgb, currentColor 8%, transparent);
+  color: inherit;
+}
+
+.fan-card.quiet .fan-icon image {
+  opacity: 0.6;
+}
+
+/* The mode switch of 0.2.0 only shows the mode. libadwaita draws the
+   labels of a disabled switch at 30 %; here the names stay readable and
+   the current mode reads best (72 %, 5.2:1 in the light style). The
+   narrower padding keeps "Automat BIOS" whole in a narrow window. */
+.fan-mode > toggle.text-button {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.fan-mode > toggle.text-button > label:disabled {
+  filter: opacity(55%);
+}
+
+.fan-mode > toggle.text-button:checked > label:disabled {
+  filter: opacity(72%);
+}
+
+.fan-rpm {
+  font-size: 175%;
+  font-weight: 800;
+}
+
+.fan-rpm.fan-still {
+  opacity: 0.55;
+}
+
+/* A header nobody checked on this board: a box in place of the switch. */
+.fan-unchecked {
+  min-height: 34px;
+  padding: 0 11px;
+  border-radius: 9px;
+  background-color: color-mix(in srgb, currentColor 6%, transparent);
+}
+
+.fan-unchecked > box {
+  padding: 6px 0;
+}
+
+.fan-note {
+  min-height: 36px;
+}
+
+.fan-note image {
+  opacity: 0.8;
+}
+
+.fan-foot {
+  min-height: 34px;
+  margin-right: -6px;
+}
+
+/* Manual mode: the duty cycle in large type. */
+.fan-manual-value {
+  font-size: 300%;
+  font-weight: 800;
+}
+
+/* The duty cycle of a driver without control: neutral, not a meter. */
+levelbar.fan-level > trough {
+  min-height: 8px;
+  padding: 0;
+  border-radius: 99px;
+  background-color: color-mix(in srgb, currentColor 15%, transparent);
+}
+
+levelbar.fan-level > trough > block {
+  min-height: 8px;
+  border-radius: 99px;
+  border: none;
+  box-shadow: none;
+}
+
+levelbar.fan-level > trough > block.filled {
+  background-color: color-mix(in srgb, currentColor 45%, transparent);
+}
+
+levelbar.fan-level > trough > block.empty {
+  background-color: transparent;
+}
+
+/* ---------- curve page ---------- */
+
+.fan-notice {
+  padding: 10px 12px;
+  border-radius: 9px;
+  background-color: color-mix(in srgb, currentColor 6%, transparent);
+}
+
+.fan-chart-card {
+  padding: 14px 14px 10px;
+}
+
+.fan-legend {
+  padding: 8px 8px 2px;
+  font-size: 82%;
+}
+
+.fan-swatch {
+  min-width: 12px;
+  min-height: 12px;
+  border-radius: 50%;
+}
+
+/* The operating point in the greens of the app icon, as on the chart. */
+.fan-swatch-dot {
+  background-color: #26a269;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #26a269 25%, transparent);
+}
+
+.fan-swatch-ring {
+  box-shadow: inset 0 0 0 2.5px var(--accent-bg-color);
+}
+
+@media (prefers-color-scheme: dark) {
+  .fan-swatch-dot {
+    background-color: #33d17a;
+    box-shadow: 0 0 0 3px color-mix(in srgb, #33d17a 25%, transparent);
+  }
+}
+
+.fan-point {
+  min-height: 48px;
+  padding: 0 12px;
+}
+
+.fan-point-number {
+  min-width: 26px;
+  min-height: 26px;
+  border-radius: 50%;
+  font-size: 82%;
+  font-weight: 800;
+  color: var(--accent-color);
+  box-shadow: inset 0 0 0 2px var(--accent-bg-color);
+}

@@ -59,7 +59,7 @@ pub fn run() -> glib::ExitCode {
                 .ok()
                 .flatten()
         });
-        window.start_overview(Setup {
+        window.start_readings(Setup {
             root: config::sysfs_root(),
             board_name: dmi
                 .board_name
@@ -199,10 +199,19 @@ mod debug {
     /// Before the window is shown: `BASEBOARD_DEBUG_SIZE=1200x800` gives it
     /// that size; `BASEBOARD_DEBUG_SHOW_CONTENT=1` shows the page rather
     /// than the sidebar when the window is narrow;
-    /// `BASEBOARD_DEBUG_PAGE=system` opens the System page.
+    /// `BASEBOARD_DEBUG_PAGE=fans` or `=system` opens that page.
+    /// `BASEBOARD_DEBUG_NO_ANIMATIONS=1` turns animations off, as "Reduce
+    /// Animation" in the settings does.
     pub fn prepare(window: &BaseboardWindow) {
-        if var("BASEBOARD_DEBUG_PAGE").as_deref() == Some("system") {
-            window.select_page(Page::System);
+        if var("BASEBOARD_DEBUG_NO_ANIMATIONS").is_some()
+            && let Some(settings) = gtk::Settings::default()
+        {
+            settings.set_gtk_enable_animations(false);
+        }
+        match var("BASEBOARD_DEBUG_PAGE").as_deref() {
+            Some("fans") => window.select_page(Page::Fans),
+            Some("system") => window.select_page(Page::System),
+            _ => {}
         }
         if let Some((w, h)) = var("BASEBOARD_DEBUG_SIZE").and_then(|s| {
             let (w, h) = s.split_once('x')?;
@@ -245,10 +254,82 @@ mod debug {
         );
     }
 
+    /// After the window is shown: `BASEBOARD_DEBUG_MINIMIZED=1` minimizes
+    /// it. `BASEBOARD_DEBUG_CURVE=sys1` opens the curve page of that header
+    /// a second later, when the Fans page has its cards.
+    /// `BASEBOARD_DEBUG_FOCUS=N` moves the keyboard focus N times with Tab
+    /// two seconds later and prints where it goes.
     pub fn presented(window: &BaseboardWindow) {
         if var("BASEBOARD_DEBUG_MINIMIZED").is_some() {
             window.minimize();
         }
+        // `BASEBOARD_DEBUG_HIDE_AFTER=N` hides the window after N seconds,
+        // to measure a hidden window; the app keeps running.
+        if let Some(seconds) = var("BASEBOARD_DEBUG_HIDE_AFTER").and_then(|s| s.parse().ok()) {
+            glib::timeout_add_seconds_local_once(
+                seconds,
+                glib::clone!(
+                    #[weak]
+                    window,
+                    move || {
+                        window.set_visible(false);
+                        eprintln!("baseboard: window hidden");
+                    }
+                ),
+            );
+        }
+        if let Some(key) = var("BASEBOARD_DEBUG_CURVE") {
+            glib::timeout_add_local_once(
+                std::time::Duration::from_millis(1500),
+                glib::clone!(
+                    #[weak]
+                    window,
+                    move || window.open_curve(&key)
+                ),
+            );
+        }
+        if let Some(steps) = var("BASEBOARD_DEBUG_FOCUS").and_then(|s| s.parse::<u32>().ok()) {
+            glib::timeout_add_seconds_local_once(
+                2,
+                glib::clone!(
+                    #[weak]
+                    window,
+                    move || {
+                        // As after a key press: the focus ring shows.
+                        window.set_focus_visible(true);
+                        for step in 1..=steps {
+                            window.child_focus(gtk::DirectionType::TabForward);
+                            let focus = gtk::prelude::RootExt::focus(&window);
+                            let text = focus.as_ref().map(first_text).unwrap_or_default();
+                            let kind = focus
+                                .as_ref()
+                                .map(|w| w.type_().name().to_owned())
+                                .unwrap_or_default();
+                            eprintln!("baseboard: focus {step}: {kind} {text:?}");
+                        }
+                    }
+                ),
+            );
+        }
+    }
+
+    /// The first text in `widget` or under it, to say which widget it is.
+    fn first_text(widget: &gtk::Widget) -> String {
+        if let Some(label) = widget.downcast_ref::<gtk::Label>() {
+            return label.label().to_string();
+        }
+        if let Some(row) = widget.downcast_ref::<adw::PreferencesRow>() {
+            return row.title().to_string();
+        }
+        let mut child = widget.first_child();
+        while let Some(current) = child {
+            let text = first_text(&current);
+            if !text.is_empty() {
+                return text;
+            }
+            child = current.next_sibling();
+        }
+        String::new()
     }
 
     fn delay() -> u32 {

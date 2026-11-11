@@ -26,9 +26,6 @@
 //!   points, the temperature and duty cycle now, the target, the minimum
 //!   and the threshold.
 
-// Used by the debug demo; the fan page comes in step 4 of M2a.
-#![cfg_attr(not(debug_assertions), allow(dead_code))]
-
 mod geometry;
 
 use std::cell::{Cell, OnceCell, RefCell};
@@ -88,6 +85,9 @@ impl Shown {
         }
     }
 }
+
+/// Told whether the large chart labels the operating point.
+type NowLabelCallback = Box<dyn Fn(bool)>;
 
 /// Moves shorter than this, in pixels, jump instead of moving smoothly.
 const SMALLEST_MOVE: f64 = 2.0;
@@ -400,6 +400,10 @@ mod imp {
         pub(super) style_handlers: RefCell<Vec<glib::SignalHandlerId>>,
         /// The font and the text size, whose changes draw the texts again.
         pub(super) font_handlers: RefCell<Vec<glib::SignalHandlerId>>,
+        /// Whether the large chart labelled the operating point last time,
+        /// and who wants to know.
+        pub(super) now_label: Cell<Option<bool>>,
+        pub(super) on_now_label: RefCell<Option<NowLabelCallback>>,
     }
 
     #[glib::object_subclass]
@@ -572,7 +576,14 @@ impl FanChart {
         });
         let animation = imp.animation.get();
         match (imp.shown.get(), next) {
-            (Some(now), Some(next)) if self.is_mapped() && self.moves_far(now, next) => {
+            // Only the large chart moves smoothly: on a card a degree is
+            // 3–4 px, and each move redraws the window 30 times at 120 Hz
+            // (D57).
+            (Some(now), Some(next))
+                if imp.size.get() == Size::Large
+                    && self.is_mapped()
+                    && self.moves_far(now, next) =>
+            {
                 imp.from.set(Some(now));
                 imp.to.set(Some(next));
                 if let Some(animation) = animation {
@@ -677,12 +688,32 @@ impl FanChart {
         if let Some(node) = &cache.front {
             snapshot.append_node(node);
         }
+        let mut labelled = false;
         if let (Some(shown), Some(marker)) = (shown, &marker) {
             draw_dot(snapshot, &plot, &palette, marker);
             if plot.size == Size::Large {
-                self.draw_now_label(snapshot, &plot, &palette, shown, marker, &cache.obstacles);
+                labelled =
+                    self.draw_now_label(snapshot, &plot, &palette, shown, marker, &cache.obstacles);
             }
         }
+        if plot.size == Size::Large && imp.now_label.replace(Some(labelled)) != Some(labelled) {
+            // Told after drawing, as the legend changes the layout.
+            let chart = self.downgrade();
+            glib::idle_add_local_once(move || {
+                if let Some(chart) = chart.upgrade()
+                    && let Some(f) = chart.imp().on_now_label.borrow().as_ref()
+                {
+                    f(labelled);
+                }
+            });
+        }
+    }
+
+    /// Calls `f` whenever the large chart starts or stops labelling the
+    /// operating point (a narrow chart has no room); the page then shows
+    /// the values in a legend.
+    pub fn connect_now_label(&self, f: impl Fn(bool) + 'static) {
+        self.imp().on_now_label.replace(Some(Box::new(f)));
     }
 
     /// Grid, axes, zones, the curve and its points. Returns the places of
@@ -964,7 +995,8 @@ impl FanChart {
 
     /// "Now 46.0 °C · 38 %", and "target 40 %" while the fan moves to it,
     /// where it covers nothing; without a free place, no label (the
-    /// description and, in the editor, the legend have the values).
+    /// description and the legend of the page have the values). Says
+    /// whether it drew the label.
     fn draw_now_label(
         &self,
         snapshot: &gtk::Snapshot,
@@ -973,7 +1005,7 @@ impl FanChart {
         shown: Shown,
         marker: &geometry::Marker,
         obstacles: &[Rect],
-    ) {
+    ) -> bool {
         let widget: &gtk::Widget = self.upcast_ref();
         let (x, y) = (marker.x, marker.y);
         let moving = marker.target.is_some();
@@ -993,7 +1025,7 @@ impl FanChart {
             });
         }
         let Some(reading) = self.imp().reading.get() else {
-            return;
+            return false;
         };
         let numbers = self.numbers();
         // Translators: the label of the operating point on a fan curve,
@@ -1021,7 +1053,7 @@ impl FanChart {
         let width = w1.max(w2) + 30.0;
         let height = 12.0 + lines * line_height;
         let Some((bx, by)) = geometry::place_label(plot, (x, y), width, height, &obstacles) else {
-            return;
+            return false;
         };
         let r = Rect {
             x: bx,
@@ -1056,6 +1088,7 @@ impl FanChart {
                 &alpha(&palette.fg, palette.text),
             );
         }
+        true
     }
 }
 
