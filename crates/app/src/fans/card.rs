@@ -22,6 +22,7 @@ use baseboard_core::units::{UNIT_SPACE, duty_to_percent};
 use gettextrs::gettext;
 use gtk::{glib, pango};
 
+use super::slot::StatusSlot;
 use super::{Layout, PageContext, percent, source_name};
 use crate::fan_chart::{ChartCurve, FanChart, Reading, Size};
 use crate::overview;
@@ -151,8 +152,9 @@ pub(super) struct CardWidgets {
     values: gtk::Box,
     rpm: gtk::Inscription,
     duty: gtk::Label,
-    /// The status box: the mode, or the note of an unchecked header.
-    status: Option<gtk::Widget>,
+    /// The place of the status box: the mode, or the note of an unchecked
+    /// header.
+    status: Option<StatusSlot>,
     mode: Option<gtk::Label>,
     unchecked_empty: Option<gtk::Label>,
     body: BodyWidgets,
@@ -315,66 +317,21 @@ impl CardWidgets {
         let mut mode = None;
         let mut unchecked_empty = None;
         if let CardKind::Full { control, .. } = &card.kind {
-            match control {
+            let frame = match control {
                 Control::Switch { .. } => {
-                    let frame = gtk::Box::builder()
-                        .spacing(10)
-                        .css_classes(["fan-status"])
-                        .build();
-                    let label = gtk::Label::builder()
-                        .xalign(0.0)
-                        .wrap(true)
-                        .natural_wrap_mode(gtk::NaturalWrapMode::Word)
-                        .hexpand(true)
-                        .valign(gtk::Align::Center)
-                        .use_markup(true)
-                        .css_classes(["caption"])
-                        .build();
-                    let lock = gtk::Image::builder()
-                        .icon_name("system-lock-screen-symbolic")
-                        .valign(gtk::Align::Center)
-                        .css_classes(["dimmed"])
-                        .build();
-                    // Translators: read by screen readers next to the mode
-                    // of a fan, which this version does not change.
-                    lock.update_property(&[gtk::accessible::Property::Label(&gettext(
-                        "Cannot be changed",
-                    ))]);
-                    frame.append(&label);
-                    frame.append(&lock);
-                    box_.append(&frame);
-                    status = Some(frame.upcast());
+                    let (frame, label) = mode_box();
                     mode = Some(label);
+                    frame
                 }
                 Control::Unchecked => {
-                    let frame = gtk::Box::builder()
-                        .spacing(10)
-                        .css_classes(["fan-status"])
-                        .build();
-                    let icon = gtk::Image::from_icon_name("help-about-symbolic");
-                    icon.set_accessible_role(gtk::AccessibleRole::Presentation);
-                    let lines = gtk::Box::builder()
-                        .orientation(gtk::Orientation::Vertical)
-                        .spacing(2)
-                        .valign(gtk::Align::Center)
-                        .hexpand(true)
-                        .build();
-                    lines.append(&caption(
-                        // Translators: in place of the mode switch of a fan
-                        // header whose channel nobody has checked on this
-                        // board.
-                        &gettext("This header was not checked on this board."),
-                        false,
-                    ));
-                    let empty = caption(&empty_text(), true);
-                    lines.append(&empty);
-                    frame.append(&icon);
-                    frame.append(&lines);
-                    box_.append(&frame);
-                    status = Some(frame.upcast());
+                    let (frame, empty) = unchecked_box();
                     unchecked_empty = Some(empty);
+                    frame
                 }
-            }
+            };
+            let slot = StatusSlot::new(&frame);
+            box_.append(&slot);
+            status = Some(slot);
         }
 
         // The main part.
@@ -637,11 +594,15 @@ impl CardWidgets {
             let markup = mode_markup(mode);
             if label.label() != markup {
                 label.set_markup(&markup);
+                self.status_changed();
             }
         }
         let empty = card.maybe_empty();
-        if let Some(label) = &self.unchecked_empty {
+        if let Some(label) = &self.unchecked_empty
+            && label.is_visible() != empty
+        {
             label.set_visible(empty);
+            self.status_changed();
         }
         self.empty.set_visible(
             empty && self.unchecked_empty.is_none() && !matches!(card.kind, CardKind::Low),
@@ -742,11 +703,77 @@ impl CardWidgets {
         ]);
     }
 
-    /// The status box, which the page makes as high as the one of the card
-    /// next to it (D60).
-    pub(super) fn status(&self) -> Option<&gtk::Widget> {
+    /// The place of the status box, which the page pairs with the one of
+    /// the card next to it (D60).
+    pub(super) fn status(&self) -> Option<&StatusSlot> {
         self.status.as_ref()
     }
+
+    /// The text of the status box changed: the box next to it measures
+    /// again too.
+    fn status_changed(&self) {
+        if let Some(slot) = &self.status {
+            slot.content_changed();
+        }
+    }
+}
+
+/// The status box with the mode as text and a lock (D60); the label gets
+/// the mode on update.
+pub(super) fn mode_box() -> (gtk::Box, gtk::Label) {
+    let frame = gtk::Box::builder()
+        .spacing(10)
+        .css_classes(["fan-status"])
+        .build();
+    let label = gtk::Label::builder()
+        .xalign(0.0)
+        .wrap(true)
+        .natural_wrap_mode(gtk::NaturalWrapMode::Word)
+        .hexpand(true)
+        .valign(gtk::Align::Center)
+        .use_markup(true)
+        .css_classes(["caption"])
+        .build();
+    let lock = gtk::Image::builder()
+        .icon_name("system-lock-screen-symbolic")
+        .valign(gtk::Align::Center)
+        .css_classes(["dimmed"])
+        .build();
+    // Translators: read by screen readers next to the mode of a fan, which
+    // this version does not change.
+    let cannot = gettext("Cannot be changed");
+    lock.update_property(&[gtk::accessible::Property::Label(&cannot)]);
+    frame.append(&label);
+    frame.append(&lock);
+    (frame, label)
+}
+
+/// The status box of a header nobody checked on this board; the second
+/// label, shown only then, says that the header may be empty.
+pub(super) fn unchecked_box() -> (gtk::Box, gtk::Label) {
+    let frame = gtk::Box::builder()
+        .spacing(10)
+        .css_classes(["fan-status"])
+        .build();
+    let icon = gtk::Image::from_icon_name("help-about-symbolic");
+    icon.set_accessible_role(gtk::AccessibleRole::Presentation);
+    let lines = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(2)
+        .valign(gtk::Align::Center)
+        .hexpand(true)
+        .build();
+    lines.append(&caption(
+        // Translators: in place of the mode switch of a fan header whose
+        // channel nobody has checked on this board.
+        &gettext("This header was not checked on this board."),
+        false,
+    ));
+    let empty = caption(&empty_text(), true);
+    lines.append(&empty);
+    frame.append(&icon);
+    frame.append(&lines);
+    (frame, empty)
 }
 
 /// The name of a mode, as the mode switch of the editor will name it.

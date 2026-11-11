@@ -68,39 +68,84 @@
                             <property name="margin-end">12</property>
                             <child>
                               <object class="AdwPreferencesGroup" id="note_group">
+                                <!-- A row with the parts and style classes
+                                     of AdwActionRow, so that it looks the
+                                     same, whose button goes under the text
+                                     in a narrow window (D60). -->
                                 <child>
-                                  <object class="AdwActionRow" id="note_row">
-                                    <property name="use-markup">False</property>
-                                    <child type="prefix">
-                                      <object class="GtkImage" id="note_icon">
-                                        <property name="accessible-role">presentation</property>
-                                        <property name="icon-name">help-about-symbolic</property>
-                                      </object>
-                                    </child>
-                                    <!-- Opens the kernel section of the
-                                         project's website (D60). -->
-                                    <child type="suffix">
-                                      <object class="GtkButton" id="kernel_button">
-                                        <property name="visible">False</property>
-                                        <property name="valign">center</property>
-                                        <property name="child">
-                                          <object class="GtkBox">
-                                            <property name="spacing">6</property>
+                                  <object class="AdwPreferencesRow" id="note_row">
+                                    <property name="activatable">False</property>
+                                    <property name="child">
+                                      <object class="GtkBox" id="note_header">
+                                        <style>
+                                          <class name="header"/>
+                                        </style>
+                                        <child>
+                                          <object class="GtkImage">
+                                            <property name="accessible-role">presentation</property>
+                                            <property name="icon-name">help-about-symbolic</property>
+                                            <style>
+                                              <class name="icon"/>
+                                            </style>
+                                          </object>
+                                        </child>
+                                        <child>
+                                          <object class="GtkBox" id="note_texts">
+                                            <property name="orientation">vertical</property>
+                                            <property name="hexpand">True</property>
+                                            <property name="valign">center</property>
+                                            <style>
+                                              <class name="title"/>
+                                            </style>
                                             <child>
-                                              <object class="GtkLabel">
-                                                <property name="label" translatable="yes" comments="A button on the Fans page that opens the website's section on fan control in the kernel.">Kernel Status</property>
+                                              <object class="GtkLabel" id="note_title">
+                                                <property name="xalign">0</property>
+                                                <property name="wrap">True</property>
+                                                <property name="wrap-mode">word-char</property>
+                                                <style>
+                                                  <class name="title"/>
+                                                </style>
                                               </object>
                                             </child>
                                             <child>
-                                              <object class="GtkImage">
-                                                <property name="icon-name">adw-external-link-symbolic</property>
-                                                <property name="accessible-role">presentation</property>
+                                              <object class="GtkLabel" id="note_subtitle">
+                                                <property name="visible">False</property>
+                                                <property name="xalign">0</property>
+                                                <property name="wrap">True</property>
+                                                <property name="wrap-mode">word-char</property>
+                                                <style>
+                                                  <class name="subtitle"/>
+                                                </style>
                                               </object>
                                             </child>
                                           </object>
-                                        </property>
+                                        </child>
+                                        <!-- Opens the kernel section of the
+                                             project's website (D60). -->
+                                        <child>
+                                          <object class="GtkButton" id="kernel_button">
+                                            <property name="visible">False</property>
+                                            <property name="valign">center</property>
+                                            <property name="child">
+                                              <object class="GtkBox">
+                                                <property name="spacing">6</property>
+                                                <child>
+                                                  <object class="GtkLabel">
+                                                    <property name="label" translatable="yes" comments="A button on the Fans page that opens the website's section on fan control in the kernel.">Kernel Status</property>
+                                                  </object>
+                                                </child>
+                                                <child>
+                                                  <object class="GtkImage">
+                                                    <property name="icon-name">adw-external-link-symbolic</property>
+                                                    <property name="accessible-role">presentation</property>
+                                                  </object>
+                                                </child>
+                                              </object>
+                                            </property>
+                                          </object>
+                                        </child>
                                       </object>
-                                    </child>
+                                    </property>
                                   </object>
                                 </child>
                               </object>

@@ -10,6 +10,7 @@
 
 mod card;
 mod curve_page;
+mod slot;
 
 use std::cell::{Cell, OnceCell, RefCell};
 
@@ -30,6 +31,7 @@ use crate::overview::{self, RowWidgets};
 use crate::sampler::Sample;
 use card::{CardWidgets, Shape};
 use curve_page::CurvePage;
+use slot::StatusSlot;
 
 /// How wide the page is (fans.ui): two columns of cards, one, or one with
 /// the speed under the name.
@@ -107,10 +109,10 @@ fn kernel_url() -> String {
 fn source_description() -> String {
     let what = gettext(
         // Translators: under "Temperature source" on the Fans page; the next
-        // sentence follows on the same line.
-        "The board's controller computes the duty cycles of the curves from this temperature.",
+        // sentence follows on the same line, which both should fit.
+        "The board's controller computes the duty cycle from this temperature.",
     );
-    let range = gettext("Gray: minimum and maximum since the app started.");
+    let range = gettext("Gray range: minimum and maximum since the app started.");
     keep_last_words(&format!("{what} {range}"), 3)
 }
 
@@ -292,7 +294,15 @@ mod imp {
         #[template_child]
         pub scrolled: TemplateChild<gtk::ScrolledWindow>,
         #[template_child]
-        pub note_row: TemplateChild<adw::ActionRow>,
+        pub note_row: TemplateChild<adw::PreferencesRow>,
+        #[template_child]
+        pub note_header: TemplateChild<gtk::Box>,
+        #[template_child]
+        pub note_texts: TemplateChild<gtk::Box>,
+        #[template_child]
+        pub note_title: TemplateChild<gtk::Label>,
+        #[template_child]
+        pub note_subtitle: TemplateChild<gtk::Label>,
         #[template_child]
         pub kernel_button: TemplateChild<gtk::Button>,
         #[template_child]
@@ -317,8 +327,6 @@ mod imp {
         pub(super) model: RefCell<Option<Page>>,
         /// The curve page, while it is open.
         pub(super) curve: RefCell<Option<CurvePage>>,
-        /// The status boxes of the cards in one row, equally high (D60).
-        pub(super) size_groups: RefCell<Vec<gtk::SizeGroup>>,
     }
 
     #[glib::object_subclass]
@@ -495,10 +503,8 @@ impl FansPage {
         while let Some(child) = grid.first_child() {
             grid.remove(&child);
         }
-        for group in imp.size_groups.take() {
-            for widget in group.widgets() {
-                group.remove_widget(&widget);
-            }
+        for slot in cards.iter().filter_map(CardWidgets::status) {
+            slot.unpair();
         }
         let columns = if layout == Layout::Wide { 2 } else { 1 };
         for (i, card) in cards.iter().enumerate() {
@@ -511,27 +517,46 @@ impl FansPage {
             grid.attach(&filler, 1, (cards.len() / 2) as i32, 1, 1);
         }
         if columns == 2 {
-            let groups = cards
-                .chunks(2)
-                .filter_map(|row| {
-                    let boxes: Vec<&gtk::Widget> =
-                        row.iter().filter_map(CardWidgets::status).collect();
-                    (boxes.len() == 2).then(|| {
-                        let group = gtk::SizeGroup::new(gtk::SizeGroupMode::Vertical);
-                        for status in boxes {
-                            group.add_widget(status);
-                        }
-                        group
-                    })
-                })
-                .collect();
-            imp.size_groups.replace(groups);
+            for row in cards.chunks(2) {
+                if let [left, right] = row
+                    && let (Some(left), Some(right)) = (left.status(), right.status())
+                {
+                    StatusSlot::pair(left, Some(right));
+                }
+            }
         }
+    }
+
+    /// The button of the line on top: next to the text, or under it in a
+    /// narrow window, where the text keeps the whole width (D60).
+    fn place_kernel_button(&self, layout: Layout) {
+        let imp = self.imp();
+        let narrow = layout == Layout::Narrow;
+        // A reference of its own while the button moves.
+        let button = imp.kernel_button.get();
+        let target: &gtk::Box = if narrow {
+            &imp.note_texts
+        } else {
+            &imp.note_header
+        };
+        if button.parent().as_ref() != Some(target.upcast_ref()) {
+            if let Some(parent) = button.parent().and_downcast::<gtk::Box>() {
+                parent.remove(&button);
+            }
+            target.append(&button);
+        }
+        button.set_halign(if narrow {
+            gtk::Align::Start
+        } else {
+            gtk::Align::Fill
+        });
+        button.set_margin_top(if narrow { 6 } else { 0 });
     }
 
     fn apply_layout(&self) {
         let imp = self.imp();
         let layout = imp.layout.get();
+        self.place_kernel_button(layout);
         let state = imp.state.borrow();
         self.arrange(&state.cards, layout);
         for card in &state.cards {
@@ -629,11 +654,14 @@ impl FansPage {
             ),
             Note::PreviewOnly => (preview_note(), String::new(), false),
         };
-        if imp.note_row.title() != title {
-            imp.note_row.set_title(&title);
-        }
-        if imp.note_row.subtitle().as_deref() != Some(subtitle.as_str()) {
-            imp.note_row.set_subtitle(&subtitle);
+        if imp.note_title.label() != title || imp.note_subtitle.label() != subtitle {
+            imp.note_title.set_label(&title);
+            imp.note_subtitle.set_label(&subtitle);
+            imp.note_subtitle.set_visible(!subtitle.is_empty());
+            imp.note_row.upcast_ref::<gtk::Widget>().update_property(&[
+                gtk::accessible::Property::Label(&title),
+                gtk::accessible::Property::Description(&subtitle),
+            ]);
         }
         imp.kernel_button.set_visible(kernel);
         imp.legend
@@ -779,7 +807,9 @@ mod tests {
         assert_eq!(keep_last_words("one", 3), "one");
         let description = source_description();
         assert!(
-            description.starts_with("The board's controller computes the duty cycles"),
+            description.starts_with(
+                "The board's controller computes the duty cycle from this temperature. Gray range:"
+            ),
             "{description}"
         );
         assert!(
@@ -793,6 +823,85 @@ mod tests {
     #[test]
     fn kernel_section_of_the_website() {
         assert_eq!(kernel_url(), "https://baseboard.bojanowski.me/#kernel");
+    }
+
+    /// Two cards in a row: the status box of an unchecked header with three
+    /// lines (its second sentence wraps once) and the mode box with one line
+    /// are equally high, and the charts under them start at one height
+    /// (D60). Needs a display; skipped without one.
+    #[test]
+    fn status_boxes_in_a_row_equally_high() {
+        // The tests share one process, which stays in the "C" locale.
+        gtk::disable_setlocale();
+        if gtk::init().is_err() {
+            eprintln!("no display: status_boxes_in_a_row_equally_high skipped");
+            return;
+        }
+        let card = |slot: &StatusSlot| {
+            let card = gtk::Box::new(gtk::Orientation::Vertical, 12);
+            let chart = gtk::Box::builder().height_request(150).build();
+            card.append(slot);
+            card.append(&chart);
+            (card, chart)
+        };
+        let (mode, label) = card::mode_box();
+        label.set_markup("Mode: <b>Automatic BIOS</b>");
+        let (unchecked, empty) = card::unchecked_box();
+        let (mode_slot, unchecked_slot) = (StatusSlot::new(&mode), StatusSlot::new(&unchecked));
+        let (left, left_chart) = card(&mode_slot);
+        let (right, right_chart) = card(&unchecked_slot);
+        let grid = gtk::Grid::builder()
+            .column_homogeneous(true)
+            .column_spacing(18)
+            .build();
+        grid.attach(&left, 0, 0, 1, 1);
+        grid.attach(&right, 1, 0, 1, 1);
+        StatusSlot::pair(&mode_slot, Some(&unchecked_slot));
+
+        // A card wide enough for the first sentence, so that the second
+        // one, the longer, wraps once.
+        let (_, sentence, _, _) = empty.measure(gtk::Orientation::Horizontal, -1);
+        let (_, icon, _, _) = unchecked
+            .first_child()
+            .unwrap()
+            .measure(gtk::Orientation::Horizontal, -1);
+        let card_width = icon + 10 + sentence * 4 / 5;
+        let width = 2 * card_width + 18;
+        let (_, height, _, _) = grid.measure(gtk::Orientation::Vertical, width);
+        grid.allocate(width, height, -1, None);
+
+        let lines = |box_: &gtk::Box| {
+            let mut count = 0;
+            let mut child = box_.last_child().and_then(|c| c.first_child());
+            while let Some(widget) = child {
+                if let Some(label) = widget.downcast_ref::<gtk::Label>() {
+                    count += label.layout().line_count();
+                }
+                child = widget.next_sibling();
+            }
+            count
+        };
+        assert_eq!(lines(&unchecked), 3, "the unchecked box has three lines");
+        assert_eq!(label.layout().line_count(), 1);
+        assert_eq!(mode.height(), unchecked.height());
+        let top = |chart: &gtk::Box| {
+            chart
+                .compute_point(&grid, &gtk::graphene::Point::new(0.0, 0.0))
+                .unwrap()
+                .y()
+        };
+        assert_eq!(top(&left_chart), top(&right_chart));
+
+        // The header gets a fan: its note goes, and the box next to it
+        // follows, as the card says when its status changes.
+        let three_lines = unchecked.height();
+        empty.set_visible(false);
+        unchecked_slot.content_changed();
+        let (_, height, _, _) = grid.measure(gtk::Orientation::Vertical, width);
+        grid.allocate(width, height, -1, None);
+        assert!(unchecked.height() < three_lines);
+        assert_eq!(mode.height(), unchecked.height());
+        assert_eq!(top(&left_chart), top(&right_chart));
     }
 
     /// Four marks in the legend, each with a name.

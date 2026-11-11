@@ -61,7 +61,7 @@
                                 <property name="margin-end">12</property>
                                 <child>
                                   <object class="GtkLabel">
-                                    <property name="label" translatable="yes" comments="Above the readings of the Overview, and under the temperature source on the Fans page, where it follows another sentence on one line: keep it short.">Gray: minimum and maximum since the app started.</property>
+                                    <property name="label" translatable="yes" comments="Above the readings of the Overview, and under the temperature source on the Fans page, where it follows another sentence on one line: keep it short.">Gray range: minimum and maximum since the app started.</property>
                                     <property name="xalign">0</property>
                                     <property name="wrap">True</property>
                                     <style>
