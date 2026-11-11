@@ -9,6 +9,8 @@ mod fan_chart;
 #[cfg(debug_assertions)]
 mod fan_chart_demo;
 mod fans;
+#[cfg(test)]
+mod gtk_test;
 mod i18n;
 mod libsensors;
 mod libudev;

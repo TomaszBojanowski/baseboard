@@ -10,9 +10,11 @@
 
 mod card;
 mod curve_page;
+mod layout;
 mod slot;
 
 use std::cell::{Cell, OnceCell, RefCell};
+use std::rc::Rc;
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
@@ -31,10 +33,11 @@ use crate::overview::{self, RowWidgets};
 use crate::sampler::Sample;
 use card::{CardWidgets, Shape};
 use curve_page::CurvePage;
-use slot::StatusSlot;
+use layout::{CardsGrid, HeadNeeds, PageLayout};
 
-/// How wide the page is (fans.ui): two columns of cards, one, or one with
-/// the speed under the name.
+/// How wide the page is (fans.ui), for the curve page, the charts, the
+/// source and the line on top. The cards follow their own rule by width
+/// (`layout`, D61).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) enum Layout {
     #[default]
@@ -146,7 +149,7 @@ fn legend_items() -> [(Mark, String); 4] {
         (Mark::Now, gettext("now: temperature and duty cycle")),
         // Translators: in the legend of the fan charts, the dashed line of
         // a curve before its first point and after its last one.
-        (Mark::Ends, gettext("curve beyond its end points")),
+        (Mark::Ends, gettext("curve extension")),
     ]
 }
 
@@ -310,7 +313,12 @@ mod imp {
         #[template_child]
         pub legend: TemplateChild<adw::WrapBox>,
         #[template_child]
-        pub cards: TemplateChild<gtk::Grid>,
+        pub cards_group: TemplateChild<adw::PreferencesGroup>,
+        /// The cards, in one or two columns by the page's rule (D61).
+        pub(super) cards: OnceCell<CardsGrid>,
+        /// What the cards need for their widest content, shared with the
+        /// grid and the header lines.
+        pub(super) page_layout: Rc<PageLayout>,
         #[template_child]
         pub read_only_group: TemplateChild<adw::PreferencesGroup>,
         /// The board profile; `None` in generic mode.
@@ -355,6 +363,10 @@ mod imp {
             ));
             // Samples are only stored while the page cannot be seen.
             obj.connect_map(|page| page.display());
+
+            let grid = CardsGrid::new(self.page_layout.clone());
+            self.cards_group.add(&grid);
+            let _ = self.cards.set(grid);
 
             self.source_group
                 .set_description(Some(&glib::markup_escape_text(&source_description())));
@@ -493,36 +505,30 @@ impl FansPage {
         self.apply_layout();
     }
 
-    /// Puts the cards in rows of two, each as high as its higher card, or
-    /// in one column. In a row of two the status boxes (the mode, or the
-    /// box of an unchecked header) are equally high, so that the charts and
-    /// the footers line up and no card has a gap under its chart (D60).
-    fn arrange(&self, cards: &[CardWidgets], layout: Layout) {
+    /// Puts the cards in the grid, which stands them in one or two columns
+    /// by the page's rule and pairs their status boxes in rows (D60, D61).
+    fn arrange(&self, cards: &[CardWidgets]) {
+        if let Some(grid) = self.imp().cards.get() {
+            let widgets: Vec<&gtk::Widget> = cards.iter().map(|c| c.card.upcast_ref()).collect();
+            grid.set_cards(&widgets);
+        }
+    }
+
+    /// The needs of the widest content of the cards (D61); when they
+    /// change, the header lines and the grid lay out again.
+    fn update_needs(&self, cards: &[CardWidgets]) {
         let imp = self.imp();
-        let grid = &imp.cards;
-        while let Some(child) = grid.first_child() {
-            grid.remove(&child);
-        }
-        for slot in cards.iter().filter_map(CardWidgets::status) {
-            slot.unpair();
-        }
-        let columns = if layout == Layout::Wide { 2 } else { 1 };
-        for (i, card) in cards.iter().enumerate() {
-            let (row, column) = (i / columns, i % columns);
-            grid.attach(&card.card, column as i32, row as i32, 1, 1);
-        }
-        // A last card alone keeps half the width.
-        if columns == 2 && cards.len() % 2 == 1 {
-            let filler = gtk::Box::new(gtk::Orientation::Vertical, 0);
-            grid.attach(&filler, 1, (cards.len() / 2) as i32, 1, 1);
-        }
-        if columns == 2 {
-            for row in cards.chunks(2) {
-                if let [left, right] = row
-                    && let (Some(left), Some(right)) = (left.status(), right.status())
-                {
-                    StatusSlot::pair(left, Some(right));
-                }
+        let numbers = self.numbers();
+        let needs = cards
+            .iter()
+            .map(|card| card.needs(numbers))
+            .fold(HeadNeeds::default(), HeadNeeds::max);
+        if imp.page_layout.needs.replace(needs) != needs {
+            for card in cards {
+                card.relayout_head();
+            }
+            if let Some(grid) = imp.cards.get() {
+                grid.queue_resize();
             }
         }
     }
@@ -558,7 +564,6 @@ impl FansPage {
         let layout = imp.layout.get();
         self.place_kernel_button(layout);
         let state = imp.state.borrow();
-        self.arrange(&state.cards, layout);
         for card in &state.cards {
             card.set_layout(layout);
         }
@@ -687,10 +692,10 @@ impl FansPage {
             state.cards = model
                 .cards
                 .iter()
-                .map(|card| CardWidgets::new(card, layout))
+                .map(|card| CardWidgets::new(card, layout, imp.page_layout.clone()))
                 .collect();
             state.shapes = shapes;
-            self.arrange(&state.cards, layout);
+            self.arrange(&state.cards);
         }
         let context = PageContext {
             numbers,
@@ -699,6 +704,7 @@ impl FansPage {
         for (widgets, card) in state.cards.iter().zip(&model.cards) {
             widgets.update(card, &context);
         }
+        self.update_needs(&state.cards);
 
         // The headers without control, as on the Overview.
         imp.read_only_group.set_visible(!model.read_only.is_empty());
@@ -759,6 +765,7 @@ mod tests {
     use baseboard_core::profile::{Temp, TempRole};
 
     use super::*;
+    use slot::StatusSlot;
 
     fn source(source: Source, temp: Option<Temp>) -> SourceRow {
         SourceRow {
@@ -828,15 +835,14 @@ mod tests {
     /// Two cards in a row: the status box of an unchecked header with three
     /// lines (its second sentence wraps once) and the mode box with one line
     /// are equally high, and the charts under them start at one height
-    /// (D60). Needs a display; skipped without one.
+    /// (D60). In one column each box is as high as its own text (D61).
+    /// Needs a display; skipped without one.
     #[test]
     fn status_boxes_in_a_row_equally_high() {
-        // The tests share one process, which stays in the "C" locale.
-        gtk::disable_setlocale();
-        if gtk::init().is_err() {
-            eprintln!("no display: status_boxes_in_a_row_equally_high skipped");
-            return;
-        }
+        crate::gtk_test::run("status_boxes_in_a_row_equally_high", status_boxes);
+    }
+
+    fn status_boxes() {
         let card = |slot: &StatusSlot| {
             let card = gtk::Box::new(gtk::Orientation::Vertical, 12);
             let chart = gtk::Box::builder().height_request(150).build();
@@ -847,16 +853,16 @@ mod tests {
         let (mode, label) = card::mode_box();
         label.set_markup("Mode: <b>Automatic BIOS</b>");
         let (unchecked, empty) = card::unchecked_box();
-        let (mode_slot, unchecked_slot) = (StatusSlot::new(&mode), StatusSlot::new(&unchecked));
-        let (left, left_chart) = card(&mode_slot);
+        let unchecked_slot = StatusSlot::new(&unchecked);
+        let (left, left_chart) = card(&StatusSlot::new(&mode));
         let (right, right_chart) = card(&unchecked_slot);
-        let grid = gtk::Grid::builder()
-            .column_homogeneous(true)
-            .column_spacing(18)
-            .build();
-        grid.attach(&left, 0, 0, 1, 1);
-        grid.attach(&right, 1, 0, 1, 1);
-        StatusSlot::pair(&mode_slot, Some(&unchecked_slot));
+        let page_layout = Rc::new(PageLayout::default());
+        let grid = CardsGrid::new(page_layout.clone());
+        grid.set_cards(&[left.upcast_ref(), right.upcast_ref()]);
+        let lay_out = |width: i32| {
+            let (_, height, _, _) = grid.measure(gtk::Orientation::Vertical, width);
+            grid.allocate(width, height, -1, None);
+        };
 
         // A card wide enough for the first sentence, so that the second
         // one, the longer, wraps once.
@@ -866,9 +872,10 @@ mod tests {
             .unwrap()
             .measure(gtk::Orientation::Horizontal, -1);
         let card_width = icon + 10 + sentence * 4 / 5;
-        let width = 2 * card_width + 18;
-        let (_, height, _, _) = grid.measure(gtk::Orientation::Vertical, width);
-        grid.allocate(width, height, -1, None);
+        let width = 2 * card_width + layout::SPACING;
+        lay_out(width);
+        assert_eq!(left.width(), card_width);
+        assert_eq!(top(&grid, &left), top(&grid, &right));
 
         let lines = |box_: &gtk::Box| {
             let mut count = 0;
@@ -884,24 +891,50 @@ mod tests {
         assert_eq!(lines(&unchecked), 3, "the unchecked box has three lines");
         assert_eq!(label.layout().line_count(), 1);
         assert_eq!(mode.height(), unchecked.height());
-        let top = |chart: &gtk::Box| {
-            chart
-                .compute_point(&grid, &gtk::graphene::Point::new(0.0, 0.0))
-                .unwrap()
-                .y()
-        };
-        assert_eq!(top(&left_chart), top(&right_chart));
+        assert_eq!(top(&grid, &left_chart), top(&grid, &right_chart));
 
         // The header gets a fan: its note goes, and the box next to it
         // follows, as the card says when its status changes.
         let three_lines = unchecked.height();
         empty.set_visible(false);
         unchecked_slot.content_changed();
-        let (_, height, _, _) = grid.measure(gtk::Orientation::Vertical, width);
-        grid.allocate(width, height, -1, None);
+        lay_out(width);
         assert!(unchecked.height() < three_lines);
         assert_eq!(mode.height(), unchecked.height());
-        assert_eq!(top(&left_chart), top(&right_chart));
+        assert_eq!(top(&grid, &left_chart), top(&grid, &right_chart));
+
+        // Header lines that need more than half the width: one column,
+        // the right card under the left one, and once the grid has paired
+        // the boxes for it, each box as high as its own text.
+        empty.set_visible(true);
+        unchecked_slot.content_changed();
+        page_layout
+            .needs
+            .set(HeadNeeds::of(0, card_width - layout::GAP, 0, 0));
+        grid.queue_resize();
+        lay_out(width);
+        while glib::MainContext::default().iteration(false) {}
+        lay_out(width);
+        assert_eq!(left.width(), width);
+        assert!(top(&grid, &right) > top(&grid, &left));
+        assert!(mode.height() < unchecked.height());
+
+        // Wide again: paired again.
+        page_layout.needs.set(HeadNeeds::default());
+        grid.queue_resize();
+        lay_out(width);
+        while glib::MainContext::default().iteration(false) {}
+        lay_out(width);
+        assert_eq!(top(&grid, &left), top(&grid, &right));
+        assert_eq!(mode.height(), unchecked.height());
+    }
+
+    /// Where `widget` starts, from the top of `grid`.
+    fn top(grid: &CardsGrid, widget: &impl IsA<gtk::Widget>) -> f32 {
+        widget
+            .compute_point(grid, &gtk::graphene::Point::new(0.0, 0.0))
+            .unwrap()
+            .y()
     }
 
     /// Four marks in the legend, each with a name.

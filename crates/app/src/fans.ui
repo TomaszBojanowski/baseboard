@@ -5,9 +5,10 @@
   <requires lib="Adw" version="1.0"/>
   <!-- The Fans page (docs/PROJEKT.md §5.5.4, §7 M2, M2.4): a note on top,
        the temperature source, the cards of the headers, the headers
-       without control. fans.rs fills the groups; below 760 sp the cards
-       stand in one column, below 560 sp a card puts its speed under its
-       name. -->
+       without control. fans.rs fills the groups. The breakpoints lay out
+       the curve page (below 760 sp), the charts, the source and the note
+       on top (below 560 sp); the cards follow their own rule by width
+       (fans/layout.rs, D61). -->
   <template class="BaseboardFansPage" parent="AdwBin">
     <property name="child">
       <object class="AdwBreakpointBin" id="bin">
@@ -174,15 +175,8 @@
                                     </style>
                                   </object>
                                 </child>
-                                <!-- Rows of two cards as high as the
-                                     higher one, or one column. -->
-                                <child>
-                                  <object class="GtkGrid" id="cards">
-                                    <property name="column-homogeneous">True</property>
-                                    <property name="column-spacing">18</property>
-                                    <property name="row-spacing">18</property>
-                                  </object>
-                                </child>
+                                <!-- fans.rs adds the grid of cards here
+                                     (fans/layout.rs, D61). -->
                               </object>
                             </child>
                             <child>

@@ -8,20 +8,28 @@
 //! does nothing when activated, but takes the keyboard focus, so that a
 //! screen reader reads it.
 //!
-//! Speeds and duty cycles are inscriptions, whose size does not depend on
-//! their text: a new value every second redraws them without laying out
-//! the window again. The speed is as wide as its text, which with tabular
-//! digits changes only with the number of digits.
+//! The header line follows the page's rule (`layout`, D61): name and
+//! subtitle on one line each, the values beside or under them by width,
+//! never by the values shown. A card with a curve keeps the room of its
+//! footer note, so that its height does not change.
+//!
+//! Speeds are inscriptions, whose size does not depend on their text: a
+//! new value every second redraws them without laying out the window
+//! again. The speed is as wide as its text, which with tabular digits
+//! changes only with the number of digits.
+
+use std::rc::Rc;
 
 use adw::prelude::*;
 use baseboard_core::fans::driver::Mode;
 use baseboard_core::fans::page::{Body, Card, CardKind, Control};
 use baseboard_core::profile::FanRole;
 use baseboard_core::sensors::Kind;
-use baseboard_core::units::{UNIT_SPACE, duty_to_percent};
+use baseboard_core::units::{Numbers, UNIT_SPACE, duty_to_percent};
 use gettextrs::gettext;
 use gtk::{glib, pango};
 
+use super::layout::{CardHead, HeadNeeds, HeadParts, PageLayout};
 use super::slot::StatusSlot;
 use super::{Layout, PageContext, percent, source_name};
 use crate::fan_chart::{ChartCurve, FanChart, Reading, Size};
@@ -146,12 +154,16 @@ enum BodyWidgets {
 
 pub(super) struct CardWidgets {
     pub(super) card: gtk::Box,
-    head: gtk::Grid,
+    /// Lays out the header line by the page's rule (D61).
+    head: CardHead,
+    icon: gtk::Image,
     name: gtk::Label,
     subtitle: gtk::Label,
-    values: gtk::Box,
     rpm: gtk::Inscription,
     duty: gtk::Label,
+    /// The card shows a duty cycle under its speed (not a card of a
+    /// driver without control, which has a bar).
+    duty_line: bool,
     /// The place of the status box: the mode, or the note of an unchecked
     /// header.
     status: Option<StatusSlot>,
@@ -248,8 +260,31 @@ fn markup_text(markup: &str) -> String {
         .unwrap_or_default()
 }
 
+/// One line, never wrapped: the page's layout gives it the room (D61);
+/// the ellipsis is only a last resort, with very large text.
+fn single_line(css: &[&str]) -> gtk::Label {
+    gtk::Label::builder()
+        .xalign(0.0)
+        .single_line_mode(true)
+        .ellipsize(pango::EllipsizeMode::End)
+        .css_classes(css)
+        .build()
+}
+
+/// The width of `text` (markup) in the font of `widget`, with tabular
+/// digits as the `numeric` style draws them.
+fn text_width(widget: &impl IsA<gtk::Widget>, markup: &str) -> i32 {
+    let layout = widget.create_pango_layout(None);
+    layout.set_markup(markup);
+    let attributes = layout.attributes().unwrap_or_default();
+    attributes.insert(pango::AttrFontFeatures::new("tnum"));
+    layout.set_attributes(Some(&attributes));
+    let (ink, logical) = layout.pixel_extents();
+    (ink.x() + ink.width()).max(logical.x() + logical.width())
+}
+
 impl CardWidgets {
-    pub(super) fn new(card: &Card, layout: Layout) -> Self {
+    pub(super) fn new(card: &Card, layout: Layout, page: Rc<PageLayout>) -> Self {
         // Not activatable, but it takes the keyboard focus, so that the
         // keyboard goes from card to card and a screen reader reads each.
         let box_: gtk::Box = CardBox::new().upcast();
@@ -259,11 +294,8 @@ impl CardWidgets {
         box_.add_css_class("card");
         box_.add_css_class("fan-card");
 
-        // The header line: icon, name and subtitle, speed and duty cycle.
-        let head = gtk::Grid::builder()
-            .column_spacing(12)
-            .row_spacing(4)
-            .build();
+        // The header line: icon, name and subtitle, speed and duty cycle,
+        // laid out by the page's rule (`layout`, D61).
         // The image is the tinted square (style.css): GTK draws the icon in
         // the middle of the image, while a box would put it at its start.
         let icon = gtk::Image::builder()
@@ -279,36 +311,30 @@ impl CardWidgets {
         let texts = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .spacing(3)
-            .valign(gtk::Align::Center)
-            .hexpand(true)
             .build();
-        let name = gtk::Label::builder()
-            .xalign(0.0)
-            .wrap(true)
-            .natural_wrap_mode(gtk::NaturalWrapMode::Word)
-            .css_classes(["heading"])
-            .build();
-        let subtitle = caption("", true);
+        let name = single_line(&["heading"]);
+        let subtitle = single_line(&["caption", "fan-soft"]);
         texts.append(&name);
         texts.append(&subtitle);
-        let values = gtk::Box::builder()
-            .orientation(gtk::Orientation::Vertical)
-            .valign(gtk::Align::Center)
-            .build();
         // "1024 rpm": the unit at the size of normal text. As wide as the
         // text (`fit_width`), not a fixed number of characters.
         let rpm = big_value("fan-rpm", 0);
         // A label as wide as its text: it changes only with the duty cycle,
-        // not with every sample.
+        // not with every sample. Always there, empty when there is no duty
+        // cycle, so that every header line is equally high.
         let duty = gtk::Label::builder()
-            .xalign(1.0)
+            .xalign(0.0)
             .css_classes(["caption", "fan-soft", "numeric"])
             .build();
-        values.append(&rpm);
-        values.append(&duty);
-        head.attach(&icon, 0, 0, 1, 1);
-        head.attach(&texts, 1, 0, 1, 1);
-        head.attach(&values, 2, 0, 1, 1);
+        let head = CardHead::new(
+            HeadParts {
+                icon: icon.clone().upcast(),
+                texts: texts.upcast(),
+                rpm: rpm.clone().upcast(),
+                duty: duty.clone().upcast(),
+            },
+            page,
+        );
         box_.append(&head);
 
         // The status box: the mode as text with a lock, as this version
@@ -441,6 +467,9 @@ impl CardWidgets {
             .css_classes(["fan-foot"])
             .build();
         let foot_note = caption("", true);
+        // The note takes the room the button leaves, so that it wraps only
+        // where the card is narrow; a card with the button always has the
+        // note, which keeps the button at the end.
         foot_note.set_hexpand(true);
         let button_content = gtk::Box::builder().spacing(6).build();
         // Translators: a button on a fan card that opens a page with the
@@ -450,7 +479,6 @@ impl CardWidgets {
         let button = gtk::Button::builder()
             .child(&button_content)
             .halign(gtk::Align::End)
-            .hexpand(true)
             .valign(gtk::Align::Center)
             .css_classes(["flat"])
             .action_name("win.show-curve")
@@ -463,11 +491,12 @@ impl CardWidgets {
         let widgets = Self {
             card: box_,
             head,
+            icon,
             name,
             subtitle,
-            values,
             rpm,
             duty,
+            duty_line: !matches!(card.kind, CardKind::Low),
             status,
             mode,
             unchecked_empty,
@@ -481,43 +510,10 @@ impl CardWidgets {
         widgets
     }
 
-    /// Narrow: the name gets the whole line and the speed goes under it;
-    /// the chart is lower.
+    /// Narrow: the chart is lower. The header line follows its own width
+    /// (`layout`, D61).
     pub(super) fn set_layout(&self, layout: Layout) {
         let narrow = layout == Layout::Narrow;
-        let attached = |row| {
-            self.head
-                .child_at(if row == 0 { 2 } else { 1 }, row)
-                .is_some_and(|w| w == self.values)
-        };
-        if narrow && !attached(1) {
-            self.head.remove(&self.values);
-            self.head.attach(&self.values, 1, 1, 1, 1);
-        } else if !narrow && !attached(0) {
-            self.head.remove(&self.values);
-            self.head.attach(&self.values, 2, 0, 1, 1);
-        }
-        self.values.set_orientation(if narrow {
-            gtk::Orientation::Horizontal
-        } else {
-            gtk::Orientation::Vertical
-        });
-        self.values.set_spacing(if narrow { 12 } else { 0 });
-        self.values.set_halign(if narrow {
-            gtk::Align::Start
-        } else {
-            gtk::Align::End
-        });
-        self.duty.set_xalign(if narrow { 0.0 } else { 1.0 });
-        self.rpm.set_xalign(if narrow { 0.0 } else { 1.0 });
-        // Side by side on one baseline, as in the mockup.
-        let valign = if narrow {
-            gtk::Align::BaselineFill
-        } else {
-            gtk::Align::Fill
-        };
-        self.rpm.set_valign(valign);
-        self.duty.set_valign(valign);
         if let BodyWidgets::Chart(chart) = &self.body {
             chart.set_compact(narrow);
         }
@@ -580,8 +576,8 @@ impl CardWidgets {
             (_, Some(duty), None) => gettext("duty {duty}").replace("{duty}", duty),
             _ => String::new(),
         };
+        // Empty, but in place: every header line is equally high (D61).
         set_label(&self.duty, &duty_line);
-        self.duty.set_visible(!duty_line.is_empty());
 
         let mode = match &card.kind {
             CardKind::Full {
@@ -652,19 +648,33 @@ impl CardWidgets {
             BodyWidgets::None | BodyWidgets::Note => {}
         }
 
-        // The footer: why the duty cycle changes, or what 0 % does.
-        let note = if moving.is_some() {
+        // The footer: why the duty cycle changes, or what 0 % does. A card
+        // with a curve keeps the room of its note at all times, so that it
+        // does not grow when the fan moves to its curve and the button
+        // stays in place (D61): the note is only shown or hidden.
+        let (note, shown) = if card.chart().is_some() {
             // Translators: under a fan card while the fan moves to the duty
             // cycle of its curve.
-            gettext("In automatic mode the controller changes the duty cycle gradually.")
+            let note =
+                gettext("In automatic mode the controller changes the duty cycle gradually.");
+            (note, moving.is_some())
         } else if mode == Some(Mode::Manual) && card.min_percent == 0 {
             // Translators: under a fan card in manual mode; {duty} is "0 %".
-            gettext("{duty} stops the fan").replace("{duty}", &percent(0))
+            (
+                gettext("{duty} stops the fan").replace("{duty}", &percent(0)),
+                true,
+            )
         } else {
-            String::new()
+            (String::new(), false)
         };
         set_label(&self.foot_note, &note);
         self.foot_note.set_visible(!note.is_empty());
+        let opacity = if shown { 1.0 } else { 0.0 };
+        if self.foot_note.opacity() != opacity {
+            self.foot_note.set_opacity(opacity);
+            self.foot_note
+                .update_state(&[gtk::accessible::State::Hidden(!shown)]);
+        }
         let button = card.chart().is_some();
         self.button.set_visible(button);
         // Translators: read by screen readers for the button that opens
@@ -703,10 +713,35 @@ impl CardWidgets {
         ]);
     }
 
-    /// The place of the status box, which the page pairs with the one of
-    /// the card next to it (D60).
-    pub(super) fn status(&self) -> Option<&StatusSlot> {
-        self.status.as_ref()
+    /// What the header line of this card needs for its widest content
+    /// (D61): its name and subtitle, a four-digit speed and, where the card
+    /// shows one, the duty cycle with a target, both 100 %.
+    pub(super) fn needs(&self, numbers: &Numbers) -> HeadNeeds {
+        let horizontal = gtk::Orientation::Horizontal;
+        let icon = self.icon.measure(horizontal, -1).1;
+        let texts = self
+            .name
+            .measure(horizontal, -1)
+            .1
+            .max(self.subtitle.measure(horizontal, -1).1);
+        let speed = numbers.value(Kind::Fan, 8888.0);
+        let (number, unit) = speed.split_once(UNIT_SPACE).unwrap_or((&speed, ""));
+        let rpm = text_width(&self.rpm, &big_markup(number, unit, 57));
+        let duty = if self.duty_line {
+            let full = percent(100);
+            let text = gettext("duty {duty} → {target}")
+                .replace("{duty}", &full)
+                .replace("{target}", &full);
+            text_width(&self.duty, &glib::markup_escape_text(&text))
+        } else {
+            0
+        };
+        HeadNeeds::of(icon, texts, rpm, duty)
+    }
+
+    /// The page's needs changed: the header line lays out again.
+    pub(super) fn relayout_head(&self) {
+        self.head.queue_resize();
     }
 
     /// The text of the status box changed: the box next to it measures
@@ -858,6 +893,10 @@ fn set_inscription(inscription: &gtk::Inscription, text: &str) {
 
 #[cfg(test)]
 mod tests {
+    use baseboard_core::fans::driver::CurvePoint;
+    use baseboard_core::fans::page::Chart;
+    use baseboard_core::overview::{Name, Row, RowId, Subtitle};
+
     use super::*;
 
     /// The mode as text with its name in bold, or why there is none (D60).
@@ -866,5 +905,143 @@ mod tests {
         assert_eq!(mode_markup(Some(Mode::Auto)), "Mode: <b>Automatic BIOS</b>");
         assert_eq!(mode_markup(Some(Mode::Manual)), "Mode: <b>Manual</b>");
         assert_eq!(mode_markup(None), "The mode could not be read");
+    }
+
+    /// The card of a CPU fan in automatic mode at `rpm`, its duty cycle
+    /// `duty` moving to `target` (0–255).
+    fn cpu_card(rpm: f64, duty: u8, target: u8) -> Card {
+        Card {
+            key: "cpu".into(),
+            role: FanRole::Cpu,
+            pwm: Some(1),
+            row: Row {
+                id: RowId {
+                    chip: "nct6687".into(),
+                    device: None,
+                    channel: "fan1".into(),
+                },
+                name: Name::Fan {
+                    role: FanRole::Cpu,
+                    number: 1,
+                },
+                subtitle: Subtitle::Header {
+                    header: "CPU_FAN1".into(),
+                    duty: Some(f64::from(duty)),
+                    verified: true,
+                    mode: Some(Mode::Auto),
+                },
+                kind: Kind::Fan,
+                value: rpm,
+                rating: None,
+                range: Some((rpm, rpm)),
+            },
+            header: "CPU_FAN1".into(),
+            verified: true,
+            min_percent: 30,
+            duty: Some(duty),
+            kind: CardKind::Full {
+                control: Control::Switch {
+                    mode: Some(Mode::Auto),
+                    positions: 2,
+                },
+                body: Body::Chart(Box::new(Chart {
+                    points: vec![
+                        CurvePoint { temp: 30, duty: 77 },
+                        CurvePoint {
+                            temp: 80,
+                            duty: 255,
+                        },
+                    ],
+                    own_source: None,
+                    millidegrees: Some(85_000),
+                    threshold: Some(95),
+                    target: Some(target),
+                    needs_full: true,
+                })),
+            },
+        }
+    }
+
+    /// Where `widget` is in `card`: x, y, width, height.
+    fn place(widget: &impl IsA<gtk::Widget>, card: &gtk::Box) -> (f32, f32, i32, i32) {
+        let point = widget
+            .compute_point(card, &gtk::graphene::Point::new(0.0, 0.0))
+            .unwrap();
+        (point.x(), point.y(), widget.width(), widget.height())
+    }
+
+    /// The layout of a card follows its width only (D61): at rest and while
+    /// its fan moves to 100 % with a four-digit speed, the header line keeps
+    /// its arrangement, the name and the subtitle one line each, and the
+    /// card its height and the place of its chart and button; the footer
+    /// note keeps its room while hidden. Needs a display; skipped without
+    /// one.
+    #[test]
+    fn card_layout_follows_width_only() {
+        crate::gtk_test::run("card_layout_follows_width_only", card_layout);
+    }
+
+    fn card_layout() {
+        let numbers = Numbers::new(".");
+        let context = PageContext {
+            numbers: &numbers,
+            source: None,
+        };
+        let rest = cpu_card(890.0, 124, 124);
+        let moving = cpu_card(1520.0, 178, 255);
+        assert_eq!(rest.moving_to(), None);
+        assert_eq!(moving.moving_to(), Some(255));
+
+        let page = Rc::new(PageLayout::default());
+        let widgets = CardWidgets::new(&rest, Layout::Wide, page.clone());
+        widgets.update(&rest, &context);
+        let needs = widgets.needs(&numbers);
+        page.needs.set(needs);
+        widgets.relayout_head();
+        let card = widgets.card.clone();
+        let lay_out = |width: i32| {
+            let (_, height, _, _) = card.measure(gtk::Orientation::Vertical, width);
+            card.allocate(width, height, -1, None);
+        };
+        // The room of the card around its header line.
+        lay_out(2 * needs.wide);
+        let padding = card.width() - widgets.head.width();
+
+        for head_width in [needs.wide + 20, needs.wide - 1, needs.below - 1] {
+            let width = head_width + padding;
+            let mut seen = Vec::new();
+            for state in [&rest, &moving, &rest] {
+                widgets.update(state, &context);
+                lay_out(width);
+                for label in [&widgets.name, &widgets.subtitle] {
+                    assert_eq!(label.layout().line_count(), 1, "{}", label.label());
+                    assert!(!label.layout().is_ellipsized(), "{}", label.label());
+                }
+                seen.push((
+                    card.height(),
+                    place(&widgets.name, &card),
+                    place(&widgets.duty, &card).1,
+                    place(&widgets.button, &card),
+                    place(&widgets.foot_note, &card),
+                ));
+            }
+            assert!(
+                seen.windows(2).all(|w| w[0] == w[1]),
+                "{head_width}: {seen:?}"
+            );
+            // The note is shown only while the fan moves to its curve.
+            assert_eq!(widgets.foot_note.opacity(), 0.0);
+        }
+
+        // Wide: the values on the right of the name and subtitle; narrower:
+        // under them.
+        let values_under_texts = |head_width: i32| {
+            lay_out(head_width + padding);
+            let subtitle = place(&widgets.subtitle, &card);
+            place(&widgets.duty, &card).1 >= subtitle.1 + subtitle.3 as f32
+        };
+        assert!(!values_under_texts(needs.wide));
+        assert!(values_under_texts(needs.wide - 1));
+        assert!(values_under_texts(needs.below - 1));
     }
 }

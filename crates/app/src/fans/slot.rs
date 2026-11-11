@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The place of a card's status box (D60): as high as the status box of
-//! the card next to it in a row, whatever their numbers of lines.
+//! The place of a card's status box (D60, D61): as high as the status box
+//! of the card next to it in a row, whatever their numbers of lines; in
+//! one column as high as its own box. The grid of cards pairs the slots.
 //! `GtkSizeGroup` cannot do this with text that wraps: it compares its
 //! widgets without the width they get, so a box that wraps to three lines
 //! only in its column was compared by its two unwrapped lines. A slot
@@ -82,14 +83,12 @@ impl StatusSlot {
         slot
     }
 
-    /// Makes `a` and `b` equally high; `None` for `b` leaves `a` alone.
-    pub fn pair(a: &Self, b: Option<&Self>) {
-        a.imp().peer.set(b);
-        if let Some(b) = b {
-            b.imp().peer.set(Some(a));
-            b.queue_resize();
+    /// Makes `a` and `b` equally high: they stand side by side.
+    pub fn pair(a: &Self, b: &Self) {
+        for (slot, peer) in [(a, b), (b, a)] {
+            slot.imp().peer.set(Some(peer));
+            slot.queue_resize();
         }
-        a.queue_resize();
     }
 
     /// Leaves the slot alone, as in one column.
