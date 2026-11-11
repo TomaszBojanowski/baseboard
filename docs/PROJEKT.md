@@ -1,6 +1,6 @@
 # Projekt: natywna aplikacja GNOME do monitoringu i sterowania płytą główną
 
-Wersja 0.6 · 2026-11-10 · status: decyzje D1–D20 podjęte (§12)
+Wersja 0.6 · 2026-11-10, plan M2 z 2026-11-11 · status: decyzje D1–D56 podjęte (§12)
 
 Aplikacja nazywa się **Baseboard** (D1): App ID `me.bojanowski.Baseboard`, pliki binarne `baseboard` i `baseboard-helper`, pakiet i domena gettext `baseboard`.
 
@@ -90,7 +90,7 @@ Linuksowy odpowiednik tych funkcji oprogramowania producenta, które dotyczą sa
 | Biblioteki | GTK 4.24.1, libadwaita 1.10.0, lm_sensors-libs 3.6.0 |
 | Narzędzia | Rust 1.99.1, meson 1.12.1, gettext 1.0 |
 | Usługi | tuned-ppd 2.28 (udostępnia `org.freedesktop.UPower.PowerProfiles`), logind: `CanRebootToFirmwareSetup` = yes |
-| Sterowanie wentylatorami w jądrze | Sterownik z jądra Fedory 7.3.3: `pwm1–4` tylko do odczytu (0444), brak `pwmN_enable` i krzywych. Seria łatek do `nct6683` z `hwmon-next` (`hwmon-next` stoi na 7.4-rc2, więc do jądra trafi w 7.5) daje na tej płycie `pwm1`, `pwm2`, `pwm13–16` z `pwmN_enable`; płyta ma customer ID 0x20D, które ta seria obejmuje. Sprawdzone modułem testowym 2026-11-06, łącznie z zapisem na `pwm16`. |
+| Sterowanie wentylatorami w jądrze | Sterownik z jądra Fedory 7.3.3: `pwm1–4` tylko do odczytu (0444), brak `pwmN_enable` i krzywych. Seria łatek do `nct6683` z `hwmon-next` (gałąź opiekuna hwmon; wersji jądra nie podajemy, dopóki zmiany nie są w drzewie Linusa, D41) daje na tej płycie `pwm1`, `pwm2`, `pwm13–16` z `pwmN_enable`; płyta ma customer ID 0x20D, które ta seria obejmuje. Sprawdzone modułem testowym 2026-11-06, łącznie z zapisem na `pwm16`. |
 | Sterownik z naszymi łatkami (moduł testowy) | `hwmon-next` (`e0fdadf44480`) z serią v1 (`81b1e2c64f6d`, `527bbd00913c`): `pwm1`, `pwm2`, `pwm13–16` z `_enable`, `pwmN_auto_point[1-7]_{temp,pwm}` 0644, `pwmN_auto_channels_temp` 0444. Moduł pod 7.3.3 zbudowany i załadowany 2026-11-10. Budowanie, podpisywanie i ładowanie modułu spoza drzewa jądra do testów opisują notatki lokalne właściciela, poza repozytorium. |
 
 ---
@@ -143,10 +143,10 @@ Linuksowy odpowiednik tych funkcji oprogramowania producenta, które dotyczą sa
 - **Autoryzacja:** polkit (`CheckAuthorization` przez D-Bus, bez libpolkit).
 - **Wejście:** wyłącznie klucze kanałów z profilu płyty (np. `sys1`), nigdy ścieżki. Ścieżki sysfs pomocnik wylicza sam: urządzenie hwmon znajduje po atrybucie `name` i ścieżce urządzenia, a nie po numerze `hwmonN`, który zmienia się między startami.
 - **Profile** wczytuje tylko z katalogów systemowych (`/usr/share/baseboard/boards`, `/etc/baseboard/boards`), nigdy z katalogu użytkownika.
-- **Czas życia:** startuje na żądanie. Kończy się po 30 s bezczynności, ale tylko wtedy, gdy żaden kanał nie jest w trybie ręcznym ustawionym przez pomocnika. Krzywe w EC nie potrzebują działającego pomocnika. Zamknięcie aplikacji nie zmienia ustawień wentylatorów.
+- **Czas życia:** startuje na żądanie. Kończy się po 30 s bezczynności, ale tylko wtedy, gdy żaden kanał nie jest w trybie ręcznym ustawionym przez pomocnika. Krzywe w EC nie potrzebują działającego pomocnika. Zamknięcie aplikacji nie zmienia ustawień wentylatorów. Blokada awaryjna (B4) jest zapisana w `/run/baseboard/emergency`, więc trwa po wyjściu i restarcie pomocnika, aż do jawnego zdjęcia albo restartu komputera (D48). Przy aktualizacji pakietu pomocnik jest uruchamiany ponownie (B3 a), a przy odinstalowaniu przywraca krzywe pierwotne i automat (`--restore-all`, D50).
 - **Pętla nadzoru:** krok 1 s, tylko gdy któryś kanał jest w trybie ręcznym ustawionym przez pomocnika: progi awaryjne (B4), zatrzymany wentylator (B11), cudze zmiany (B10). Krzywej programowej nie liczy (D10). Sterownik odświeża odczyty mniej więcej raz na sekundę, więc częstszy krok nic nie daje.
 - **Telemetria:** pomocnik jej nie przesyła. Aplikacja sama czyta obroty i temperatury z hwmon, a pomocnik wysyła tylko zmiany stanu.
-- **Utwardzenie jednostki systemd:** `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `PrivateNetwork`, `RestrictAddressFamilies=AF_UNIX`, `SystemCallFilter=@system-service`, `WatchdogSec`. Zapis dozwolony tylko w katalogu urządzenia hwmon i w `/run/baseboard` (dziennik B2, krzywe pierwotne B18). Docelowo pusty `CapabilityBoundingSet`, bo pliki `pwm*` mają właściciela root i tryb 0644 (do potwierdzenia w M2b).
+- **Utwardzenie jednostki systemd:** `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `PrivateNetwork`, `RestrictAddressFamilies=AF_UNIX`, `SystemCallFilter=@system-service`, `WatchdogSec`. Zapis dozwolony tylko w katalogu urządzenia hwmon i w `/run/baseboard` (dziennik B2, krzywe pierwotne B18, blokada awaryjna B4). Docelowo pusty `CapabilityBoundingSet`, bo pliki `pwm*` mają właściciela root i tryb 0644 (do potwierdzenia w M2b).
 
 ### 3.4 Uprawnienia
 
@@ -178,12 +178,12 @@ Uwaga o uaccess: każdy proces użytkownika aktywnej sesji może wysłać do kon
 
 | Właściwość | Typ | Znaczenie |
 |---|---|---|
-| `ApiVersion` | `u` | wersja w obrębie `Fans1`; rośnie przy każdej nowej metodzie lub właściwości (§10.4) |
+| `ApiVersion` | `u` | wersja w obrębie `Fans1`; rośnie przy każdej nowej metodzie lub właściwości (§10.4): 1 = tryb ręczny (`GetChannels`, `GetState`, `SetManual`, `SetAuto`, `SetAllAuto`, `AcknowledgeEmergency`), 2 = krzywe (`GetEcCurve`, `SetEcCurve`, `RestoreOriginalCurve`), 3 = źródło (`SetEcSource`) |
 | `HelperVersion` | `s` | wersja pakietu pomocnika, do strony System i zgłoszeń błędów (§10.4) |
 | `BoardId` | `s` | klucz profilu (np. `ms-7e61`); pusty, gdy brak profilu |
 | `ProfileDigest` | `s` | SHA-256 pliku profilu pomocnika; aplikacja porównuje go ze swoim (§10.4) |
 | `DriverLevel` | `s` | najniższy poziom wspólny dla kanałów sterowalnych z profilu: `read-only`, `manual`, `manual+curve-view`, `curves`, `curves+source` (§5.5.2) |
-| `Emergency` | `b` | blokada awaryjna aktywna (B4) |
+| `Emergency` | `b` | blokada awaryjna aktywna (B4); trwała w `/run/baseboard` (D48) |
 | `EmergencyReason` | `s` | czujnik i wartość, która ją wywołała |
 
 **Metody:**
@@ -199,7 +199,7 @@ Uwaga o uaccess: każdy proces użytkownika aktywnej sesji może wysłać do kon
 | `RestoreOriginalCurve` | `(s key) → ()` | zapis krzywej pierwotnej i automat; tylko planer B16, bez walidacji B5, B7 i B14 (B18) | restore-auto |
 | `SetAllAuto` | `() → ()` | dla wszystkich kanałów zmienionych przez Baseboard: krzywa pierwotna (bez walidacji, jak wyżej) i automat. Przycisk „Przywróć automat BIOS” | restore-auto |
 | `SetEcSource` | `(s key, s source) → s` | źródło temperatury krzywej; tylko przy `source-write` (M2d, D17) | control |
-| `AcknowledgeEmergency` | `() → ()` | zdejmuje blokadę awaryjną (dopiero gdy temperatura spadła o histerezę). Ustawień nie przywraca: aplikacja wysyła je ponownie. | control |
+| `AcknowledgeEmergency` | `() → ()` | zdejmuje blokadę awaryjną (dopiero gdy temperatura spadła o histerezę) i ustawia automat na kanałach, które B4 ustawiła na 100 % (D48). Ustawień sprzed blokady nie przywraca: aplikacja wysyła je ponownie. | control |
 
 **Sygnały:**
 
@@ -208,7 +208,7 @@ Uwaga o uaccess: każdy proces użytkownika aktywnej sesji może wysłać do kon
 | `ChannelChanged` | `(s key, a{sv} state)` | zmiana trybu, wypełnienia zadanego albo krzywej |
 | `EmergencyEntered` | `(s sensor, d value_c, d threshold_c)` | przekroczenie progu albo błąd odczytu (B4) |
 | `EmergencyCleared` | `()` | po `AcknowledgeEmergency` |
-| `ControlLost` | `(s key, s reason)` | Baseboard przestał sterować kanałem: `external-change`, `read-back-failed`, `stall`, `sensor-error`, `resume-failed`, `driver-error` |
+| `ControlLost` | `(s key, s reason)` | Baseboard przestał sterować kanałem: `external-change`, `read-back-failed`, `stall`, `sensor-error`, `resume-failed`, `driver-error`, `driver-reloaded` (B3 g, D49) |
 
 **Błędy:** `me.bojanowski.Baseboard.Error.NotAuthorized`, `.NotSupported` (także brak potrzebnej możliwości kanału), `.UnknownChannel`, `.InvalidArgument`, `.EmergencyActive`, `.HardwareError`, `.DriverRejected` (sterownik zwrócił `-EIO`: EC nie przyjął zapisu albo stan EC zmienił ktoś inny), `.Timeout` (`-ETIMEDOUT`: EC nie odpowiedział na uzgadnianie).
 
@@ -267,7 +267,7 @@ Pomocnik, kontrakt D-Bus, zasady §4 i interfejs korzystają tylko z cechy. Zmia
 
 ## 4. Bezpieczeństwo wentylatorów
 
-Zasady obowiązują od M2b (pierwszy zapis przez pomocnika). Testy odwołują się do ich numerów. Złagodzenie którejkolwiek wymaga osobnej decyzji zapisanej w tym dokumencie. Względem 0.5 zmienione są B2, B3, B5–B8, B10–B12 i B14, nowe B16–B18. Złagodzenia wymagające decyzji: usunięcie B3(c) (D13), wymóg 100 % na progu tylko dla procesora i pompy (D19) i niemalejące zamiast rosnących temperatury punktów krzywej (D31).
+Zasady obowiązują od M2b (pierwszy zapis przez pomocnika). Testy odwołują się do ich numerów. Złagodzenie którejkolwiek wymaga osobnej decyzji zapisanej w tym dokumencie. Względem 0.5 zmienione są B2, B3, B5–B8, B10–B12 i B14, nowe B16–B18. Złagodzenia wymagające decyzji: usunięcie B3(c) (D13), wymóg 100 % na progu tylko dla procesora i pompy (D19) i niemalejące zamiast rosnących temperatury punktów krzywej (D31). Zaostrzenia z planu M2: B3(g) (D49) i B4 (D48).
 
 **Zachowanie sterownika, na którym opierają się zasady** (poziomy pewności w §5.5.1):
 - Sterownik **nie ma minimum** wypełnienia, także dla pompy. Polityka B5 i B6 jest wyłącznie w pomocniku.
@@ -277,14 +277,15 @@ Zasady obowiązują od M2b (pierwszy zapis przez pomocnika). Testy odwołują si
 - Zapis krzywej w trybie ręcznym zmienia krzywą w EC, ale wentylator zostaje przy wypełnieniu ręcznym. Nowa krzywa działa po `pwmN_enable = 2`.
 - W automacie wyjście dochodzi do celu stopniowo. **Pomiar** na SYS Fan 1 (`pwm16`) przy jednym ustawieniu Step Up/Down w BIOS-ie (0,1 s): ok. 5 jednostek na sekundę (ok. 2 %/s) w górę i w dół, czyli pełny zakres w ok. 50 s. Dla pozostałych kanałów (CPU Fan 1 ma w BIOS-ie 0,3 s) i innych ustawień Step Up/Down tempa nie mierzyliśmy (O15). W trybie ręcznym zmiana jest natychmiastowa.
 - Po uśpieniu (S3) **potwierdzone jest tylko to, że BIOS cofa tryb ręczny**: po wznowieniu EC jest w automacie. Czy BIOS nadpisuje też krzywe, na tej płycie nie da się rozróżnić: krzywa zapisana przez sterownik z v1 była po S3 taka jak przed uśpieniem, ale mógł ją zachować EC albo odtworzyć sterownik (O4). Sterownik z `7dc9dff9608d` odtwarza tryb ręczny, a v1 zapisane krzywe, gdy EC się od nich różni; starszy sterownik nie odtwarza niczego. Po restarcie komputera EC ma ustawienia BIOS-u.
-- Przy wyładowaniu sterownik niczego nie przywraca: ostatni tryb i krzywa zostają w EC do restartu.
+- Przy wyładowaniu sterownik niczego nie przywraca: ostatni tryb i krzywa zostają w EC do ponownego załadowania albo restartu (sterownik w `hwmon-next` nie ma `.remove` ani `.shutdown`, które coś przywracają; serii, która by to zmieniła, nie ma w żadnej gałęzi, §7 M2, M2.2). Po ponownym załadowaniu działa B3(g).
+- Między punktami krzywej EC liczy wypełnienie liniowo: SYS Fan 1 przy temp1 46 °C miał `pwm16` = 98, a prosta między punktami 5 °C → 96 i 84 °C → 99 daje 97,6, schodek dałby 96 (odczyt 2026-11-11; dla wszystkich kanałów sprawdza krok 2 M2a). Poniżej pierwszego i powyżej ostatniego punktu obowiązuje ich wypełnienie.
 
 | # | Zasada |
 |---|---|
 | B1 | **Tylko pomocnik pisze do `pwm*`**, w tym do `pwmN_auto_point*` i `pwmN_auto_channels_temp`. Aplikacja, testy i skrypty developerskie nie piszą do sysfs. |
 | B2 | **Dziennik.** Przed pierwszą zmianą kanału pomocnik zapisuje w `/run/baseboard/claimed` klucz kanału i rodzaj zmiany (`manual`, `curve`, `source`), a przed pierwszą zmianą krzywej lub źródła także krzywą pierwotną (B18). Dopiero potem pisze do sysfs. Tryb ręczny: najpierw `pwmN_enable = 1`, potem `pwmN`. Zawsze w tej kolejności, bo `pwmN` przyjmuje zapis tylko w trybie ręcznym. |
-| B3 | **Powrót do automatu (`pwmN_enable = 2`)** dla każdego kanału w trybie ręcznym ustawionym przez pomocnika: (a) przy normalnym zakończeniu (SIGTERM; z bezczynności pomocnik w tym stanie się nie kończy); (b) przy awarii (panic z `panic = "abort"`, SIGKILL, OOM, przekroczenie watchdoga). Wtedy przywraca `ExecStopPost=baseboard-helper --restore-auto`, które czyta dziennik B2 i nie potrzebuje D-Bus; (c) *usunięte w 0.6* (przed uśpieniem; zastępuje je B12, D13); (d) przed wyłączeniem i restartem (`PrepareForShutdown`); (e) po przekroczeniu progu awaryjnego (B4); (f) po błędzie odczytu temperatury lub obrotów. **Krzywych w EC B3 nie cofa:** działają same, są bezpieczne z założenia (B14) i do restartu komputera zostają (D4). Po awarii pomocnik **nie** wznawia trybu ręcznego sam. Aplikacja pokazuje komunikat i czeka na decyzję użytkownika. |
-| B4 | **Próg awaryjny.** Gdy temperatura z listy progów przekroczy próg w 3 kolejnych odczytach, pomocnik przełącza **wszystkie** kanały w trybie ręcznym ustawionym przez Baseboard w automat i włącza blokadę. Do jej zdjęcia trzeba jawnej akcji (`AcknowledgeEmergency`), a temperatura musi spaść o co najmniej 10 °C poniżej progu. Wartość nieodczytywalna lub niewiarygodna (< 0 °C, > 125 °C, brak pliku) przez 3 odczyty działa jak przekroczenie progu. Kanały z krzywą w EC już są w automacie: krzywe procesora i pompy osiągają 100 % najpóźniej na progu (B14), krzywe wentylatorów systemowych nie muszą (D19), a B4 ich nie zmienia. Po przejściu na automat wyjście dochodzi do celu stopniowo; na SYS Fan 1 zmierzono ok. 5 jednostek/s (z 30 % do 100 % w ok. 36 s), na pozostałych kanałach tempo jest nieznane (D14, O15). |
+| B3 | **Powrót do automatu (`pwmN_enable = 2`)** dla każdego kanału w trybie ręcznym ustawionym przez pomocnika: (a) przy normalnym zakończeniu (SIGTERM; z bezczynności pomocnik w tym stanie się nie kończy); (b) przy awarii (panic z `panic = "abort"`, SIGKILL, OOM, przekroczenie watchdoga). Wtedy przywraca `ExecStopPost=baseboard-helper --restore-auto`, które czyta dziennik B2 i nie potrzebuje D-Bus; (c) *usunięte w 0.6* (przed uśpieniem; zastępuje je B12, D13); (d) przed wyłączeniem i restartem (`PrepareForShutdown`); (e) po przekroczeniu progu awaryjnego (B4, najpierw 100 %, automat po zdjęciu blokady, D48); (f) po błędzie odczytu temperatury lub obrotów; (g) po ponownym pojawieniu się urządzenia hwmon (przeładowanie modułu, D49): kanały z dziennika B2 w trybie ręcznym wracają do automatu, a krzywe pomocnik porównuje z migawką B18 i z tym, co sam zapisał, bez nadpisywania (różne → `ControlLost: external-change`, w każdym razie `ControlLost: driver-reloaded` dla kanałów z dziennika). Aktualizacja pakietu uruchamia pomocnika ponownie, czyli przechodzi przez (a) (D50). **Krzywych w EC B3 nie cofa:** działają same, są bezpieczne z założenia (B14) i do restartu komputera zostają (D4). Po awarii pomocnik **nie** wznawia trybu ręcznego sam. Aplikacja pokazuje komunikat i czeka na decyzję użytkownika. |
+| B4 | **Próg awaryjny** (D48). Gdy temperatura z listy progów przekroczy próg w 3 kolejnych odczytach (temperatura procesora: osiągnie go, ≥ 95 °C, bo procesor przy Tjmax dławi się i temp1 może stanąć dokładnie na progu), pomocnik od razu ustawia **wszystkie** kanały w trybie ręcznym ustawionym przez Baseboard na 100 % (tryb ręczny, 255) i włącza blokadę zapisaną w `/run/baseboard/emergency`, która trwa po wyjściu i restarcie pomocnika. Do jej zdjęcia trzeba jawnej akcji (`AcknowledgeEmergency`), a temperatura musi spaść o co najmniej 10 °C poniżej progu; po zdjęciu te kanały przechodzą w automat. Wartość nieodczytywalna lub niewiarygodna (< 0 °C, > 125 °C, brak pliku) przez 3 odczyty działa jak przekroczenie progu. Kanały z krzywą w EC już są w automacie: krzywe procesora i pompy osiągają 100 % najpóźniej na progu (B14), krzywe wentylatorów systemowych nie muszą (D19), a B4 ich nie zmienia. Pełne wypełnienie od razu, a nie automat, bo w automacie wyjście dochodzi do celu stopniowo: na SYS Fan 1 zmierzono ok. 5 jednostek/s (z 30 % do 100 % w ok. 36 s), na pozostałych kanałach tempo jest nieznane (O15). Rozstrzyga D14. |
 | B5 | **Minimalne wypełnienie** w jednostkach 0–255, przeliczone z procentów z obcięciem jak w BIOS-ie (§3.5, D20): CPU co najmniej 30 % (76), pompa co najmniej 50 % (127) (§6.3). Dotyczy trybu ręcznego i **każdego punktu krzywej**. Za niskie żądanie trybu ręcznego pomocnik podnosi do minimum i zwraca faktycznie ustawioną wartość; krzywą odrzuca (B7). W kodzie są stałe dolne granice, przeliczone tak samo (CPU 20 % = 51, pompa 40 % = 102). Profil może je tylko podnieść, więc nawet błędny profil nie zejdzie niżej. Sterownik minimum nie ma, więc to jedyna ochrona. |
 | B6 | **Pompa nigdy nie staje.** Żądanie 0 dla roli `pump`, w trybie ręcznym albo w punkcie krzywej, kończy się błędem `InvalidArgument`, a nie podniesieniem do minimum, żeby interfejs nie sugerował, że pompę można zatrzymać. Interfejs nie ma też przełącznika „zatrzymaj”. Złącze pompy traktujemy jak pompę, także gdy podłączono do niego zwykły wentylator. |
 | B7 | **Walidacja wejścia.** Tylko klucze kanałów z profilu, które mają potrzebną możliwość (§5.5.2). Krzywa w EC ma dokładnie tyle punktów, ile podaje sterownik (dziś 7); temperatury niemalejące (D31) w zakresie 0–100 °C, wypełnienie niemalejące, każdy punkt co najmniej minimum B5. Pomocnik **nie polega** na przycinaniu przez sterownik: krzywą spoza reguł odrzuca (`InvalidArgument`). Źródło temperatury tylko z listy temperatur EC w profilu (M2d). **Wyjątek:** krzywa pierwotna (B18) i powrót w B17(b) nie przechodzą tej walidacji. |
@@ -300,7 +301,7 @@ Zasady obowiązują od M2b (pierwszy zapis przez pomocnika). Testy odwołują si
 | B17 | **Błąd zapisu krzywej.** Przy `-EIO` albo `-ETIMEDOUT` w trakcie planu pomocnik przerywa i czyta krzywą z EC: (a) poprawna i spełnia B14 → zostaje, a pomocnik zwraca błąd z odczytaną krzywą; (b) inaczej powrót do poprzedniej krzywej (zapisanej wcześniej przez użytkownika albo pierwotnej) tym samym planerem, bez ponownej walidacji B5, B7 i B14; (c) gdy i to zawiedzie, automat i `ControlLost: driver-error`. Dzięki B16 i przywracaniu przez sterownik każdy możliwy do zaobserwowania stan krzywej jest bezpieczny. |
 | B18 | **Krzywa pierwotna.** Przed pierwszą zmianą krzywej lub źródła kanału w danym uruchomieniu systemu pomocnik zapisuje jego krzywą i źródło w `/run/baseboard/original-curves.json` (tmpfs; po restarcie BIOS i tak wpisuje swoje). „Przywróć automat BIOS”, `RestoreOriginalCurve`, `SetAllAuto` i powrót w B17(b) zapisują ją z powrotem **tylko planerem B16, bez walidacji B5, B7 i B14**, i ustawiają automat. Krzywa pierwotna to stan sprzed Baseboard, zwykle z BIOS-u, i może tych zasad nie spełniać (§6.3): przywrócenie oznacza powrót do ustawień firmware, a nie nową krzywą. Gdy przed migawką krzywą zmienił inny program, „pierwotna” znaczy „sprzed pierwszej zmiany przez Baseboard” (D12). |
 
-**Ryzyko szczątkowe:** jeśli zawiesi się całe jądro, EC dalej wykonuje ostatni tryb, bo sam nie ma watchdoga. W trybie ręcznym oznacza to stałe wypełnienie aż do restartu, w automacie ostatnią krzywą. Dlatego minimum B5 i zasada B14 są twarde.
+**Ryzyko szczątkowe:** jeśli zawiesi się całe jądro, EC dalej wykonuje ostatni tryb, bo sam nie ma watchdoga. W trybie ręcznym oznacza to stałe wypełnienie aż do restartu, w automacie ostatnią krzywą. Tak samo między wyładowaniem a ponownym załadowaniem modułu: pomocnik bez sterownika niczego nie zapisze. Dlatego minimum B5 i zasada B14 są twarde. Sytuacje szczególne (awaria pomocnika, zamknięcie aplikacji, uśpienie, wyłączenie, przeładowanie modułu, aktualizacja i odinstalowanie pakietu) i to, czego nie da się sprawdzić w pełni: §7 M2, M2.5.
 
 **Progi awaryjne** (wartości wstępne, do weryfikacji testami obciążeniowymi w M2b). Administrator może je obniżyć w `/etc/baseboard/`, aplikacja nie może ich zmienić.
 
@@ -434,7 +435,7 @@ Zasady obowiązują od M2b (pierwszy zapis przez pomocnika). Testy odwołują si
 
 | Poziom pewności | Zawartość | Atrybuty na MS-7E61 |
 |---|---|---|
-| **Przyjęte w `hwmon-next`** (do jądra 7.5; `hwmon-next` stoi na 7.4-rc2) | seria Hamzy: tryb ręczny dla kanałów CPU, pompy i SYS przy customer ID 0x20D; `e0fdadf44480`: odczyt krzywych; `7dc9dff9608d`: odtworzenie trybu ręcznego po wznowieniu | `pwm1`, `pwm2`, `pwm13–16`: `pwmN` i `pwmN_enable` 0644 (1 = ręczny, 2 = automat z bieżącą krzywą); `pwmN_auto_point[1-7]_temp` (milistopnie), `_pwm` (0–255) i `pwmN_auto_channels_temp` (maska `tempX`) 0444 |
+| **Przyjęte w `hwmon-next`** (jeszcze nie w drzewie Linusa; stan w §7 M2, M2.2) | seria Hamzy: tryb ręczny dla kanałów CPU, pompy i SYS przy customer ID 0x20D; `e0fdadf44480`: odczyt krzywych; `7dc9dff9608d`: odtworzenie trybu ręcznego po wznowieniu | `pwm1`, `pwm2`, `pwm13–16`: `pwmN` i `pwmN_enable` 0644 (1 = ręczny, 2 = automat z bieżącą krzywą); `pwmN_auto_point[1-7]_temp` (milistopnie), `_pwm` (0–255) i `pwmN_auto_channels_temp` (maska `tempX`) 0444 |
 | **W recenzji** (v1: `81b1e2c64f6d`, `527bbd00913c`) | zapis punktów krzywej w trybie 1 i 2; przycinanie do 0–127 °C, 0–255 i do sąsiednich punktów; `-EIO` przy odrzuceniu przez EC (wraca krzywa sprzed zapisu); odtwarzanie zapisanych krzywych po wznowieniu | `pwmN_auto_point[1-7]_{temp,pwm}` 0644 dla kanałów, których krzywa przy ładowaniu ma niemalejące temperatury (≤ 127 °C) i wypełnienia; dla pozostałych 0444 |
 | **Nieustalone** | łatka 5: wybór źródła temperatury krzywej (projekt: jeden bit, tylko temperatury raportowane przez sterownik; na MS-7E61 temp1–temp4); EZ Conn (`pwm4`, wymaga wentylatora na JAF_1) | `pwmN_auto_channels_temp` 0644 (projekt); brak `pwm4_enable` |
 
@@ -461,7 +462,7 @@ Wyłącznie po atrybutach sysfs, **osobno dla każdego kanału**. Nigdy po wersj
 | `DriverLevel` | Warunek | Typowy sterownik |
 |---|---|---|
 | `read-only` | żaden kanał nie ma `mode` | jądro Fedory 7.3.3 |
-| `manual` | `mode` i `duty-write`, bez `curve-read` | jądro z samą serią Hamzy |
+| `manual` | `mode` i `duty-write`, bez `curve-read` | jądro z częścią łatek z `hwmon-next` (np. przeniesioną przez dystrybucję); w `hwmon-next` tryb ręczny wchodzi razem z odczytem krzywych |
 | `manual+curve-view` | dodatkowo `curve-read` | `hwmon-next` |
 | `curves` | dodatkowo `curve-write` | `hwmon-next` z serią v1 (moduł testowy) |
 | `curves+source` | dodatkowo `source-write` | po łatce 5 |
@@ -470,19 +471,25 @@ Wyłącznie po atrybutach sysfs, **osobno dla każdego kanału**. Nigdy po wersj
 
 #### 5.5.3 Co widzi użytkownik
 
-| | Sterownik Fedory 7.3.3 (`read-only`) | `hwmon-next` (`manual+curve-view`) | Nasz moduł z v1 (`curves`) |
-|---|---|---|---|
-| Przegląd | obroty; wypełnienie procesora, pompy i wentylatora dodatkowego; SYS 1–4 bez wypełnienia | obroty i wypełnienie wszystkich złączy; tryb (automat, ręczny) w podtytule | jak przy `hwmon-next` |
-| Strona Wentylatory | karty tylko do odczytu, bez przełącznika trybu. Jeden wiersz z wyjaśnieniem: sterowanie wymaga nowszego jądra z rozszerzonym sterownikiem `nct6683`. Interfejs nie podaje numeru wersji jądra. | przełącznik „Automat BIOS / Ręczny”; w automacie miniatura krzywej z EC i jej źródło; podstrona z krzywą tylko do podglądu i dopiskiem, że edycja wymaga sterownika z zapisem krzywych | przełącznik „Automat BIOS / Ręczny / Krzywa”; „Krzywa” otwiera edytor 7 punktów; źródło temperatury tylko do podglądu |
-| Pomocnik | niepotrzebny, nie startuje | tryb ręczny (hasło raz na kilka minut, D3) | tryb ręczny i krzywe |
-| Baner „Ustawienia działają do restartu komputera” | nigdy | gdy któryś kanał jest w trybie ręcznym ustawionym przez Baseboard | jak obok albo gdy któryś kanał ma krzywą inną niż pierwotna |
-| Strona System, poziom obsługi | „Sterowanie wentylatorami niedostępne” z wyjaśnieniem jak wyżej | „Tryb ręczny i podgląd krzywych” | „Krzywe w EC” |
+Według poziomu sterownika, wydania (D47) i tego, czy jest pomocnik. Flatpak wygląda tak samo jak instalacja natywna, bo odczyt sysfs działa w piaskownicy (§10.1); różnią się tylko komunikaty o uprawnieniu D-Bus i okno polkit od agenta gospodarza (O19).
 
-Nieistniejące `pwm3` jest w każdym przypadku tylko do odczytu. Wentylator dodatkowy (EZ Conn, `pwm4`) jest tylko do odczytu, dopóki sterownik nie obejmie tego kanału (`pwm4_enable`) i zapis nie zostanie sprawdzony na sprzęcie (D32). Oba z wyjaśnieniem.
+| | `read-only` (wydane jądra, dziś Fedora 7.3.3) | `manual` | `manual+curve-view` (`hwmon-next`) | `curves` (moduł z v1) |
+|---|---|---|---|---|
+| Przegląd | obroty; wypełnienie procesora, pompy i wentylatora dodatkowego; SYS 1–4 bez wypełnienia | obroty i wypełnienie wszystkich złączy; tryb (automat, ręczny) w podtytule | jak `manual` | jak `manual` |
+| Wentylatory, 0.2.0 (sam podgląd, bez pomocnika) | wiersz „Sterowanie wentylatorami niedostępne” (wymaga nowszego jądra z rozszerzonym sterownikiem `nct6683`, bez numeru wersji jądra; tu też zdanie, że wypełnień wentylatorów systemowych sterownik nie podaje); niskie karty z obrotami i paskiem wypełnienia tam, gdzie jest | wiersz „Ta wersja Baseboard pokazuje ustawienia wentylatorów bez możliwości zmiany.”; karty z nieaktywnym przełącznikiem, bez wykresu | jak `manual`, z miniaturą krzywej i podstroną krzywej w podglądzie | jak `manual+curve-view` |
+| Wentylatory od 0.3.0, bez pomocnika | jak w 0.2.0 (przeszkodą jest sterownik) | wiersz „Podgląd bez sterowania” z „Jak zainstalować”; karty jak w 0.2.0 | jak obok | jak obok |
+| Wentylatory od 0.3.0, z pomocnikiem | jak w 0.2.0; pomocnik startuje tylko na odczyt właściwości | przełącznik „Automat BIOS / Ręczny” | to samo; krzywe w podglądzie z dopiskiem, że edycja wymaga nowszego sterownika | od 0.4.0 przełącznik „Automat BIOS / Ręczny / Krzywa” i edytor; w 0.3.0 jak `manual+curve-view` |
+| Baner „Zmiany działają także po zamknięciu aplikacji, do restartu komputera” | nigdy | gdy któryś kanał jest w trybie ręcznym ustawionym przez Baseboard | jak `manual` | jak `manual` albo gdy któryś kanał ma krzywą inną niż pierwotna |
+| Strona System, poziom obsługi | „Sterowanie wentylatorami niedostępne” z wyjaśnieniem jak wyżej | „Tryb ręczny” | „Tryb ręczny i podgląd krzywych” | „Krzywe w EC” |
+
+Złącze bez wpisu w `tested_writes` (na MS-7E61 pompa, D52) ma zamiast przełącznika ramkę „Tylko podgląd: złącza nie sprawdzono na tej płycie.”. Nieistniejące `pwm3` jest w każdym przypadku tylko do odczytu. Wentylator dodatkowy (EZ Conn, `pwm4`) jest tylko do odczytu, dopóki sterownik nie obejmie tego kanału (`pwm4_enable`) i zapis nie zostanie sprawdzony na sprzęcie (D32). Oba z wyjaśnieniem.
 
 #### 5.5.4 Strona Wentylatory
 
-- **Karta złącza:** nazwa z profilu (§6.2) i złącze, obroty, wypełnienie (bieżące, a w automacie także cel z krzywej, dopóki wyjście do niego dochodzi) oraz tryb wybierany przełącznikiem segmentowym (AdwToggleGroup). Przy szerokim oknie karty stoją w dwóch kolumnach.
+Wygląd według zaakceptowanych makiet (D45): szczegóły karty, wykresu, edytora, stanów, ruchu i dostępności oraz realizacja w GTK4 w §7 M2, M2.4. Tu zasady zachowania.
+
+- **Nad kartami** jeden wiersz „Źródło temperatury” z wartością, zakresem min–maks i progiem awaryjnym. Karta podaje źródło tylko wtedy, gdy różni się od wspólnego.
+- **Karta złącza:** nazwa z profilu (§6.2) i złącze, obroty, wypełnienie (bieżące, a w automacie także cel z krzywej, dopóki wyjście do niego dochodzi), tryb wybierany przełącznikiem segmentowym (AdwToggleGroup) i miniatura krzywej z punktem pracy. Przy szerokim oknie karty stoją w dwóch kolumnach. Karta nie jest klikalna; podstronę krzywej otwiera przycisk „Edytuj krzywą” (bez zapisu krzywych „Pokaż krzywą”). Etykiety „Krzywa z BIOS-u” nie ma: tryb pokazuje przełącznik.
 - **Tryby w interfejsie a sterownik** (D11):
 
   | Przełącznik | `pwmN_enable` | Krzywa w EC |
@@ -492,20 +499,21 @@ Nieistniejące `pwm3` jest w każdym przypadku tylko do odczytu. Wentylator doda
   | Krzywa | 2 | zmieniona przez użytkownika |
 
   „Krzywa” jest widoczna tylko przy `curve-write`. Przy samym `curve-read` karta w automacie pokazuje krzywą z EC do podglądu.
-- **Ręczny:** suwak w karcie z dolną granicą równą minimum (B5). Zakres poniżej minimum jest zakreskowany. Zmiana działa od razu.
-- **Krzywa:** karta pokazuje miniaturę krzywej i bieżący punkt pracy. Kliknięcie karty otwiera podstronę (AdwNavigationPage) z edytorem:
+- **Ręczny:** zamiast wykresu duża wartość wypełnienia i suwak z dolną granicą równą minimum (B5). Zakres poniżej minimum jest zakreskowany. Zmiana działa od razu.
+- **Krzywa:** „Edytuj krzywą” otwiera podstronę (AdwNavigationPage) z edytorem:
   - dokładnie tyle punktów, ile podaje sterownik (7). Ostatnie punkty mogą być kopią poprzedniego, tak jak BIOS wypełnia punkty 5–7 przy czterech poziomach;
   - temperatury i wypełnienia niemalejące. Edytor nie pozwala zapisać krzywej łamiącej B5, B6, B7 i B14 (dla procesora i pompy 100 % najpóźniej na progu awaryjnym źródła; dla wentylatorów systemowych bez tego wymogu, D19);
-  - **krzywa z EC, która łamie zasady** (np. pierwotna z BIOS-u, §6.3): edytor otwiera się i pokazuje ją bez zmian. Przy każdym punkcie, który trzeba zmienić, stoi ikona i tekst z powodem, np. „Poniżej minimum 30 %” albo „Przy 95 °C wymagane 100 %”. „Zastosuj” jest nieaktywne, dopóki krzywa nie spełni zasad. Edytor sam niczego nie poprawia;
-  - źródło temperatury tylko do podglądu (nazwa jak w Przeglądzie); wybór dopiero przy `source-write` (M2d, D17);
+  - **krzywa z EC, która łamie zasady** (np. pierwotna z BIOS-u, §6.3): edytor otwiera się i pokazuje ją bez zmian. Punkt, który trzeba zmienić, ma na wykresie kolor i znak ostrzeżenia, a w swoim wierszu listy tekst, np. „Ustaw co najmniej 30 %” albo „Przy 95 °C wymagane 100 %”. „Zastosuj” jest nieaktywne, dopóki krzywa nie spełni zasad. Edytor sam niczego nie poprawia;
+  - wartości punktów zmienia się przeciąganiem, klawiaturą na wykresie albo w polach listy (przyciski i wpisywanie);
+  - źródło temperatury tylko do podglądu (nazwa jak w Przeglądzie); wybór dopiero przy `source-write` (M2c, D17);
   - wykres z bieżącym punktem pracy, wartościami poza skrajnymi punktami i progiem awaryjnym źródła;
   - „Zastosuj” wysyła krzywą do pomocnika (polkit, D3), „Cofnij zmiany” wraca do krzywej z EC, „Przywróć krzywą BIOS” do pierwotnej (B18);
   - po zastosowaniu dopisek, że wentylator dochodzi do nowego wypełnienia stopniowo; bez liczby, dopóki O15 nie da pomiaru dla wszystkich kanałów.
 - **Kanał w trybie ręcznym:** zapis krzywej nie zmienia wypełnienia. „Zastosuj” ustawia więc także automat (`activate`), o czym edytor mówi przed zapisem.
-- **Baner (AdwBanner)** „Ustawienia działają do restartu komputera” (D4) z przyciskiem „Przywróć automat BIOS” (`SetAllAuto`: krzywe pierwotne i automat na wszystkich kanałach zmienionych przez Baseboard). Kiedy jest widoczny: §5.5.3; widać go także na podstronie krzywej. Pasek nagłówka nie ma osobnego przycisku. Opis strony dodaje, że ustawienia działają także po zamknięciu aplikacji.
-- **Pompa:** stałe ostrzeżenie w karcie, dopisek o niesprawdzonym przypisaniu złącza (`verified = false`) i brak możliwości zatrzymania (B6), także w krzywej.
-- **Błędy sterownika:** `DriverRejected` → „Kontroler płyty nie przyjął ustawień. Obowiązuje poprzednia krzywa.”, z odczytaną krzywą; `Timeout` → „Kontroler płyty nie odpowiedział.” Bez kodów błędów w interfejsie; szczegóły w dzienniku (B15).
-- **Makiety do zmiany w M2a:** edytor z 7 punktami zamiast 2–8, stan `read-only` i `manual+curve-view`, przełącznik dwupozycyjny.
+- **Baner (AdwBanner)** „Zmiany działają także po zamknięciu aplikacji, do restartu komputera” (D4) z przyciskiem „Przywróć automat BIOS” (`SetAllAuto`: krzywe pierwotne i automat na wszystkich kanałach zmienionych przez Baseboard). To jedyny komunikat o czasie działania zmian. Kiedy jest widoczny: §5.5.3; widać go także na podstronie krzywej. Pasek nagłówka nie ma osobnego przycisku.
+- **Pompa ze sterowaniem:** stałe ostrzeżenie w karcie, że pompa nie może się zatrzymać, także w krzywej (B6). Pompa bez sprawdzonego zapisu (D52) ma ramkę „Tylko podgląd” zamiast przełącznika; dopisek o niesprawdzonym złączu (`verified = false`) stoi wtedy w tej ramce, a nie w podtytule.
+- **Błędy sterownika:** `DriverRejected` → „Kontroler płyty nie przyjął ustawień” (w edytorze: obowiązuje poprzednia krzywa, zmiany zostają w edytorze), z odczytaną krzywą; `Timeout` → „Kontroler płyty nie odpowiedział.” Bez kodów błędów w interfejsie; szczegóły w dzienniku (B15).
+- **Bez powtórzeń:** na jednym ekranie żaden tekst nie powtarza informacji z innego miejsca tego ekranu (D45).
 
 ### 5.6 Aktualizacja BIOS-u (M5, na stronie System)
 
@@ -716,12 +724,12 @@ Domyślna krzywa CPU z BIOS-u łamie minimum B5. Krzywą pierwotną aplikacja pr
 | M | Nazwa | Zakres w skrócie | Root przy instalacji | Zależność zewnętrzna |
 |---|---|---|---|---|
 | M1 | Przegląd i informacje o systemie | szkielet aplikacji, wykrywanie płyty, profile, odczyt czujników, strona System tylko do odczytu (DMI, pamięć z bazy udev, VBIOS, firmware dysków), „Kopiuj informacje o systemie” | nie (`meson install` do katalogu domowego wystarcza do testów) | udev z `dmi_memory_id` (systemd) |
-| M2 | Wentylatory | M2a podgląd (bez pomocnika i zapisu), M2b pomocnik i tryb ręczny, M2c krzywe w EC, M2d źródło temperatury (po łatce 5) | tak od M2b (pomocnik) | M2a: brak. M2b: sterownik z `pwmN_enable` (`hwmon-next` albo moduł testowy; w jądrze od 7.5). M2c: sterownik z v1 (moduł testowy, §1.4) |
+| M2 | Wentylatory | M2a podgląd krzywych i źródła (bez pomocnika i zapisu, 0.2.0); M2b pomocnik jako osobny pakiet systemowy, tryb ręczny (0.3.0) i edytor krzywych (0.4.0); M2c wybór źródła temperatury (po łatce 5) (D46, D47) | tak od M2b (pakiet `baseboard-helper`) | M2a: brak. M2b: tryb ręczny wymaga `pwmN_enable` (`hwmon-next` albo moduł testowy), edytor zapisu krzywych (v1, moduł testowy, §1.4); wersji jądra nie podajemy, dopóki zmiany nie są w drzewie Linusa (D41) |
 | M3 | RGB | hidraw, raporty 0x50/0x51, odczyt wersji firmware, reguła udev w pakiecie RPM | tak, raz (reguła udev) | brak |
 | M4 | Wydajność + restart do UEFI | profile energii, podgląd cpufreq, restart do UEFI, profil energii w „Kopiuj informacje” | nie | tuned-ppd lub power-profiles-daemon, logind |
 | M5 | Aktualizacja BIOS-u bez flashowania z systemu | sprawdzenie wersji z warunkami dopasowania i wynikiem trójstanowym (opcja, domyślnie wyłączona), pobranie z sumą kontrolną, pendrive FAT32, restart do UEFI, lista kontrolna | nie | sieć tylko na żądanie, UDisks2, logind |
 
-**Stan prac** (jedyne miejsce w dokumencie; aktualizowany w commicie, który kończy krok): M1 ukończony (2026-11-11, kroki 1–13, wynik kryteriów w wierszu kroku 13); M2 nie rozpoczęty. Flatpak (D39, D40): krok F1 zrobiony 2026-11-11 (manifest w `build-aux/flatpak/`, libsensors, źródła Cargo bez sieci, zmiany dla piaskownicy, porównanie z instalacją natywną w §10.3, `strace` w piaskownicy bez otwarć do zapisu w `/sys`, przeładowanie modułu przy działającej aplikacji z Flatpaka sprawdzone z właścicielem, sekcja README); następny jest F2 przed pierwszym wydaniem (§10.6). Strona projektu (2026-11-11, D41): `website/` po angielsku i po polsku, ze zrzutami aplikacji i sekcją o pracy w jądrze, wdrażana przez GitHub Pages (`.github/workflows/website.yml`); w README sekcja „Kernel work” i adres strony bez dopisku „coming soon”; strona działa pod https://baseboard.bojanowski.me, Pages włączone (2026-11-11: źródło GitHub Actions, domena własna, wymuszone HTTPS). F2, wydanie 0.1.0 (D42–D44): commity gotowe 2026-11-11 (decyzje, przebudowa tłumaczeń, czujniki NVMe, zrzuty pod stałymi adresami, metainfo z kontrolą wersji, dokumentacja instalacji, sekcja README o tym, jak powstaje projekt, procedura §10.7); push `main`, podpisany tag v0.1.0 (na `abe400c`) i wydanie na GitHubie z plikiem `.flatpak` zrobione przez właściciela 2026-11-11 (suma pliku pobranego z wydania równa lokalnej); Baseboard 0.1.0 opublikowany 2026-11-11 w repozytorium Flatpak flatpak.bojanowski.me, podpisany kluczem repozytorium (gałęzie openExpress i Vumi bez zmian, opis repozytorium ogólny: „Apps by Tomasz Bojanowski”); po wdrożeniu pliki `summary*` z serwera równe lokalnym, w pustym katalogu Flatpak widać trzy aplikacje, a instalacja z `me.bojanowski.Baseboard.flatpakref` przechodzi z weryfikacją podpisu. README ma nagłówek jak strona (ikona, opis, linki, zrzut jasny lub ciemny według motywu GitHuba). F3 po M2 (D44). Publikacja (2026-11-11): repozytorium na GitHubie zaczyna się od jednego commita początkowego; historia sprzed publikacji w archiwum lokalnym. Przed publikacją zasady lokalne, ścieżki do notatek i plan budowania modułu testowego przeszły do plików poza repozytorium, rendery makiet (`makiety/png/`, tworzy je `makiety/renderuj.sh`) wypadły z repozytorium, doszły plik LICENSE (GPL-3.0), nagłówki SPDX i adresy: strona https://baseboard.bojanowski.me, zgłoszenia i kod na GitHubie (`config.rs`, metainfo, okno „O programie”, README). Ikona docelowa wstawiona w miejsce roboczej (2026-11-11: `data/icons/hicolor/scalable/apps/me.bojanowski.Baseboard.svg` i `…/symbolic/apps/me.bojanowski.Baseboard-symbolic.svg`; symboliczna przyjmuje kolor tekstu w jasnym i ciemnym motywie; tego samego dnia symboliczna zastąpiona poprawioną, bo poprzednia była wypełnionym kwadratem i w pasku bocznym wyglądała jak klocek, a nowa to ramka z elementami w środku). Poza krokami (2026-11-11): dopasowanie profilu po nazwie modelu (D28), kryterium CPU (D29), odtworzenie treści, które zginęły bez decyzji przy przejściu z 0.5 na 0.6 (tabela progów w §4, B2, B8, B10, §5.5.3, §5.5.4, testy M2), decyzje z tego przeglądu (D30–D34), wybory z kroku 10 (D35, D36), poprawki z przeglądu M1 (D37, D38). Otwarte z M1, przeniesione do M2: test z Orca (robi właściciel); pomiar CPU przy ukrytym oknie w buildzie release (w kroku 8 w buildzie debug 0,00 %; dziś okno nie dało się zminimalizować przez `BASEBOARD_DEBUG_MINIMIZED`, więc pomiar wymaga ręcznej minimalizacji) i na module Fedory (D29). Zrzuty ekranu w metainfo i `<releases>` zrobione w F2 (D43). Zamknięte 2026-11-11: plik `.desktop` i metainfo przebudowują się po zmianie tłumaczeń (`custom_target` z `msgfmt` zależny od `po/LINGUAS` i plików `.po` zamiast `i18n.merge_file`, który zależał tylko od pliku `.in`). Do testu obciążeniowego M2b (O10): po 12 s pełnego obciążenia temp1 doszło do 92 °C przy progu 95 °C. Przed pierwszym wydaniem: sprawdzenie znaku towarowego w bazach (D1; kolizje z oprogramowaniem sprawdzone ponownie 2026-11-11).
+**Stan prac** (jedyne miejsce w dokumencie; aktualizowany w commicie, który kończy krok): M1 ukończony (2026-11-11, kroki 1–13, wynik kryteriów w wierszu kroku 13); M2: plan i makiety zaakceptowane 2026-11-11 (§7, M2; D45–D56), zmiany z M2.11 wprowadzone; następny jest krok 1 M2a. Flatpak (D39, D40): krok F1 zrobiony 2026-11-11 (manifest w `build-aux/flatpak/`, libsensors, źródła Cargo bez sieci, zmiany dla piaskownicy, porównanie z instalacją natywną w §10.3, `strace` w piaskownicy bez otwarć do zapisu w `/sys`, przeładowanie modułu przy działającej aplikacji z Flatpaka sprawdzone z właścicielem, sekcja README); następny jest F2 przed pierwszym wydaniem (§10.6). Strona projektu (2026-11-11, D41): `website/` po angielsku i po polsku, ze zrzutami aplikacji i sekcją o pracy w jądrze, wdrażana przez GitHub Pages (`.github/workflows/website.yml`); w README sekcja „Kernel work” i adres strony bez dopisku „coming soon”; strona działa pod https://baseboard.bojanowski.me, Pages włączone (2026-11-11: źródło GitHub Actions, domena własna, wymuszone HTTPS). F2, wydanie 0.1.0 (D42–D44): commity gotowe 2026-11-11 (decyzje, przebudowa tłumaczeń, czujniki NVMe, zrzuty pod stałymi adresami, metainfo z kontrolą wersji, dokumentacja instalacji, sekcja README o tym, jak powstaje projekt, procedura §10.7); push `main`, podpisany tag v0.1.0 (na `abe400c`) i wydanie na GitHubie z plikiem `.flatpak` zrobione przez właściciela 2026-11-11 (suma pliku pobranego z wydania równa lokalnej); Baseboard 0.1.0 opublikowany 2026-11-11 w repozytorium Flatpak flatpak.bojanowski.me, podpisany kluczem repozytorium (gałęzie openExpress i Vumi bez zmian, opis repozytorium ogólny: „Apps by Tomasz Bojanowski”); po wdrożeniu pliki `summary*` z serwera równe lokalnym, w pustym katalogu Flatpak widać trzy aplikacje, a instalacja z `me.bojanowski.Baseboard.flatpakref` przechodzi z weryfikacją podpisu. README ma nagłówek jak strona (ikona, opis, linki, zrzut jasny lub ciemny według motywu GitHuba). F3 po wydaniu 0.4.0 (D44, D51). Publikacja (2026-11-11): repozytorium na GitHubie zaczyna się od jednego commita początkowego; historia sprzed publikacji w archiwum lokalnym. Przed publikacją zasady lokalne, ścieżki do notatek i plan budowania modułu testowego przeszły do plików poza repozytorium, rendery makiet (`makiety/png/`, tworzy je `makiety/renderuj.sh`) wypadły z repozytorium, doszły plik LICENSE (GPL-3.0), nagłówki SPDX i adresy: strona https://baseboard.bojanowski.me, zgłoszenia i kod na GitHubie (`config.rs`, metainfo, okno „O programie”, README). Ikona docelowa wstawiona w miejsce roboczej (2026-11-11: `data/icons/hicolor/scalable/apps/me.bojanowski.Baseboard.svg` i `…/symbolic/apps/me.bojanowski.Baseboard-symbolic.svg`; symboliczna przyjmuje kolor tekstu w jasnym i ciemnym motywie; tego samego dnia symboliczna zastąpiona poprawioną, bo poprzednia była wypełnionym kwadratem i w pasku bocznym wyglądała jak klocek, a nowa to ramka z elementami w środku). Poza krokami (2026-11-11): dopasowanie profilu po nazwie modelu (D28), kryterium CPU (D29), odtworzenie treści, które zginęły bez decyzji przy przejściu z 0.5 na 0.6 (tabela progów w §4, B2, B8, B10, §5.5.3, §5.5.4, testy M2), decyzje z tego przeglądu (D30–D34), wybory z kroku 10 (D35, D36), poprawki z przeglądu M1 (D37, D38). Otwarte z M1, przeniesione do M2: test z Orca (robi właściciel); pomiar CPU przy ukrytym oknie w buildzie release (w kroku 8 w buildzie debug 0,00 %; dziś okno nie dało się zminimalizować przez `BASEBOARD_DEBUG_MINIMIZED`, więc pomiar wymaga ręcznej minimalizacji) i na module Fedory (D29). Zrzuty ekranu w metainfo i `<releases>` zrobione w F2 (D43). Zamknięte 2026-11-11: plik `.desktop` i metainfo przebudowują się po zmianie tłumaczeń (`custom_target` z `msgfmt` zależny od `po/LINGUAS` i plików `.po` zamiast `i18n.merge_file`, który zależał tylko od pliku `.in`). Do testu obciążeniowego M2b (O10): po 12 s pełnego obciążenia temp1 doszło do 92 °C przy progu 95 °C. Przed pierwszym wydaniem: sprawdzenie znaku towarowego w bazach (D1; kolizje z oprogramowaniem sprawdzone ponownie 2026-11-11).
 
 Każdy etap kończy się, gdy spełnia swoje kryteria oraz wspólne wymagania z §8.
 
@@ -805,63 +813,277 @@ Płyty o tym samym kodzie i tym samym zestawie złączy według instrukcji mogą
 
 ### M2 – Wentylatory
 
-**Warunki wstępne:** M1. M2a działa na każdym jądrze. M2b i M2c na sprzęcie wymagają modułu testowego (§1.4), dopóki łatki nie trafią do jądra Fedory. Każdy test zapisu na sprzęcie wymaga osobnej zgody właściciela (CLAUDE.md).
+**Plan z 2026-11-11, zaakceptowany przez właściciela tego samego dnia.** Zastępuje dotychczasowy podział na M2a–M2d. Decyzje P1–P11 to w §12 D45–D55; M2.9 podaje, który numer P to które D (w tej sekcji zostały numery P). Makiety (układ A po poprawkach z D45) są zaakceptowane, a zmiany w reszcie dokumentu z M2.11 wprowadzone.
 
-**M2a – podgląd (bez pomocnika, bez zapisu)**
+**Warunki wstępne:** M1. M2a działa na każdym jądrze. Zapis na sprzęcie (M2b) wymaga modułu testowego (§1.4), dopóki łatki nie trafią do jądra Fedory. Każdy test zapisu na sprzęcie wymaga osobnej zgody właściciela (CLAUDE.md).
 
-| # | Krok | Wynik |
-|---|---|---|
-| 1 | `core::fans::driver`: odczyt trybu, wypełnienia, krzywej i źródła; cecha `FanDriver`, `SysfsDriver` i `ModelDriver` w części do odczytu | testy na trzech drzewach z M1 krok 4; na module v1 krzywe i źródła wszystkich sześciu kanałów zgodne z `cat` |
-| 2 | Model krzywej w `core`: n punktów, wartość w punkcie pracy (do podglądu), źródło → klucz temperatury z profilu → próg awaryjny | testy jednostkowe |
-| 3 | Strona Wentylatory tylko do odczytu: karty, wyjaśnienie przy `read-only`, miniatury i podstrona krzywej przy `curve-read`. Makiety zaktualizowane (§5.5.4). | strona działa na 7.3.3 i na module testowym |
+#### M2.1 Stan wyjściowy
 
-**M2b – pomocnik i tryb ręczny**
+**Zaprojektowane i nadal ważne:**
+- kontrakt D-Bus `Fans1` (§3.5) z jednostkami 0–255 i przeliczaniem jak w BIOS-ie (D15, D20);
+- zasady B1–B18 i progi awaryjne (§4);
+- wykrywanie możliwości po atrybutach i `DriverLevel` (§5.5.2). Zrobione w M1 (krok 4: `core::fans::driver`, trzy drzewa w `tests/fixtures/`, poziom na stronie System);
+- profil MS-7E61 z polami `controllable`, `min_duty`, `verified` i `tested_writes` (§6.2, §6.3), też zrobiony w M1;
+- tryby w interfejsie (D11), krzywa pierwotna w `/run` (B18, D12), D16, D17, D19, D31–D34;
+- podział na aplikację we Flatpaku i pomocnika w pakiecie systemowym, zgodność wersji, brak pomocnika (§10.4, D39);
+- tabela „Gdy recenzja v1 coś zmieni” (koniec tej sekcji).
 
-| # | Krok | Wynik |
-|---|---|---|
-| 4 | Crate `helper`: aktywacja D-Bus, jednostka systemd, polityka magistrali, akcje polkit, `GetChannels`, `GetState`, `DriverLevel` | testy na prywatnej magistrali z atrapą polkit |
-| 5 | Zapis trybu i wypełnienia w `SysfsDriver`, dziennik B2, `--restore-auto` (B3), weryfikacja B10 | testy z `ModelDriver` i na sztucznym sysfs; testy zabijania |
-| 6 | Pętla nadzoru: B4, B11, B13; wybudzenie (B12), wyłączenie (B3 d), dziennik B15 | testy wstrzykiwania błędów |
-| 7 | Interfejs trybu ręcznego: przełącznik, suwak z minimum, baner, `SetAllAuto`, komunikaty błędów | tryb ręczny przez pomocnika |
-| 8 | Pakiet RPM z podpakietem `baseboard-helper` (§10). Test na sprzęcie za zgodą: SYS Fan 1, potem kanały według D16 | kryteria M2b |
+**Nieaktualne albo sprzeczne** w chwili planowania (zostawione jako zapis; poprawione według M2.11 albo przez plan i makiety):
+1. `CLAUDE.md` mówi o zasadach B1–B15, a §4 ma B1–B18.
+2. Nagłówek dokumentu podaje „decyzje D1–D20”, a są D1–D44.
+3. §1.4, §5.5.1 i tabela na początku §7 podają, że `hwmon-next` trafi do jądra 7.5. To prognoza, a README i strona projektu (D41) nie podają wersji jądra przed wejściem zmian do drzewa Linusa. 2026-11-11 najnowszy tag Linusa to v7.4-rc2.
+4. §5.5.2 podaje jako typowy sterownik dla `manual` „jądro z samą serią Hamzy”. W `hwmon-next` seria Hamzy wchodzi razem z odczytem krzywych, więc `manual` bez `curve-read` zdarzy się tylko przy częściowym przeniesieniu łatek (np. w dystrybucji). Poziom zostaje, ale nie jest typowy.
+5. Tabela na początku §7 i dotychczasowy plan dzielą M2 na M2a–M2d. Ten plan: M2a (podgląd), M2b (pomocnik, tryb ręczny, edytor krzywych), M2c (wybór źródła, dawne M2d). Dawne M2c weszło do M2b.
+6. Dawny krok 8 robił pakiet RPM na końcu trybu ręcznego. Według D39 pomocnik to osobny pakiet systemowy, którego potrzebuje także aplikacja z Flatpaka, więc pakiet powstaje na początku M2b.
+7. §5.5.3 nie ma przypadku „bez pomocnika”, a od D39 to przypadek typowy (Flatpak bez pakietu `baseboard-helper`). §10.4 zakłada, że strona odsyła do pakietu `baseboard-helper`; w wydaniu z samym M2a tego pakietu nie ma, więc strona nie może do niego odsyłać.
+8. §5.5.3 wymaga trybu (automat, ręczny) w podtytule wentylatora na Przeglądzie przy `manual+curve-view`. M1 tego nie robi.
+9. §5.5.4: „Kliknięcie karty otwiera podstronę”. Karta z przełącznikiem w środku byłaby elementem aktywnym wewnątrz aktywnego, co psuje obsługę klawiaturą i czytnik ekranu. Makiety mają osobny przycisk „Edytuj krzywą”.
+10. Makiety sprzed tego planu (zastąpione 2026-11-11): edytor z 2–8 punktami i przyciskiem „Dodaj punkt” (sterownik ma zawsze 7); źródło „Procesor (Tctl)” z `k10temp`, choć krzywe w EC liczą z temp1 (D34), a Tctl należał do krzywej programowej odłożonej w D10; opis „Procesor (Tctl): 39,8 °C → 25 %” w karcie SYS_FAN1; komentarze „M4 preview” ze starej numeracji; przełącznik trzypozycyjny na każdym poziomie; brak stanów `read-only`, `manual+curve-view`, braku pomocnika i Flatpaka; ostrzeżenie pompy przy złączu, którego zapis blokuje D16.
+11. §4 nie mówi, jak EC liczy wypełnienie między punktami. Odczyt z 2026-11-11 wskazuje interpolację liniową: SYS_FAN1 przy temp1 46 °C miał `pwm16` = 98, a prosta między punktami 5 °C → 96 i 84 °C → 99 daje 97,6 (schodek dałby 96). Do sprawdzenia na wszystkich kanałach (krok 2).
+12. B3 nie ma reguły dla przeładowania modułu ani dla aktualizacji i odinstalowania pakietu pomocnika, choć §4 mówi, że przy wyładowaniu sterownik niczego nie przywraca.
+13. D14 zostawia wybór („automat” albo „ręczny 100 % od razu, potem automat”) bez rozstrzygnięcia. O10 nie zawiera wyniku z M1: temp1 doszło do 92 °C po 12 s pełnego obciążenia przy progu 95 °C (stan prac).
+14. B4 wymaga jawnego zdjęcia blokady, ale §3.3 kończy pomocnika po 30 s bezczynności bez kanału w trybie ręcznym, a tak jest zaraz po B4. Blokada w pamięci pomocnika zniknęłaby razem z nim.
+15. §3.6 („Planowana struktura”) wymienia `crates/helper`, `packaging/rpm/`, `data/dbus`, `data/polkit` i `data/systemd`. Jeszcze ich nie ma; powstają w M2b.
+16. §10.6 umieszcza F3 „po M2”. Przy nowym podziale trzeba ustalić, czy chodzi o koniec M2b (edytor), czy M2c (źródło, zależne od niewysłanej łatki 5).
+17. Otwarte z M1 i przeniesione do M2 (stan prac): test z Orca i pomiar CPU przy ukrytym oknie w buildzie release. Dotychczasowe kryteria M2 ich nie zawierały.
 
-**M2c – krzywe w EC**
+#### M2.2 Zależności od jądra
 
-| # | Krok | Wynik |
-|---|---|---|
-| 9 | Planer zapisu (B16) i walidacja krzywej (B7, B14) w `core` | testy właściwościowe: dla dowolnej pary krzywych każdy stan pośredni jest niemalejący i chłodzi co najmniej tak jak stara i nowa krzywa |
-| 10 | Pomocnik: `GetEcCurve`, `SetEcCurve`, `RestoreOriginalCurve`, migawka B18, błędy B17, `SetAllAuto` z krzywymi | testy z `ModelDriver`: przycinanie, `-EIO` w połowie planu, `-ETIMEDOUT` |
-| 11 | Edytor krzywej (podstrona), tryb „Krzywa”, „Przywróć krzywą BIOS” | edytor zgodny z makietą |
-| 12 | Test na sprzęcie z modułem v1 za zgodą: pwm16, potem pozostałe SYS; S3 z krzywą; restart (krzywa BIOS-u po starcie) | kryteria M2c |
+Stan z lokalnego drzewa jądra właściciela 2026-11-11; `hwmon-next` lokalnie i na serwerze to ten sam commit `44c8ceae2dd3`.
 
-**M2d – źródło temperatury** (po łatce 5)
+| Gdzie | Zmiany w `nct6683` | Poziom na MS-7E61 | Co daje Baseboard |
+|---|---|---|---|
+| Wydane jądra (7.3; Fedora 7.3.3) i drzewo Linusa do v7.4-rc2 | odczyty; w v7.4-rc2 m.in. `c4a01c2a80b2` (poprawka rzutowania w `show_pwm()` i `store_pwm()`), `f9c5d495e22f` i `04f4079ee61a` (listy płyt) | `read-only`: `pwm1–4` 0444, bez `pwmN_enable` i krzywych | M2a: karty z obrotami i wypełnieniem, wyjaśnienie |
+| `hwmon-next` | `5410a1257e26` sterowanie wentylatorami płyt MSI z NCT6687D-R (seria Hamzy), `f62e305a9b72` wypełnienie wentylatorów SYS, `e0fdadf44480` odczyt krzywych, `7dc9dff9608d` tryb ręczny po wznowieniu, `9932e15ac28a`, `2722b11c864a` | `manual+curve-view` | M2a: podgląd krzywych i źródła; M2b: tryb ręczny |
+| Seria v1 w recenzji na linux-hwmon (`81b1e2c64f6d`, `527bbd00913c`) | zapis punktów krzywych; `pwmN_auto_channels_temp` dalej 0444 | `curves` | M2b: edytor krzywych |
+| Łatka 5 | nienapisana | `curves+source` | M2c: wybór źródła |
+| Seria Dahlina (powrót do automatu przy wyładowaniu modułu) | nie ma jej w żadnej gałęzi lokalnego drzewa (szukane po autorze i po treści). Sterownik w `hwmon-next` nie ma funkcji `.remove` ani `.shutdown`, które coś przywracają | – | plan jej nie zakłada |
 
-| # | Krok | Wynik |
-|---|---|---|
-| 13 | `source-write` w warstwie sterownika według przyjętej łatki 5, `SetEcSource`, wybór źródła w edytorze (temperatury EC z profilu), B14 dla nowego źródła | wybór źródła na module z łatką 5 |
+- **Co działa u użytkowników dziś:** na wydanych jądrach tylko `read-only`. Wyższe poziomy wymagają modułu spoza drzewa (u właściciela `hwmon-next` z v1) albo jądra, do którego trafi `hwmon-next`, a potem dystrybucji z tym jądrem.
+- **Gdy v1 zmieni interfejs:** tabela „Gdy recenzja v1 coś zmieni” (koniec sekcji). Edytor powstaje pod v1, ale do wydania trafia dopiero, gdy zapis krzywych jest w `hwmon-next` (P3); wtedy warstwa sterownika i próbki idą za wersją przyjętą.
+- **Gdy v1 nie zostanie przyjęta:** M2a i tryb ręczny od niej nie zależą i wychodzą normalnie. Podgląd krzywych zostaje, bo odczyt jest w `hwmon-next`. Edytor zostaje na `main` bez wydania (pomocnik i tak go nie włączy bez `curve-write` w atrybutach) albo go usuwamy. Nowa propozycja zapisu w jądrze to nowy wiersz tabeli zmian.
+- **Gdy `hwmon-next` zmieni się przed wejściem do drzewa Linusa** (np. cofnięcie serii): poziom wykrywany po atrybutach spada sam, bez zmian w kodzie; przesuwa się plan wydań, nie kod.
+- **Seria Dahlina a zasady bezpieczeństwa:** dziś po wyładowaniu modułu w trybie ręcznym zostaje stałe wypełnienie bez nadzoru, do ponownego załadowania albo restartu (§4). Pomocnik nie może temu zapobiec, bo bez sterownika nic nie zapisze. Plan: nowa reguła B3(g) (P5) i opis ryzyka szczątkowego w §4. Gdy seria wejdzie, wyładowanie samo przywróci automat, a B3(g) niczego nie zmieni. Jeśli przy wyładowaniu przywraca też krzywe BIOS-u, migawka B18 dalej się zgadza; pomocnik po powrocie urządzenia porówna krzywe z migawką i z tym, co sam zapisał (P5), bez założeń o zachowaniu sterownika, tak jak przy wznowieniu (B12).
+- **Wybór źródła temperatury** dopiero po dowodzie sprzętowym: (a) łatka 5 w kształcie wysłanym na listę (D17); (b) test na MS-7E61, że po zmianie źródła EC liczy wypełnienie z nowej temperatury (np. źródło temp3, sekcja zasilania nagrzana obciążeniem, `pwmN` zgodne z krzywą dla temp3, a nie dla temp1); (c) źródło po S3 i po restarcie. Do tego czasu źródło jest tylko do podglądu.
 
-**Kryteria ukończenia M2a**
-- Strona Wentylatory działa na jądrze Fedory 7.3.3, na `hwmon-next` i z modułem v1, a każdy przypadek wygląda jak w §5.5.3.
-- Krzywe na podglądzie są zgodne z `cat` atrybutów `pwmN_auto_point*`.
-- Aplikacja niczego nie zapisuje (`strace` jak w M1).
+#### M2.3 Etapy, kroki i to, co widzi użytkownik
 
-**Kryteria ukończenia M2b**
-- Na module testowym kanały `sys1`–`sys4` (oraz `cpu1` i `pump1` według D16) działają w trybie ręcznym, a obroty reagują. `ezconn` (D32) i `pwm3` są tylko do odczytu z wyjaśnieniem.
-- Każda droga zakończenia z B3 (SIGTERM, SIGKILL, abort, zawieszenie pętli i watchdog, wyłączenie) zostawia każdy kanał w trybie ręcznym w `pwmN_enable = 2`, co sprawdzamy odczytem sysfs po zdarzeniu.
+Każdy krok kończy się działającym buildem, zielonymi sprawdzeniami z §8 i osobnym commitem. Kolumna „Na sprzęcie” wymienia to, co sprawdza właściciel; odczyt sysfs nie wymaga zgody, zapis i polecenia z `sudo` tak, za każdym razem osobno.
+
+**M2a – podgląd krzywych i źródła, tylko odczyt, bez pomocnika (natywnie i we Flatpaku), wydanie 0.2.0**
+
+| # | Krok | Kryterium zakończenia | Na sprzęcie |
+|---|---|---|---|
+| 1 | Warstwa sterownika do odczytu: cecha `FanDriver` (tryb, wypełnienie, krzywa, źródło), `SysfsDriver` i `ModelDriver` do odczytu, milistopnie ↔ °C, maska `pwmN_auto_channels_temp` → klucz temperatury z profilu. Kodu zapisu w tym kroku nie ma. | testy na trzech drzewach z M1 i na `tryby-mieszane`; na MS-7E61 z modułem v1 krzywe i źródła sześciu kanałów równe `cat` (odczyt) | – |
+| 2 | Model krzywej w `core`: n punktów z liczby plików, interpolacja liniowa, wartości poza skrajnymi punktami, cel w punkcie pracy, źródło → próg awaryjny, opis krzywej dla czytnika ekranu. | testy jednostkowe; na MS-7E61 cel z modelu równy `pwmN` w stanie ustalonym na sześciu kanałach, w spoczynku i po krótkim obciążeniu procesora (odczyt, bez zapisu do sprzętu); wynik w §4 | – |
+| 3 | Widżet wykresu `app::fan_chart` (M2.4): miniatura i duży wykres, strefy, punkt pracy, przejścia, tryb podglądu bez uchwytów. Geometria, rozmieszczanie etykiet i opis dla czytnika jako czyste funkcje z testami. | testy; zrzut debug wykresu zgodny z makietą w obu stylach; koszt CPU zmierzony | – |
+| 4 | Strona Wentylatory w podglądzie, w wariancie z P1: karty, stany `read-only`, `manual`, `manual+curve-view` i `curves` bez pomocnika, złącze puste, wentylator stoi, „Tylko odczyt” dla JAF_1, podstrona krzywej w podglądzie, wpis w pasku bocznym. Odczyt trybu przy każdej próbce tylko przy widocznej stronie, krzywych przy wejściu i co 10 s. | zrzuty prawdziwej aplikacji na module v1 (jasny i ciemny styl, EN i PL, szerokie i wąskie okno) obok renderów makiet, z listą różnic; natywnie i we Flatpaku | wygląd z modułem v1 i z modułem Fedory (przeładowanie przy otwartej stronie, `sudo`), Orca na stronie i podstronie |
+| 5 | Przegląd: tryb w podtytule wentylatora przy `mode` (§5.5.3). | testy modelu; zrzut | – |
+| 6 | Domknięcie M2a: tłumaczenia, metainfo (opis wydania, zrzuty w `website/screenshots/0.2.0/`), README i strona, kryteria M2a (M2.8), wydanie 0.2.0 według §10.7. | kryteria M2a | push, tag, wydanie, publikacja w repozytorium Flatpak |
+
+**M2b – pomocnik jako osobny pakiet systemowy, potem tryb ręczny, potem edytor krzywych**
+
+*Pomocnik (bez zapisu do sprzętu):*
+
+| # | Krok | Kryterium zakończenia | Na sprzęcie |
+|---|---|---|---|
+| 7 | Crate `helper` (binarka `baseboard-helper`): aktywacja D-Bus, jednostka systemd z utwardzeniem (§3.3), polityka magistrali, akcje polkit tłumaczone przez `msgfmt`, właściwości z §3.5, `GetChannels`, `GetState`; profile tylko z katalogów systemowych; opcja meson do budowania i instalacji samego pomocnika. | testy na prywatnej magistrali z atrapą polkit; `systemd-analyze security` ≤ 5,0 | instalacja pomocnika (`meson install` z `sudo`), odczyt właściwości przez `busctl` |
+| 8 | Klient w aplikacji: wykrycie pomocnika (`ServiceUnknown`, `AccessDenied` od pośrednika Flatpaka, brak odpowiedzi), `ApiVersion`, `ProfileDigest`; wiersz „Pomocnik systemowy” na stronie System i wersja w tekście do schowka; `--system-talk-name` w manifeście; stany „brak pomocnika”, „Flatpak bez uprawnienia”, „starszy pomocnik”, „inny profil”. | testy z atrapą pomocnika na prywatnej magistrali; zrzuty stanów | Flatpak z gałęzi `devel` w osobnym katalogu Flatpak: wykrycie pomocnika i jego braku |
+| 9 | Pakiet: `packaging/rpm/baseboard.spec` z podpakietami `baseboard-helper` (pomocnik, jednostka, pliki D-Bus i polkit, profile) i `baseboard` (aplikacja natywna), zależności Rust przez `cargo vendor`, skryptlety z P6; budowanie `rpmbuild`, potem COPR. | `rpmlint`; instalacja, aktualizacja i odinstalowanie w maszynie wirtualnej bez śladów | instalacja RPM (`sudo`), projekt w COPR (konto właściciela) |
+
+*Tryb ręczny (wydanie 0.3.0):*
+
+| # | Krok | Kryterium zakończenia | Na sprzęcie |
+|---|---|---|---|
+| 10 | Zapis trybu i wypełnienia w `SysfsDriver` za cechą `write`, którą włącza tylko crate `helper` (B1); `SetManual`, `SetAuto`, `SetAllAuto` bez krzywych, `AcknowledgeEmergency`; dziennik B2, `--restore-auto` w `ExecStopPost` (B3 a, b), B5–B10 (z D16), B15. | testy z `ModelDriver` i na sztucznym sysfs, testy zabijania (`systemd-run`: SIGTERM, SIGKILL, SIGABRT), testy losowe argumentów D-Bus | – (zapis dopiero w kroku 13) |
+| 11 | Pętla nadzoru: B4 (z P4, blokada w `/run/baseboard`), B11, B13, B12, B3 d (`PrepareForShutdown` z blokadą opóźniającą logind), B3 f, B3 g (P5), sygnały. | testy wstrzykiwania błędów, atrapa logind na prywatnej magistrali, zawieszenie pętli i watchdog | – |
+| 12 | Interfejs trybu ręcznego: przełącznik (2 albo 3 pozycje), suwak z minimum, baner i „Przywróć automat BIOS”, wszystkie stany z `makiety/wentylatory-stany.html`. | zrzuty zgodne z makietą stanów; testy modelu widoku | – |
+| 13 | Testy na sprzęcie, w tej kolejności: SYS_FAN1; SYS_FAN2–4 (po każdym wpis w `tested_writes`, D16); CPU_FAN1 z testem O10 (P9); drogi zakończenia B3; S3; próg obniżony do 50 °C; B11 z profilem testowym; zapis innym narzędziem; aktualizacja i odinstalowanie pakietu; przeładowanie modułu; polkit z Flatpaka (O19). | kryteria trybu ręcznego (M2.8) | wszystko w tym wierszu, każde za zgodą |
+| 14 | Domknięcie: README (instalacja pomocnika), strona, zrzuty trybu ręcznego, wydanie 0.3.0 (aplikacja i pakiet `baseboard-helper`). | kryteria trybu ręcznego | push, tag, wydanie, COPR, publikacja Flatpaka |
+
+*Edytor krzywych (wydanie 0.4.0, gdy zapis krzywych jest w `hwmon-next`, P3):*
+
+| # | Krok | Kryterium zakończenia | Na sprzęcie |
+|---|---|---|---|
+| 15 | Planer B16 i walidacja B7, B14 w `core`. | testy właściwościowe (M2.8) | – |
+| 16 | Pomocnik: `GetEcCurve`, `SetEcCurve`, `RestoreOriginalCurve`, migawka B18, B17, `SetAllAuto` i `--restore-all` z krzywymi, B12 dla krzywych; `ApiVersion` 2. | testy z `ModelDriver`: przycinanie, `-EIO` w połowie planu, `-ETIMEDOUT`, nieudany powrót | – |
+| 17 | Edytor (podstrona): wykres z uchwytami, przeciąganie, klawiatura, lista punktów, tryb „Krzywa”, „Przywróć krzywą BIOS”, stany (niezapisane zmiany, błąd zapisu, krzywa łamiąca zasady, podgląd), okno „Odrzucić zmiany krzywej?”. | zrzuty zgodne z makietą; testy logiki edycji (ograniczenie do sąsiadów i do minimum, klawiatura, opis dla czytnika) | Orca na edytorze |
+| 18 | Testy na sprzęcie z modułem v1: `pwm16`, potem SYS 2–4, CPU według D16; obroty pod obciążeniem idą za krzywą; S3 z krzywą; restart (po starcie krzywa BIOS-u); „Przywróć krzywą BIOS”; O17 opcjonalnie. | kryteria krzywych (M2.8) | wszystko w tym wierszu, każde za zgodą |
+| 19 | Domknięcie: zrzuty edytora, README i strona, wydanie 0.4.0; potem F3 według P7. | kryteria krzywych | push, tag, wydanie, COPR, publikacja |
+
+**M2c – wybór źródła temperatury** (po łatce 5 i dowodzie sprzętowym z M2.2)
+
+| # | Krok | Kryterium zakończenia | Na sprzęcie |
+|---|---|---|---|
+| 20 | `source-write` według łatki 5 w kształcie wysłanym na listę (D17), `SetEcSource`, `ApiVersion` 3, wybór w edytorze (temperatury EC z profilu), B14 dla nowego źródła. | wybór źródła na module z łatką 5; dowód sprzętowy | test zmiany źródła, za zgodą |
+
+**Co widzi użytkownik** na każdym poziomie sterownika, w każdym wydaniu, z pomocnikiem i bez, natywnie i we Flatpaku: tabela w §5.5.3.
+
+#### M2.4 Wygląd strony Wentylatory (D45, makiety zaakceptowane 2026-11-11)
+
+**Makiety** w `makiety/` (opis w `makiety/OPIS.md`), rendery poza repozytorium (`makiety/renderuj.sh` z `OUT=…`, `NARROW=1`, `ACCENT=…`):
+- `wentylatory.html`: bez parametru pełne sterowanie (`curves` z pomocnikiem), `?stan=podglad` (brak pomocnika), `?stan=tylko-odczyt` (jądro Fedory);
+- `wentylatory-krzywa.html`: edytor z niezapisanymi zmianami, `?stan=blad`, `?stan=bios-cpu` (domyślna krzywa CPU z §6.3, łamie B5), `?stan=podglad`;
+- `wentylatory-stany.html`: 20 stanów karty i strony, każdy z tekstem i uwagą, kiedy występuje.
+
+Wszystkie w jasnym i ciemnym stylu, w szerokim (1200 px) i wąskim oknie (400 px, pasek boczny zwinięty jak poniżej 600 sp). Pasek boczny ma tylko istniejące strony: Przegląd, Wentylatory, System. Dane to odczyty z MS-7E61 z 2026-11-11 (moduł v1, krzywe z ustawień BIOS-u właściciela, temp1 46 °C); własne krzywe, tryb ręczny i stany błędów są przykładowe.
+
+**Układ (D45).** Rozważone trzy warianty: A, karty złączy z miniaturą krzywej; B, lista jak na Przeglądzie z rozwijanym wykresem; C, lista złączy i jeden wentylator z dużym wykresem i edycją na miejscu. Wybrany A: pokazuje naraz wszystkie wentylatory z krzywą i punktem pracy, zgadza się z D6 i daje edytorowi pełną szerokość okna. B chował krzywe w miniaturach, a C pokazywał jeden wentylator, w wąskim oknie dokładał poziom nawigacji (długie nazwy złączy łamały się w liście) i wymagał zmiany D6.
+
+**Strona** (od góry): baner „Zmiany działają także po zamknięciu aplikacji, do restartu komputera” z „Przywróć automat BIOS”, gdy Baseboard coś zmienił (jeden komunikat zamiast banera i osobnego zdania pod nim); grupa „Źródło temperatury” z jednym wierszem (nazwa, `nct6687 · temp1 · próg awaryjny 95 °C`, zakres min–maks i bieżąca wartość, jak wiersze Przeglądu); grupa „Złącza” z kartami; grupa „Tylko odczyt” z wierszem JAF_1. Gdy złącza będą miały różne źródła (M2c), karta podaje źródło tylko wtedy, gdy różni się od wspólnego. W stanach bez sterowania zamiast banera jest jeden wiersz u góry („Sterowanie wentylatorami niedostępne”, „Podgląd bez sterowania”).
+
+**Karta złącza:** ikona złącza (wentylator, kropla dla pompy), nazwa z profilu i podtytuł w jednym wierszu („CPU_FAN1 · minimum 30 %”); obroty dużą cyfrą, pod nimi „wypełnienie 49 %”; przełącznik trybu; miniatura krzywej z punktem pracy, strefą poniżej minimum i progiem jako linią i pasem, bez napisów (minimum mówi podtytuł, próg wiersz źródła); stopka z przyciskiem „Edytuj krzywą”. Etykiety „Krzywa z BIOS-u” nie ma przy żadnym złączu: przełącznik pokazuje tryb („Automat BIOS” to krzywa z BIOS-u, D11), a złącze bez przełącznika ma ramkę „Tylko podgląd”; edytor nazywa tryb w podtytule („CPU_FAN1 · automat BIOS”). Karta nie jest klikalna.
+- Tryb ręczny: zamiast wykresu duża wartość wypełnienia („45 %”) i suwak w polu o wysokości wykresu, więc siatka kart zostaje równa; obroty w nagłówku; dla wentylatorów systemowych w stopce „0 % zatrzymuje wentylator”, dla procesora i pompy zakres poniżej minimum zakreskowany na suwaku.
+- Złącze bez sprawdzonego zapisu (na MS-7E61 pompa, D52): zamiast przełącznika ramka z kłódką „Tylko podgląd: złącza nie sprawdzono na tej płycie.”; wtedy podtytuł nie powtarza „złącze nietestowane”. Pod spodem w tej samej ramce „Brak obrotów od startu aplikacji: złącze może być puste.”, gdy złącze nie miało obrotów.
+- Wąskie okno: nazwa złącza zajmuje całą linię, obroty i wypełnienie schodzą pod nią; wiersz źródła ma wartość nad zakresem.
+- Bez pomocnika (podgląd): karty mają ten sam kształt, przełącznik jest nieaktywny i tylko pokazuje tryb, przycisk brzmi „Pokaż krzywą”; pompa ma tę samą ramkę co przy pomocniku, z ikoną informacji („Złącza nie sprawdzono na tej płycie.”).
+- Sterownik bez sterowania: karty bez wykresu i przełącznika, podtytuł bez minimum (niczym nie da się sterować); pasek wypełnienia tylko przy kanałach, które je podają; to, że wentylatory systemowe go nie mają, mówi raz wiersz u góry.
+
+**Wykres krzywej** (ten sam w miniaturze i w edytorze):
+- Odcinki proste z zaokrąglonymi złączami, bo EC liczy wypełnienie liniowo między punktami (M2.1, pkt 11). Gładka krzywa (spline) pokazywałaby wypełnienia, których wentylator nigdy nie dostaje. Poniżej pierwszego i powyżej ostatniego punktu EC trzyma ich wypełnienie: linia przerywana. Pod krzywą gradient akcentu.
+- Osie: temperatura źródła 0–100 °C (zakres B7), siatka co 10 °C, podpisy co 20 °C z jednostką („40 °C”); wypełnienie 0–100 % co 25 % („50 %”). W edytorze tytuły osi: „Wypełnienie” i „Temperatura: Procesor (czujnik płyty)”. W miniaturze mniej linii i podpisów.
+- Strefa poniżej minimum B5 (procesor, pompa): kreskowanie i przerywana linia granicy; w edytorze także napis „Poniżej minimum 30 %” pod linią krzywej, więc jej nie zasłania. Próg awaryjny źródła: pas w kolorze błędu i przerywana pionowa linia; w edytorze napis poziomo nad wykresem, przy górze linii („Próg awaryjny 95 °C”, dla procesora i pompy „Próg awaryjny 95 °C: od niego 100 %” i kółko w punkcie progu przy 100 %, B14).
+- Punkt pracy na żywo: kropka w zieleni z ikony aplikacji z poświatą, przerywane prowadnice do obu osi i znaczniki na osiach. W edytorze etykieta „Teraz 46,0 °C · 28 %” tam, gdzie nie zasłania uchwytów ani napisów; gdy krzywa jest zmieniona, a niezastosowana, puste kółko w akcencie i druga linia „po zastosowaniu 24 %” (w automacie przy dochodzeniu do celu: „cel 38 %”). Gdy etykieta się nie mieści (wąskie okno), te same wartości stoją w legendzie.
+- Uchwyty (edytor): kółka z numerem punktu, takim jak na liście; punkty o tych samych wartościach to jeden uchwyt w kształcie pigułki („6–7”). Wybrany uchwyt jest wypełniony, a przy fokusie klawiatury ma obwódkę fokusu. Punkt, który łamie zasadę, ma kolor ostrzeżenia i znak ostrzeżenia przy uchwycie; powód („Ustaw co najmniej 30 %”) stoi raz, w jego wierszu listy.
+- Krzywa, którą EC wykonuje teraz, gdy w edytorze jest inna: przerywana linia w kolorze tekstu.
+- Legenda pod dużym wykresem tylko dla oznaczeń, których wykres sam nie podpisuje: „Nowa krzywa” i „W kontrolerze teraz”, a w wąskim oknie punkt pracy. Bez krzywej w kontrolerze i z etykietą punktu pracy na wykresie legendy nie ma. Nic nie opiera się na samym kolorze: strefy mają wzór, linie różny wzór kreskowania, punkt łamiący zasadę znak.
+- Kolory (D55): krzywa, obszar i uchwyty w akcencie systemu (`accent_bg_color`, idzie za wyborem użytkownika; makiety z `?accent=…` pokazują inne akcenty libadwaita), numery i tekst akcentu w jego wersji tekstowej; punkt pracy w zieleni z ikony (#26a269 w jasnym stylu, #33d17a w ciemnym); próg w `error_color`, ostrzeżenia w `warning_color`, kreskowanie w kolorze tekstu. Przy zielonym akcencie punkt pracy odróżnia kształt (kropka z poświatą) i etykieta.
+
+**Edytor (podstrona):** tytuł nazwą złącza, podtytuł „SYS_FAN1 · niezapisane zmiany”, „· krzywa z BIOS-u” albo „· podgląd”; duży wykres z legendą; lista 7 punktów, w której każdą wartość zmienia się przyciskami albo wpisuje z klawiatury (`GtkSpinButton`); grupa „Źródło temperatury” (nazwa i kanał, kłódka, bez wartości, którą pokazuje wykres); grupa „Jak działa krzywa”; dolny pasek „Przywróć krzywą BIOS”, „Cofnij zmiany”, „Zastosuj” (w wąskim oknie przywracanie z podpisem w osobnej linii). Ramka u góry tylko tam, gdzie mówi coś, czego nie mówi podtytuł ani legenda: błąd zapisu („Kontroler płyty nie przyjął ustawień”), krzywa łamiąca zasady („Ta krzywa nie spełnia zasad Baseboard”, „Zastosuj” nieaktywne z wyjaśnieniem na dolnym pasku), podgląd („Edycja krzywych i wybór źródła wymagają nowszego sterownika jądra.”).
+
+**Stany** (`wentylatory-stany.html`, każdy z wyglądem i tekstem): sterownik bez sterowania; wersja 0.2.0 (sam podgląd); brak pomocnika; Flatpak bez uprawnienia do pomocnika (z poleceniem i przyciskiem kopiowania); pomocnik w starszej wersji; inna wersja profilu w pomocniku; sterownik bez podglądu krzywych (`manual`); sterownik bez zapisu krzywych (`manual+curve-view`); tryb ręczny z minimum; pompa ze sterowaniem (stałe ostrzeżenie B6); wentylator stoi (0 %, zamierzone, bez ostrzeżenia); wentylator stanął (B11, czerwona obwódka karty, ikona i tekst); złącze puste; krzywa zmieniona i niezapisana (okno „Odrzucić zmiany krzywej?” przy wyjściu z edytora); błąd zapisu w trybie ręcznym; dochodzenie do celu; blokada awaryjna (D48: pełne wypełnienie, „Zdejmij blokadę” aktywne po spadku o 10 °C, wiersz wraca po ponownym uruchomieniu aplikacji); inny program zmienił ustawienia (B10); pomocnik przestał działać; krótkie komunikaty (`AdwToast`: anulowana autoryzacja, zastosowana krzywa, powrót do automatu BIOS). Błędy bez kodów; szczegóły w dzienniku (B15). Na jednym ekranie żaden tekst nie powtarza informacji z innego miejsca tego ekranu.
+
+**Ruch.** `AdwTimedAnimation`, która przy wyłączonych animacjach (ustawienie „Ogranicz animacje”, `gtk-enable-animations = false`) kończy się od razu:
+- punkt pracy: przejście 250 ms (ease-out-cubic), tylko gdy przesuwa się o więcej niż 2 px; mniejsze zmiany co sekundę bez animacji;
+- po zastosowaniu krzywej linia przerywana przechodzi w nową w 300 ms; po „Cofnij zmiany” odwrotnie;
+- krok uchwytu z klawiatury: 120 ms; przeciąganie myszą bez animacji (uchwyt idzie za kursorem);
+- liczby zmieniają się od razu, bez animacji; żadnych animacji ciągłych (np. obracającej się ikony), bo kosztowałyby klatkę co 16 ms.
+
+**Dostępność:**
+- Klawiatura: przełącznik, suwak (strzałki, PageUp/PageDown), przyciski i pola liczbowe jak w libadwaita; wartości punktów można wpisać w polach listy (liczba z jednostką albo bez, „50” i „50 %”), a pole odrzuca wartość spoza dozwolonego zakresu tak jak przeciąganie. Wykres edytora przyjmuje fokus: Tab i Shift+Tab wybierają kolejny punkt (po ostatnim fokus wychodzi z wykresu), strzałki przesuwają punkt o 1 °C albo 1 %, z Shift o 5, Home i End wybierają pierwszy i ostatni punkt. Ruch jest ograniczony do sąsiednich punktów i do minimum B5, tak jak przy przeciąganiu. Skróty są w oknie skrótów klawiszowych i w wierszu „Klawiatura” edytora.
+- Czytnik ekranu: miniatura ma rolę obrazu z opisem (punkty, źródło, temperatura i wypełnienie teraz). W edytorze pełną drogą edycji jest lista punktów (`GtkSpinButton` z nazwami „Punkt 3, temperatura”, „Punkt 3, wypełnienie”); zmiana punktu z klawiatury na wykresie jest ogłaszana (`gtk_accessible_announce`, GTK 4.14). Karty: nazwa złącza, obroty, wypełnienie i tryb jako tekst; źródło i próg w wierszu źródła.
+- Kontrast (WCAG, policzony z wartości libadwaita 1.10 i kolorów makiet): podpisy osi 5,2:1 w jasnym i 7,3:1 w ciemnym stylu; linia krzywej 3,8:1 i 3,3:1; punkt pracy 3,3:1 i 6,3:1; próg 6,3:1 i 5,8:1; numer wybranego uchwytu 5,8:1 i 9,4:1; krzywa w kontrolerze 3,9:1 i 5,9:1; teksty błędów i ostrzeżeń w ramkach 4,9–7,9:1. W trakcie projektu poprawione: biały numer na akcencie (3,8:1) i przerywana linia przy kryciu 45 % (2,5:1 w jasnym stylu). Przygaszony tekst libadwaita (krycie 55 %) ma w jasnym stylu 3,2:1, więc wartości i podtytuły złączy na tej stronie mają krycie 72 % (5,2:1), a przygaszone są tylko objaśnienia powtórzone gdzie indziej.
+
+**Spójność z Przeglądem i Systemem:** te same nazwy złączy (rola i numer z profilu) i podtytuły („CPU_FAN1 · wypełnienie 49 % · złącze nietestowane”), ta sama kolejność złączy, podtytuł strony „Odświeżanie co 1 s”, nagłówki i opisy grup jak na Przeglądzie („Złącza”, „W kolejności złączy na płycie”), wiersze `AdwActionRow` dla źródła temperatury (nazwa jak na Przeglądzie, zakres min–maks i wartość), JAF_1 i stanów strony, liczby i jednostki z `core::units`, odstępy grup 24 px i szerokość treści jak na Przeglądzie (`AdwClamp`, 940 px). Tekst o sterowaniu na stronie System i na stronie Wentylatory jest ten sam („Sterowanie wentylatorami niedostępne”).
+
+**Realizacja w GTK4:**
+- Własny widżet `app::fan_chart` (podklasa `GtkWidget`) w dwóch trybach: miniatura i edytor. Rysuje w `snapshot()`: krzywa i linie przez `GskPathBuilder` i `append_stroke` (zaokrąglone złącza, przerywanie przez `GskStroke::set_dash`), obszar pod krzywą przez `push_fill` z gradientem, kreskowanie strefy przez powtarzany gradient liniowy w przycięciu, tekst przez `PangoLayout` z kontekstu widżetu (Adwaita Sans, cyfry tabelaryczne `tnum`). Antyaliasing i skalę HiDPI zapewnia GSK, więc linie są gładkie przy każdej skali.
+- Siatka, osie, strefy, podpisy i krzywa tworzą jeden węzeł renderowania trzymany w pamięci podręcznej do zmiany rozmiaru, stylu (jasny, ciemny, wysoki kontrast, akcent), skali albo krzywej. Co sekundę dochodzi tylko punkt pracy i etykieta. Układy Pango też są w pamięci podręcznej.
+- Kolory: tekst z `widget.color()`, akcent z `AdwStyleManager` (`accent-color-rgba`, wersja tekstowa przez `AdwAccentColor::to_standalone_rgba`), kolory błędu i ostrzeżenia z wartości libadwaita dla stylu jasnego i ciemnego, zieleń z ikony; przerysowanie po `notify::dark`, `notify::high-contrast` i `notify::accent-color-rgba`. Ograniczenie: własny CSS użytkownika, który zmienia `error_color`, nie zmieni wykresu.
+- Interakcja: `GtkGestureDrag` (uchwyt łapany w promieniu 16 px, wartości całkowite °C i %, ograniczenie do sąsiadów i minimum), `GtkEventControllerMotion` (kursor i podświetlenie), `GtkEventControllerKey` (klawisze wyżej).
+- Ograniczenia: elementy wewnątrz własnego widżetu nie są dla czytnika ekranu osobnymi obiektami (GTK pozwala na to od 4.10 przez własną implementację `GtkAccessible`, której w M2 nie planujemy), dlatego lista punktów jest pełną drogą edycji. Etykietę punktu pracy rozmieszcza prosta reguła kandydatów (pozycje wokół punktu, bez zasłaniania uchwytów i napisów); gdy żadna nie pasuje, wartości idą do legendy.
+- Koszt CPU przy odświeżaniu co sekundę (szacunek do sprawdzenia w krokach 3 i 4): na sekundę sześć miniatur dostaje nowy punkt pracy, a GSK składa węzeł z pamięci podręcznej z kilkoma nowymi kształtami; po stronie aplikacji to ułamek milisekundy, a rysowanie robi GPU. Przejście 250 ms to do 15 klatek, ale tylko przy zmianie o więcej niż 2 px. Odczyty: `pwmN_enable` przy każdej próbce tylko przy widocznej stronie Wentylatory (każdy odczyt idzie do EC, poza pamięcią podręczną sterownika, M1), krzywe przy wejściu na stronę, co 10 s i po sygnale pomocnika (ok. 84 odczytów rejestrów). Kryterium jak w D29: cała aplikacja z widoczną stroną Wentylatory poniżej 1 % jednego rdzenia, przy ukrytym oknie praktycznie zero; koszt odczytu sprzętu osobno, jako pomiar.
+
+#### M2.5 Bezpieczeństwo: B1–B18 po kolei
+
+| Zasada | Krok | Test automatyczny | Test na sprzęcie (właściciel, za zgodą) | Czego nie da się sprawdzić w pełni |
+|---|---|---|---|---|
+| B1 tylko pomocnik pisze | 1, 10 | funkcje zapisu `SysfsDriver` są za cechą `write`, którą włącza tylko crate `helper`, więc aplikacja nie ma kodu zapisu; test zależności crate'ów; `strace` w kryteriach | `strace` aplikacji natywnej i z Flatpaka przy pracy z pomocnikiem (odczyt) | – |
+| B2 dziennik i kolejność zapisu | 10 | `ModelDriver`: wpis w `/run/baseboard/claimed` przed pierwszym zapisem, kolejność `pwmN_enable` → `pwmN`; bez katalogu `/run/baseboard` zapis odrzucony | odczyt `/run/baseboard/claimed` po włączeniu trybu ręcznego | – |
+| B3 a SIGTERM | 10 | `systemd-run` na sztucznym sysfs: SIGTERM → `pwmN_enable = 2` | `systemctl stop` przy trybie ręcznym, odczyt sysfs | – |
+| B3 b awaria | 10 | SIGKILL i SIGABRT (`panic = "abort"`) → `ExecStopPost=… --restore-auto` | `kill -KILL` i `kill -ABRT` pomocnika | OOM: tylko przez SIGKILL, tą samą drogą |
+| B3 d wyłączenie i restart | 11 | atrapa logind: `PrepareForShutdown(true)` → automat przed zwolnieniem blokady opóźniającej | wyłączenie i restart przy trybie ręcznym; dowodem jest wpis z poprzedniego uruchomienia (`journalctl -b -1 -u baseboard-helper`) | stanu sysfs po wyłączeniu nie da się odczytać, a po starcie BIOS i tak ustawia automat |
+| B3 e, f próg i błąd odczytu | 11 | wstrzykiwanie: przekroczenie progu, znikający plik, wartości niewiarygodne | próg obniżony w `/etc` do 50 °C i krótkie obciążenie | – |
+| B3 g przeładowanie modułu (P5, nowa) | 11 | sztuczny sysfs: urządzenie znika i wraca z `pwmN_enable = 1` → automat; krzywe porównane bez nadpisywania | `modprobe -r` i `modprobe` przy trybie ręcznym (`sudo`) | czas między wyładowaniem a załadowaniem jest bez nadzoru (ryzyko szczątkowe) |
+| B4 próg awaryjny | 11 | 3 kolejne odczyty, warunek z P4, histereza 10 °C, blokada przeżywa restart pomocnika (`/run/baseboard`), `AcknowledgeEmergency` odrzucone przed spadkiem | próg obniżony do 50 °C; prawdziwy próg 95 °C tylko w teście CPU (P9) | MOS 90 °C i System 80 °C na prawdziwym progu (nie przegrzewamy płyty) |
+| B5 minimum | 10, 15 | proptest: dowolne żądanie daje co najmniej 76 (CPU) i 127 (pompa); profil nie zejdzie poniżej stałej granicy; każdy punkt krzywej | `busctl` `SetManual cpu1 0` zwraca 76 (po teście zapisu CPU) | – |
+| B6 pompa nie staje | 10, 15 | 0 dla roli `pump` → `InvalidArgument`, także w krzywej | – (na MS-7E61 pompa bez sterowania, P8) | zachowanie prawdziwej pompy: żadna nie jest podłączona |
+| B7 walidacja wejścia | 10, 15 | losowe argumenty D-Bus, krzywe z inną liczbą punktów, malejące, poza zakresem | `busctl` ze złymi argumentami (bez skutku w sprzęcie) | – |
+| B8 łagodne zmiany | 10, 16 | atrapa zegara: najwyżej 1 zapis/s, spadek najwyżej 10 p.p./s, krzywa najwyżej co 2 s | szybkie przeciąganie suwaka z odczytem `pwmN` co 0,1 s | – |
+| B9 znany sprzęt | 7, 10 | drzewa z inną rewizją, innym modelem, bez `name`, bez możliwości, bez `tested_writes` → `NotSupported` | profil testowy w `/etc` z inną rewizją PCB | – |
+| B10 weryfikacja i cudze zmiany | 10, 11, 16 | sztuczny sysfs: zmiana trybu albo krzywej z zewnątrz → `ControlLost: external-change` bez nadpisania; niezgodny odczyt → automat | zapis innym narzędziem przy trybie ręcznym (`sudo`) | – |
+| B11 zatrzymany wentylator | 11 | zero obrotów przez 5 s przy wypełnieniu ≥ minimum → automat i ostrzeżenie | odłączenie wentylatora SYS, któremu profil testowy nadał rolę `cpu` | zatrzymanie prawdziwego wentylatora procesora i pompy (nie zatrzymujemy) |
+| B12 wybudzenie | 11, 16 | `ModelDriver` z odtwarzaniem stanu i bez | S3 z trybem ręcznym i z krzywą | S4 i kexec (O4, O17), opcjonalnie |
+| B13 watchdog | 11 | zawieszenie pętli (punkt zaczepienia tylko w buildzie testowym) → zabicie → `--restore-auto` | `kill -STOP` pomocnika przy trybie ręcznym, odczyt po czasie watchdoga | – |
+| B14 krzywe bez nadzoru | 15 | proptest: `cpu` i `pump` mają 255 najpóźniej na progu; źródło bez progu → `NotSupported`; `sys` bez wymogu (D19) | edytor nie pozwala zastosować takiej krzywej | czy krzywa spełniająca B14 wystarczy do chłodzenia w każdych warunkach (założenie projektu) |
+| B15 dziennik systemd | 10, 11, 16 | przechwycony dziennik: klucz kanału i przyczyna przy każdym zdarzeniu | `journalctl -u baseboard-helper` po testach | – |
+| B16 kolejność zapisu krzywej | 15 | proptest: każdy stan pośredni niemalejący i chłodzący co najmniej jak obie krzywe; `ModelDriver` sprawdza, że przycinanie nie zachodzi | odczyt po każdym kroku planu na `pwm16` (dziennik) | – |
+| B17 błąd zapisu krzywej | 16 | `ModelDriver`: `-EIO` w połowie planu, `-ETIMEDOUT`, nieudany powrót → automat i `driver-error` | – | prawdziwego `-EIO` ani `-ETIMEDOUT` z EC nie umiemy wywołać na żądanie; tylko model |
+| B18 krzywa pierwotna | 16 | migawka przed pierwszą zmianą; przywrócenie krzywej łamiącej B5 (domyślna CPU z §6.3) bez walidacji; restart czyści `/run` | zmiana krzywej SYS_FAN1 i „Przywróć krzywą BIOS” (porównanie odczytu); krzywa domyślna CPU tylko wtedy, gdy właściciel przywróci w BIOS-ie ustawienia domyślne | – |
+
+**Sytuacje szczególne:**
+- **92 °C po 12 s przy progu 95 °C (O10).** Przy wentylatorze procesora w trybie ręcznym na minimum temperatura może dojść do progu w kilka sekund, a B4 reaguje po 3 odczytach. Wyjście w automacie dochodzi do celu stopniowo (na SYS_FAN1 ok. 2 %/s, na CPU nie mierzone, O15), więc samo przejście na automat chłodzi wolno. Dlatego P4: przy progu od razu 100 % na kanałach sterowanych ręcznie przez Baseboard, a warunek dla procesora „osiągnie” zamiast „przekroczy”, bo procesor dławi przy Tjmax 95 °C i temp1 może stanąć dokładnie na progu. Procesor chroni się też sam (dławienie przy Tjmax). Test: P9.
+- **Krzywa z BIOS-u łamiąca B5** (domyślna krzywa CPU, §6.3). Podgląd (M2a) pokazuje ją bez ostrzeżenia, bo to ustawienie firmware. Edytor pokazuje ją bez zmian, wskazuje punkt 1 („Poniżej minimum 30 %”) i blokuje „Zastosuj” (makieta `bios-cpu`). „Przywróć krzywą BIOS”, `SetAllAuto` i powrót w B17(b) zapisują ją bez walidacji (B18). Test automatyczny na tej krzywej; na sprzęcie tylko przy domyślnych ustawieniach BIOS-u.
+- **Zapis sprawdzony tylko na SYS_FAN1.** Profil ma dziś `tested_writes` tylko dla `sys1`. SYS_FAN2–4 dostają wpis po teście w kroku 13, CPU_FAN1 po teście P9. Do tego czasu karta pokazuje „Tylko podgląd: zapisu na tym złączu nie sprawdzono na tej płycie”.
+- **Puste złącza pompy i wentylatora dodatkowego.** Na PUMP_SYS1 nic nie jest podłączone (0 rpm przy 100 %), więc nie da się sprawdzić ani przypisania (O3), ani zapisu (O5); pompa zostaje bez sterowania (P8). B11 nie reaguje, bo złącze nie miało obrotów. Strona mówi „Brak obrotów od uruchomienia aplikacji. Złącze może być puste.”, a pustego złącza od pompy, która nie ruszyła, nie odróżnia. JAF_1: bez `pwm4_enable` w sterowniku, tylko odczyt (D32).
+- **Awaria pomocnika:** B3(b) przywraca automat kanałom w trybie ręcznym; krzywe w EC działają dalej. Aplikacja dostaje zniknięcie nazwy z magistrali, pokazuje „Pomocnik systemowy przestał działać” i nie wznawia trybu ręcznego sama.
+- **Zamknięcie aplikacji:** nic się nie zmienia. Pomocnik nadzoruje tryb ręczny dalej (B4, B11, B13), krzywe działają w EC; baner i opis strony o tym mówią.
+- **Uśpienie:** bez zmian przed uśpieniem (D13); po wybudzeniu B12 (sterownik z `7dc9dff9608d` zwykle odtwarza tryb ręczny sam). Hibernacja: O4.
+- **Wyłączenie i restart:** B3(d) z blokadą opóźniającą logind; po starcie BIOS ustawia automat i swoje krzywe (D4), `/run` jest pusty.
+- **Przeładowanie modułu:** B3(g) (P5). Pomocnik widzi zniknięcie urządzenia (udev), wysyła `ControlLost` z nowym powodem `driver-reloaded`, po powrocie urządzenia przywraca automat kanałom z dziennika i porównuje krzywe. Czas bez modułu jest bez nadzoru (§4).
+- **Aktualizacja pakietu pomocnika:** restart pomocnika (P6), tryb ręczny wraca do automatu przez B3(a), krzywe zostają; aplikacja pokazuje komunikat jak przy awarii, z inną treścią („Pomocnik został uruchomiony ponownie”).
+- **Odinstalowanie:** P6, `baseboard-helper --restore-all` przed usunięciem plików: krzywe pierwotne i automat na kanałach zmienionych przez Baseboard.
+
+**Procedura testu CPU_FAN1 przy progu 95 °C (D53).** Uruchamia ją właściciel, po przeczytaniu, w kroku 13: po testach SYS_FAN1–4, z pomocnikiem, który ma już B4 według D48. Skrypt zapisu odczytów i skrypt straży powstaną w kroku 13; tylko czytają sysfs i wołają pomocnika przez D-Bus.
+- **Cel:** (1) zapis na CPU_FAN1 w trybie ręcznym (O5); (2) czy temp1 nadąża za Tctl i czy przy wentylatorze na minimum dochodzi do 95 °C (O10); (3) B4 na prawdziwym progu: pełne wypełnienie najpóźniej po 3 odczytach od osiągnięcia progu.
+- **Warunki wstępne:** moduł z serią v1 (jak dziś) i pomocnik z kroku 11; profil testowy w `/etc/baseboard/boards/ms-7e61.toml` (kopia profilu z `tested_writes = ["manual"]` dla `cpu1`, tworzy go właściciel z `sudo`; po teście usunięty, a wynik trafia do profilu w repozytorium); obudowa zamknięta; krzywe i zabezpieczenia temperatury w BIOS-ie bez zmian; `stress-ng` zainstalowany (`sudo dnf install stress-ng`); komputer bez innej pracy; temp1 w spoczynku poniżej 50 °C.
+- **Co chroni procesor:** (1) sam procesor: Ryzen 9000 przy Tjmax 95 °C (Tctl) obniża zegar i napięcie, to jego zwykła granica pracy, a wyłączenie awaryjne procesora leży wyraźnie wyżej; (2) B4 w pomocniku (D48): temp1 ≥ 95 °C w 3 kolejnych odczytach → CPU_FAN1 od razu na 100 % i blokada; (3) minimum B5: wentylator cały czas pracuje co najmniej na 30 %; (4) straż: osobny skrypt czyta co 1 s temp1, Tctl, obroty i odpowiedź pomocnika, a przy warunku przerwania kończy obciążenie i woła `SetAllAuto` (akcja `restore-auto`, bez hasła); (5) właściciel: Ctrl+C kończy obciążenie od razu, a samo obciążenie ma limit 60 s.
+- **Warunki przerwania** (straż i właściciel): Tctl albo temp1 ≥ 97 °C (B4 nie zadziałała albo procesor nie trzyma Tjmax); obroty CPU_FAN1 poniżej 300 rpm przez 2 s; brak odpowiedzi pomocnika przez 3 s; 60 s obciążenia; cokolwiek nietypowego (dźwięk, zawieszony interfejs).
+- **Przebieg:**
+  1. Stan przed testem: `cat` krzywej i trybu `pwm1`, temp1, Tctl.
+  2. Start zapisu odczytów do pliku CSV poza repozytorium (co 1 s: czas, temp1, Tctl, `pwm1`, `pwm1_enable`, obroty, właściwość `Emergency`) i start straży.
+  3. Tryb ręczny na minimum: `busctl call --system me.bojanowski.Baseboard.Helper /me/bojanowski/Baseboard/Helper me.bojanowski.Baseboard.Fans1 SetManual sy cpu1 76` (polkit pyta o hasło). Oczekiwane: odpowiedź 76, `pwm1_enable` = 1, `pwm1` = 76, obroty spadają i się ustalają.
+  4. 60 s bez obciążenia: zapis działa (O5), obroty stałe, temp1 stabilne.
+  5. Obciążenie wszystkich wątków: `stress-ng --cpu 0 --cpu-method matrixprod --timeout 60s`. Obserwacja: temp1 i Tctl, chwila osiągnięcia 95 °C, przełączenie na 255 najpóźniej po 3 odczytach, `Emergency` = true, wzrost obrotów.
+  6. Koniec obciążenia: sam po 60 s albo przez straż lub Ctrl+C.
+  7. Powrót do automatu: po blokadzie, gdy temp1 spadnie poniżej 85 °C, `AcknowledgeEmergency` (hasło), a pomocnik ustawia automat (D48); bez blokady `SetAuto s cpu1` (bez hasła). Sprawdzenie: `pwm1_enable` = 2, a krzywa `pwm1_auto_point*` równa odczytowi z punktu 1.
+  8. Gdyby pomocnik nie odpowiadał: `sudo systemctl stop baseboard-helper` (B3 a ustawia automat); w ostateczności automat bezpośrednio: `echo 2 | sudo tee /sys/class/hwmon/hwmonN/pwm1_enable` (N tego urządzenia, którego `name` to `nct6687`).
+- **Wynik:** plik CSV i opis w wierszu kroku 13: przesunięcie temp1 względem Tctl, najwyższe temp1 i Tctl, czy i kiedy zadziałała B4, czas od progu do 255 i do wzrostu obrotów. Gdy temp1 nie dojdzie do 95 °C w 60 s, B4 na prawdziwym progu zostaje niesprawdzone, a O10 dostaje odpowiedź, na jakiej temperaturze temp1 się zatrzymuje.
+- **Czas:** ok. 5 minut, z tego obciążenie najwyżej 60 s.
+
+#### M2.6 Pomocnik i dystrybucja
+
+- **Pakiety.** `baseboard-helper`: pomocnik, jednostka systemd, aktywacja i polityka D-Bus, akcje polkit, profile płyt w `/usr/share/baseboard/boards`, od M3 reguła udev RGB. `baseboard`: aplikacja natywna zależna od `baseboard-helper` (opcjonalnie, dla dystrybucji i testów). Oba z jednego `baseboard.spec`, budowane w COPR na projekcie właściciela. Aplikacja przede wszystkim jako Flatpak (D39).
+- **`meson install`.** Opcja do budowania samego pomocnika (do instalacji obok Flatpaka) i samej aplikacji. Pomocnik wymaga prefiksu `/usr`, bo polkit czyta akcje tylko z `/usr/share/polkit-1/actions`. Przy instalacji z mesona nie ma skryptów odinstalowania: README podaje `baseboard-helper --restore-all` przed `ninja uninstall`.
+- **Zgodność wersji.** Interfejs `Fans1`, w nim `ApiVersion`: 1 = tryb ręczny (`GetChannels`, `GetState`, `SetManual`, `SetAuto`, `SetAllAuto`, `AcknowledgeEmergency`), 2 = krzywe (`GetEcCurve`, `SetEcCurve`, `RestoreOriginalCurve`), 3 = źródło (`SetEcSource`). Aplikacja pokazuje tylko to, co obsługuje pomocnik, a resztę z dopiskiem „wymaga nowszego pomocnika” (makieta stanów). Nowszy pomocnik niż aplikacja: aplikacja korzysta z tego, co zna. Zmiana niezgodna wstecz to `Fans2` obok `Fans1` przez co najmniej jedno wydanie (§10.4). `HelperVersion` trafia na stronę System i do tekstu do schowka. `ProfileDigest` różny od profilu aplikacji: sterowanie według profilu pomocnika i wiersz o tym na stronie.
+- **Wykrywanie braku pomocnika.** M2a (0.2.0) z pomocnikiem w ogóle się nie łączy. Od 0.3.0 przy wejściu na stronę aplikacja czyta `ApiVersion` (to aktywuje pomocnika, który kończy się po 30 s bezczynności): `ServiceUnknown` → brak pakietu („Jak zainstalować” prowadzi do README); `AccessDenied` od pośrednika Flatpaka → odebrane uprawnienie (wiersz z poleceniem `flatpak override`); brak odpowiedzi → „Pomocnik nie odpowiada”. Przy `read-only` strona mówi o sterowniku, nie o pomocniku.
+- **Polkit z Flatpaka (O19).** Pomocnik pyta polkit o podmiot `system-bus-name` wywołującego; z Flatpaka połączenie przechodzi przez pośrednika D-Bus, który działa w sesji użytkownika, więc „aktywna sesja” i okno agenta gospodarza powinny działać jak natywnie. Niepewne jest `auth_admin_keep`: zapamiętanie autoryzacji może dotyczyć procesu pośrednika. Test w kroku 13 (natywnie i we Flatpaku: ile razy pyta o hasło w ciągu 5 minut). Gdy nie działa jak natywnie: Flatpak pyta przy każdej zmianie i README to mówi; aplikacja łączy zmiany suwaka (B8), więc pytań jest niewiele.
+- **Odinstalowanie bez trybu ręcznego.** `%preun` przy usuwaniu (nie przy aktualizacji): `systemctl stop` (B3 a: automat), potem `baseboard-helper --restore-all` (krzywe pierwotne z `/run/baseboard/original-curves.json` przez planer B16 i automat). Bez migawki (nic nie zmieniano) polecenie nic nie robi. Test w kroku 13 i w maszynie wirtualnej (krok 9).
+
+#### M2.7 Wydania
+
+| Wydanie | Zawartość | Warunek | Strona, README, metainfo |
+|---|---|---|---|
+| 0.2.0 | M2a: strona Wentylatory w podglądzie, tryb w Przeglądzie | kryteria M2a | zrzuty strony Wentylatory (jasny i ciemny styl, pl i en) w `website/screenshots/0.2.0/` i w metainfo; README „What it does today” i tabela poziomów; karta na stronie projektu; podsumowanie aplikacji bez zmian (sterowania jeszcze nie ma); uprawnienia Flatpaka bez zmian |
+| 0.3.0 | pomocnik (`baseboard-helper`, COPR) i tryb ręczny | kryteria trybu ręcznego; `hwmon-next` w wydanym jądrze nie jest warunkiem, ale bez niego sterowanie działa tylko z modułem testowym (README mówi to wprost) | instalacja pomocnika w README i na stronie; zrzuty trybu ręcznego; `--system-talk-name` w manifeście; nowe podsumowanie, jeśli obiecuje sterowanie |
+| 0.4.0 | edytor krzywych | kryteria krzywych i zapis krzywych w `hwmon-next` (P3) | zrzuty edytora; tabela „Fans and the kernel” i karta na stronie (stan łatek z drzewa jądra, D41) |
+| później | M2c (wybór źródła) | łatka 5 i dowód sprzętowy | jak wyżej |
+
+Przy każdym wydaniu: procedura §10.7, nowy katalog zrzutów (stare zostają), stan łatek na stronie i w README sprawdzony w drzewie jądra (`git merge-base --is-ancestor`), EN i PL.
+
+Przed 0.2.0, osobnym krokiem po kroku 4: na stronie projektu sekcja „Coming next: fan control” ze zrzutami prawdziwej strony Wentylatory z kroku 4 (jasny i ciemny styl, EN i PL), z podpisem, że to widok z łatkami jądra, które są w recenzji.
+
+**Zasady całego M2a:** tylko odczyt, żadnego zapisu do `/sys` (`strace` jak w M1); interfejs wygląda jak zaakceptowane makiety, a krok ze stroną Wentylatory pokazuje zrzuty prawdziwej aplikacji obok renderów makiet z listą różnic; jeden krok, raport (co zrobione, testy, co sprawdzone na sprzęcie, co ma sprawdzić właściciel), stop.
+
+#### M2.8 Kryteria ukończenia i testy
+
+**M2a (0.2.0)**
+- Strona Wentylatory na sztucznych drzewach wszystkich poziomów i na sprzęcie z modułem Fedory i modułem v1 wygląda jak makiety przyjęte w P1, natywnie i we Flatpaku, w obu stylach, przy szerokim i wąskim oknie, po polsku i po angielsku.
+- Krzywe na podglądzie równe `cat` atrybutów `pwmN_auto_point*`; cel z modelu równy `pwmN` w stanie ustalonym (krok 2).
+- Aplikacja niczego nie zapisuje i nie łączy się z pomocnikiem (`strace` jak w M1).
+- CPU (D29): cała aplikacja z widoczną stroną Wentylatory poniżej 1 % jednego rdzenia (`pidstat -t`, 60 s, build release); przy ukrytym oknie praktycznie zero (otwarte z M1).
+- Orca odczytuje nazwy, wartości, tryby i opisy wykresów na stronie i podstronie (otwarte z M1).
+- Przy włączonym „Ogranicz animacje” brak przejść.
+
+**Tryb ręczny (0.3.0)**
+- Na module testowym `sys1`–`sys4` i `cpu1` (po P9) działają w trybie ręcznym, a obroty reagują. `pump1` (P8), `ezconn` (D32) i `pwm3` są tylko do odczytu z wyjaśnieniem.
+- Każda droga zakończenia z B3 (SIGTERM, SIGKILL, abort, zawieszenie pętli i watchdog, przeładowanie modułu, aktualizacja pakietu) zostawia każdy kanał w trybie ręcznym w `pwmN_enable = 2`, co sprawdzamy odczytem sysfs po zdarzeniu; wyłączenie i restart wpisem w dzienniku z poprzedniego uruchomienia.
 - Po S3 tryb ręczny jest taki jak przed uśpieniem: odtworzony przez sterownik albo przez B12.
 - Minimum B5 i zakaz B6 nie dają się obejść żadnym wywołaniem D-Bus.
-- Próg awaryjny działa na sprzęcie. Test bez przegrzewania: próg tymczasowo obniżony w `/etc` do 50 °C i krótkie obciążenie CPU.
-- Wykrywanie zatrzymanego wentylatora (B11) działa: test na atrapie i ręcznie przez odłączenie wentylatora SYS, któremu profil testowy w `/etc/baseboard/boards` nadał rolę `cpu`.
-- Bez autoryzacji metody `control` są odrzucane, a `restore-auto` przechodzi.
+- Próg awaryjny działa na sprzęcie z progiem obniżonym do 50 °C; test CPU według P9 daje wynik O10.
+- B11 działa na atrapie i z profilem testowym (wentylator SYS z rolą `cpu`).
+- Bez autoryzacji metody `control` są odrzucane, a `restore-auto` przechodzi; natywnie i we Flatpaku (O19).
 - Na jądrze Fedory 7.3.3 pomocnik niczego nie zapisuje, a strona pokazuje wyjaśnienie.
-- `systemd-analyze security baseboard-helper.service` daje ocenę ≤ 5,0, a każde wyjątkowe uprawnienie jest opisane w pliku jednostki.
+- `systemd-analyze security baseboard-helper.service` daje ≤ 5,0, a każde wyjątkowe uprawnienie jest opisane w pliku jednostki.
+- Pakiet: instalacja, aktualizacja i odinstalowanie bez kanału w trybie ręcznym i bez plików poza listą z §10.5.
 
-**Kryteria ukończenia M2c**
-- Obroty podążają za krzywą zapisaną w EC pod obciążeniem. Krzywa działa dalej po zatrzymaniu pomocnika i zamknięciu aplikacji.
-- Odczyt po każdym kroku planu jest równy planowi (planer nigdy nie wywołuje przycinania).
+**Krzywe (0.4.0)**
+- Obroty idą za krzywą zapisaną w EC pod obciążeniem; krzywa działa po zatrzymaniu pomocnika i zamknięciu aplikacji.
+- Odczyt po każdym kroku planu równy planowi (planer nigdy nie wywołuje przycinania).
 - „Przywróć krzywą BIOS” daje dokładnie krzywą pierwotną (porównanie odczytu).
-- Po S3 krzywa i tryb są takie jak przed uśpieniem; po restarcie komputera obowiązuje krzywa BIOS-u.
+- Po S3 krzywa i tryb jak przed uśpieniem; po restarcie krzywa BIOS-u.
 - Krzywa łamiąca B5, B6, B7 albo B14 nie trafia do sterownika.
+- Edytor obsługiwany w całości klawiaturą; Orca czyta punkty i ich zmiany.
 
 **Testy**
 - Jednostkowe i właściwościowe (proptest) dla logiki z `core`: minimum dla `cpu` i `pump` przy dowolnym wejściu (w jednostkach 0–255, z obcięciem: 76 i 127), walidacja krzywych, planer B16 (dowolna para krzywych → każdy stan pośredni poprawny i chłodzący co najmniej jak stara i nowa), B14 dla `cpu` i `pump` oraz brak wymogu 100 % dla `sys` (D19), zapis krzywej pierwotnej łamiącej B5 (np. domyślna krzywa CPU z §6.3) bez walidacji, edytor z nieaktywnym „Zastosuj” dla takiej krzywej, limit tempa spadku wypełnienia w trybie ręcznym (B8).
@@ -871,6 +1093,56 @@ Płyty o tym samym kodzie i tym samym zestawie złączy według instrukcji mogą
 - Testy zabijania: SIGKILL i SIGABRT pomocnika uruchomionego przez `systemd-run` ze sztucznym sysfs, potem sprawdzenie, że `--restore-auto` zadziałało.
 - Ręczne na sprzęcie, każdorazowo za zgodą: kanały według D16, obciążenie, uśpienie i wybudzenie, wyłączenie, próg awaryjny, równoległy zapis innego narzędzia.
 - Proste testy losowe argumentów D-Bus: złe typy, puste i długie tablice, nieznane klucze, krzywe z niewłaściwą liczbą punktów.
+- Interfejs: czyste funkcje wykresu (przeliczenia osi, interpolacja, rozmieszczenie etykiet, opis dla czytnika, ograniczenie ruchu uchwytu do sąsiadów i minimum, klawisze) i model widoku stron (stan karty z poziomu sterownika, możliwości, `tested_writes`, odpowiedzi pomocnika); zrzuty debug porównywane z makietami przy przeglądzie, bez automatycznego porównania obrazów.
+
+#### M2.9 Decyzje (podjęte 2026-11-11)
+
+Pełna treść w §12. Numery P z pierwszej wersji planu zostały w tej sekcji.
+
+| P | D | Decyzja |
+|---|---|---|
+| P1 | D45, D56 | układ A z poprawkami z przeglądu makiet; makiety zaakceptowane z dwiema ostatnimi poprawkami (D56) |
+| P2 | D46 | podział M2: M2a podgląd → M2b (pomocnik jako pakiet, tryb ręczny, edytor) → M2c wybór źródła |
+| P3 | D47 | wydania 0.2.0, 0.3.0, 0.4.0; edytor wydany dopiero, gdy zapis krzywych jest w `hwmon-next` |
+| P4 | D48 | B4: 100 % od razu, „osiągnie próg” dla procesora, blokada trwała w `/run/baseboard` |
+| P5 | D49 | B3(g) przy przeładowaniu modułu, powód `driver-reloaded` |
+| P6 | D50 | restart pomocnika przy aktualizacji pakietu, `--restore-all` przy odinstalowaniu |
+| P7 | D51 | Flathub po 0.4.0, manifest i zgłoszenie robi właściciel |
+| P8 | D52 | pompa bez sterowania przy pustym złączu |
+| P9 | D53 | test CPU_FAN1 przy progu 95 °C według procedury z M2.5; uruchamia właściciel po przeczytaniu |
+| P10 | D54 | bez procesu w tle przy zamkniętej aplikacji |
+| P11 | D55 | kolor akcentu systemu dla krzywej i elementów aktywnych, zieleń dla punktu pracy, ruch z poszanowaniem „Ogranicz animacje” |
+
+#### M2.10 Ryzyka
+
+| # | Ryzyko | Skutek | Co je ogranicza |
+|---|---|---|---|
+| R1 | v1 odrzucona albo zmieniona w recenzji | edytor później albo inaczej | warstwa sterownika (§3.7), tabela zmian niżej, P3 |
+| R2 | `hwmon-next` nie wejdzie do najbliższego wydania jądra albo zmieni się po drodze | użytkownicy długo bez sterowania | wykrywanie po atrybutach; M2a działa na każdym jądrze |
+| R3 | dystrybucje dostaną jądro z tymi zmianami z opóźnieniem | mało testujących poza właścicielem | README i strona mówią wprost, czego potrzeba |
+| R4 | CPU_FAN1 i pompa bez sprawdzonego zapisu (O5, O3; złącze pompy puste) | na MS-7E61 pompa bez sterowania, CPU dopiero po P9 | D16, P8, P9 |
+| R5 | temp1 nie nadąża za Tctl albo staje poniżej progu (O10) | B4 spóźnione albo martwe dla procesora | P4, P9; procesor dławi się sam przy Tjmax |
+| R6 | nieznane tempo dochodzenia w automacie na CPU (O15) | wolne chłodzenie po B4 | P4 (100 % od razu) |
+| R7 | wyładowanie modułu w trybie ręcznym (bez serii Dahlina) | stałe wypełnienie bez nadzoru do załadowania albo restartu | minimum B5, P5, ryzyko opisane w §4 |
+| R8 | zawieszenie całego jądra | EC trzyma ostatni tryb | minimum B5 i B14 (ryzyko szczątkowe, §4) |
+| R9 | polkit przez pośrednika Flatpaka działa inaczej niż natywnie (O19) | pytanie o hasło przy każdej zmianie albo brak sterowania z Flatpaka | test w kroku 13, opis w README, instalacja natywna jako zapas |
+| R10 | Flathub nie przyjmie aplikacji zależnej od pakietu gospodarza (D44) | dystrybucja tylko z własnego repozytorium Flatpak i COPR | aplikacja działa bez pomocnika (podgląd) |
+| R11 | koszt CPU wykresów ponad D29 | kryterium M2a niespełnione | pamięć podręczna węzłów, odczyt krzywych co 10 s, bez animacji ciągłych, pomiar w krokach 3 i 4 |
+| R12 | własny widżet słabo dostępny dla czytnika ekranu | gorsza obsługa z Orca | lista punktów jako pełna droga, ogłaszanie zmian, test z Orca w krokach 4 i 17 |
+| R13 | inne programy sterujące wentylatorami (fancontrol, CoolerControl) | wzajemne nadpisywanie | B10 bez nadpisywania; we Flatpaku procesów nie widać (§10.3) |
+| R14 | aktualizacja BIOS-u zmienia domyślne krzywe albo zachowanie EC | inne krzywe pierwotne, inne przypisania | zasady nie zależą od wersji BIOS-u, B18 bierze migawkę od nowa; test właściciela po aktualizacji (M5) |
+| R15 | czas właściciela na testy na sprzęcie, każdy za zgodą | wydania się przesuwają | testy zebrane w krokach 13 i 18, z gotowymi poleceniami |
+
+#### M2.11 Zmiany w reszcie dokumentu (wprowadzone 2026-11-11, przed kodem)
+
+Decyzje są w §12 (D45–D56), makiety mają tylko układ A. Wprowadzone zmiany:
+- `CLAUDE.md`: B1–B18 zamiast B1–B15. Nagłówek dokumentu: aktualny zakres decyzji.
+- §0, §1.4, §5.5.1 i tabela na początku §7: bez prognozy „7.5”; podział M2 według P2.
+- §3.3: blokada awaryjna w `/run/baseboard` (P4), restart przy aktualizacji (P6). §3.5: numery `ApiVersion` (M2.6) i powód `driver-reloaded` (P5).
+- §4: interpolacja liniowa (po kroku 2), B3(g) (P5), B4 (P4), sytuacje szczególne z M2.5, D14 rozstrzygnięte.
+- §5.5.3: przypadek „bez pomocnika” i 0.2.0 (tabela z M2.3). §5.5.4: wariant z P1, osobny przycisk zamiast klikalnej karty, wykres i stany z M2.4.
+- §10.4: M2a bez połączenia z pomocnikiem, wykrywanie z M2.6. §10.5: prefiks `/usr`, odinstalowanie. §10.6: F3 według P7.
+- §13: O10 z wynikiem z M1 (92 °C po 12 s) i procedurą z M2.5; O19 z planem testu z M2.6.
 
 **Gdy recenzja v1 coś zmieni.** Zmiany dotyczą tylko `SysfsDriver`, `ModelDriver` i próbek w `tests/fixtures/` (§3.7):
 
@@ -1060,15 +1332,15 @@ Bez zmian w kodzie: własne nazwy (D22) leżą w `$XDG_DATA_HOME` piaskownicy, c
 | `baseboard` (RPM, opcjonalnie) | aplikacja natywna, zależna od `baseboard-helper` | dla dystrybucji i testów |
 
 - **Uprawnienie D-Bus:** Flatpak dostaje tylko `--system-talk-name=me.bojanowski.Baseboard.Helper`. Okna polkit pokazuje agent gospodarza, a autoryzacja działa jak przy aplikacji natywnej (do potwierdzenia w M2b, O19).
-- **Brak pomocnika:** podgląd M2a działa bez pomocnika, bo czyta sysfs sam. Przy wejściu na stronę Wentylatory aplikacja odczytuje właściwość `ApiVersion`, co aktywuje pomocnika przez D-Bus. Błąd `ServiceUnknown` oznacza, że pomocnik nie jest zainstalowany: strona zostaje w podglądzie i mówi, że sterowanie wymaga pakietu `baseboard-helper`, z odnośnikiem do instrukcji. `AccessDenied` od pośrednika D-Bus Flatpaka oznacza odebrane uprawnienie: strona podaje polecenie, które je przywraca. Strona System ma wiersz „Pomocnik systemowy” (zainstalowany z wersją, brak, niezgodny), a tekst do schowka zawiera wersję pomocnika.
-- **Zgodność wersji:** nazwa interfejsu niesie wersję główną (`Fans1`, §3.5). W jej obrębie zmiany są tylko zgodne wstecz, a `ApiVersion` rośnie przy każdej nowej metodzie lub właściwości. Aplikacja korzysta tylko z tego, co zgłasza `ApiVersion`, a resztę ukrywa z dopiskiem, że wymaga nowszego pomocnika. Zmiana niezgodna wstecz to `Fans2` obok `Fans1` przez co najmniej jedno wydanie. Nowa właściwość `HelperVersion` (`s`) daje wersję pakietu do strony System i zgłoszeń błędów.
+- **Brak pomocnika:** podgląd M2a działa bez pomocnika, bo czyta sysfs sam; wydanie 0.2.0 z pomocnikiem w ogóle się nie łączy i nie odsyła do pakietu, którego jeszcze nie ma. Od 0.3.0 przy wejściu na stronę Wentylatory aplikacja odczytuje właściwość `ApiVersion`, co aktywuje pomocnika przez D-Bus (pomocnik kończy się po 30 s bezczynności). Brak odpowiedzi oznacza „Pomocnik nie odpowiada”; przy sterowniku `read-only` strona mówi o sterowniku, nie o pomocniku. Szczegóły: §7 M2, M2.6. Błąd `ServiceUnknown` oznacza, że pomocnik nie jest zainstalowany: strona zostaje w podglądzie i mówi, że sterowanie wymaga pakietu `baseboard-helper`, z odnośnikiem do instrukcji. `AccessDenied` od pośrednika D-Bus Flatpaka oznacza odebrane uprawnienie: strona podaje polecenie, które je przywraca. Strona System ma wiersz „Pomocnik systemowy” (zainstalowany z wersją, brak, niezgodny), a tekst do schowka zawiera wersję pomocnika.
+- **Zgodność wersji:** nazwa interfejsu niesie wersję główną (`Fans1`, §3.5). W jej obrębie zmiany są tylko zgodne wstecz, a `ApiVersion` rośnie przy każdej nowej metodzie lub właściwości (1 tryb ręczny, 2 krzywe, 3 źródło; §3.5). Aplikacja korzysta tylko z tego, co zgłasza `ApiVersion`, a resztę ukrywa z dopiskiem, że wymaga nowszego pomocnika. Zmiana niezgodna wstecz to `Fans2` obok `Fans1` przez co najmniej jedno wydanie. Nowa właściwość `HelperVersion` (`s`) daje wersję pakietu do strony System i zgłoszeń błędów.
 - **Profile:** o sterowaniu rozstrzyga profil pomocnika (B9, D33): aplikacja pokazuje sterowanie tylko przy kanałach, które pomocnik zgłosił w `GetChannels` jako sterowalne. Profil aplikacji z Flatpaka służy do nazw i odczytów. Nowa właściwość `ProfileDigest` (`s`, SHA-256 pliku profilu) pozwala wykryć, że oba profile się różnią. Wtedy aplikacja trzyma się danych pomocnika i pokazuje dopisek o różnych wersjach profilu.
 - **Zasady B1–B18:** wszystkie działają po stronie pomocnika i żadna nie wymaga, żeby aplikacja była z tego samego pakietu. Wspólną instalację zakładało tylko zdanie z §3.6, że aplikacja i pomocnik „liczą to samo” z tego samego `core`. Przy różnych wersjach wynik walidacji w aplikacji (B5, B7, B14) jest tylko podpowiedzią w interfejsie. Pomocnik i tak decyduje, a jego `InvalidArgument` lub `NotSupported` aplikacja pokazuje jako zwykły komunikat. B1 piaskownica dodatkowo wymusza, bo `/sys` jest w niej tylko do odczytu.
 
 ### 10.5 Instalacja natywna
 
 1. M1: `meson setup build --prefix=…` i `meson install`. Do testów wystarczy prefiks w katalogu domowym.
-2. Od M2b: `packaging/rpm/baseboard.spec` budowany lokalnie (`rpmbuild`, potem COPR), z podpakietem `baseboard-helper` (pomocnik, jednostka systemd, pliki D-Bus, akcje polkit). Zależności Rust dołączone przez `cargo vendor`, żeby budowanie działało bez sieci.
+2. Od M2b: `packaging/rpm/baseboard.spec` budowany lokalnie (`rpmbuild`, potem COPR), z podpakietem `baseboard-helper` (pomocnik, jednostka systemd, pliki D-Bus, akcje polkit). Zależności Rust dołączone przez `cargo vendor`, żeby budowanie działało bez sieci. Przy aktualizacji pakiet uruchamia pomocnika ponownie, a przy odinstalowaniu (nie przy aktualizacji) zatrzymuje go i woła `baseboard-helper --restore-all`: krzywe pierwotne i automat na kanałach zmienionych przez Baseboard (D50). Pomocnik instalowany przez `meson install` wymaga prefiksu `/usr` (polkit czyta akcje tylko z `/usr/share/polkit-1/actions`); meson nie ma skryptów odinstalowania, więc README podaje `baseboard-helper --restore-all` przed `ninja uninstall`.
 3. Od M3: reguła udev dla RGB w pakiecie `baseboard-helper`, żeby działała też z aplikacją z Flatpaka.
 
 | Ścieżka | Zawartość |
@@ -1088,7 +1360,7 @@ Bez zmian w kodzie: własne nazwy (D22) leżą w `$XDG_DATA_HOME` piaskownicy, c
 |---|---|
 | F1 (zrobione 2026-11-11) | manifest `build-aux/flatpak/me.bojanowski.Baseboard.json` (miejsce przyjęte w aplikacjach GNOME), moduł libsensors, źródła Cargo `build-aux/flatpak/cargo-sources.json`, budowanie lokalne `flatpak-builder --user` bez sieci dla Cargo, zmiany z §10.3, porównanie z wersją natywną, `strace`, sekcja README |
 | F2 (przed pierwszym wydaniem) | zamknięcie braków z tabeli niżej, wydanie 0.1.0 (D43, procedura w §10.7) |
-| F3 (zgłoszenie na Flathub, po M2: D44) | manifest Flathub i zgłoszenie przygotowuje i prowadzi właściciel sam (zasady Flathub wobec AI), repozytorium zgłoszenia, uzasadnienie uprawnień z §10.1, domena bojanowski.me i weryfikacja ID; tylko za zgodą właściciela |
+| F3 (zgłoszenie na Flathub po wydaniu 0.4.0, bez czekania na M2c: D44, D51) | manifest Flathub i zgłoszenie przygotowuje i prowadzi właściciel sam (zasady Flathub wobec AI), repozytorium zgłoszenia, uzasadnienie uprawnień z §10.1, domena bojanowski.me i weryfikacja ID; tylko za zgodą właściciela |
 
 Wymagania Flathub, których dziś nie spełniamy:
 
@@ -1141,7 +1413,7 @@ Rozważone i odrzucone: GPL-2.0-or-later (szersza zgodność, słabsza ochrona) 
 
 ## 12. Decyzje
 
-Decyzje D1–D7 podjęte 2026-11-06, D8–D27 2026-11-10, D28–D44 2026-11-11. Numery etapów w D1–D8 są według numeracji z 0.6.
+Decyzje D1–D7 podjęte 2026-11-06, D8–D27 2026-11-10, D28–D56 2026-11-11. Numery etapów w D1–D8 są według numeracji z 0.6.
 
 | # | Data | Decyzja | Skutek |
 |---|---|---|---|
@@ -1189,6 +1461,18 @@ Decyzje D1–D7 podjęte 2026-11-06, D8–D27 2026-11-10, D28–D44 2026-11-11. 
 | D42 | 2026-11-11 | Numerowane czujniki temperatury dysków NVMe („Sensor 1”–„Sensor 8”, `temp2`–`temp9` sterownika `nvme`) domyślnie ukryte; temperatura złożona („Composite”, `temp1`) zawsze widoczna. Reguła w `core`, ta sama natywnie i we Flatpaku, bez udziału konfiguracji lm-sensors. W Preferencjach → Odczyty te czujniki mają przełączniki, na początku wyłączone; włączone zapisuje klucz `shown-readings`. Nazwa po włączeniu: „model · Czujnik temperatury N”, bez zgadywania położenia. Uzasadnienie: sterownik czyta je z logu SMART dysku jako surowe pola, bez opisu położenia, a dyski nie ustawiają dla nich progów (0 K i 0xFFFF K); temperatura złożona to ta, którą dysk porównuje ze swoimi progami (`crit`, alarm). Na tej maszynie natywnie ukrywał je `ignore` w lokalnej konfiguracji, a we Flatpaku dodawały pięć wierszy | §3.2, §5.1, §10.3 |
 | D43 | 2026-11-11 | Wydanie 0.1.0 (F2). Metainfo: `<releases>` z datą dnia tagowania i opisem po angielsku, tłumaczonym; nowe zrzuty w oknie 1000×700 (wytyczne Flathub), w domyślnym akcencie, pod stałym adresem https://baseboard.bojanowski.me/screenshots/0.1.0/: Przegląd (domyślny), System i Przegląd w ciemnym stylu, każdy z wariantem polskim (`xml:lang="pl"`); adres donation (Buy Me a Coffee) i `<translation type="gettext">`; podsumowanie bez zmian; kolory marki #deddda i #3d3846 (wybór właściciela po podglądzie banera; wytyczne Flathub zalecają kolory nasycone); zgodność wersji `meson.build`, `Cargo.toml` i najnowszego `<release>` sprawdzana przy konfiguracji meson. Dystrybucja: zalecana instalacja ze wspólnego repozytorium Flatpak właściciela https://flatpak.bojanowski.me (źródło „bojanowski.me apps”, gałąź `master`, ten sam klucz co openExpress i Vumi), plik `.flatpak` w wydaniu na GitHubie jako druga droga, budowanie ze źródeł jako trzecia; procedura w §10.7. README i strona: Flathub „rozważany po sterowaniu wentylatorami”; README mówi, że projekt powstaje z pomocą asystenta AI | §10.6, §10.7 |
 | D44 | 2026-11-11 | Zgłoszenie na Flathub (F3) dopiero po M2. Powody: projekt jest młody, a Flathub zwykle nie przyjmuje aplikacji istniejących bardzo krótko; zasady Flathub wobec AI (manifest bez treści generowanych przez AI, zgłoszenie otwiera i prowadzi właściciel, obowiązkowe ujawnienie), więc manifest Flathub i ujawnienie przygotuje właściciel sam, a w repozytorium nie ma plików pod Flathub; sterowanie z M2 wymaga pomocnika systemowego, a aplikacje zależne od składników gospodarza Flathub przyjmuje tylko wyjątkowo, więc zgłoszenie ma pokazać, jak aplikacja działa z pomocnikiem i bez niego. Domena bojanowski.me (odpowiedź HTTPS dla lintera, weryfikacja ID) też w F3 | §10.6 |
+| D45 | 2026-11-11 | Strona Wentylatory w układzie A (karty złączy z miniaturą krzywej i punktem pracy, edytor na podstronie), z poprawkami z przeglądu makiet: w pasku bocznym tylko istniejące strony; jeden wiersz „Źródło temperatury” nad kartami (wartość, zakres, próg awaryjny), a w karcie źródło tylko wtedy, gdy różni się od wspólnego; w karcie próg jako linia i strefa bez napisu, w edytorze napis poziomo przy górze linii; „złącze nietestowane” w karcie raz; w wąskim oknie nazwa złącza w całej linii, obroty pod nią, przycisk przywracania krzywej BIOS z podpisem; przy sterowniku bez sterowania zdanie o wypełnieniu tylko w wierszu u góry; tryb ręczny bez wykresu (duża wartość wypełnienia, suwak, obroty) przy równej siatce kart; wartości punktów w edytorze także wpisywane z klawiatury; żaden tekst nie powtarza się na jednym ekranie. Warianty B (lista) i C (jeden wentylator) odrzucone. Makiety po poprawkach czekają na akceptację renderów; do niej bez kodu interfejsu | §7 M2 (M2.4), §5.5.4 |
+| D46 | 2026-11-11 | Podział M2: M2a podgląd bez pomocnika; M2b pomocnik jako osobny pakiet systemowy, potem tryb ręczny, potem edytor krzywych (dawne M2c); M2c wybór źródła temperatury (dawne M2d) | §7 M2 (M2.3) |
+| D47 | 2026-11-11 | Wydania: 0.2.0 = M2a, 0.3.0 = pomocnik i tryb ręczny, 0.4.0 = edytor krzywych, wydany dopiero, gdy zapis krzywych jest w `hwmon-next`; do tego czasu kod edytora na `main` i testy z modułem v1 | §7 M2 (M2.7) |
+| D48 | 2026-11-11 | B4: przy progu od razu 100 % (tryb ręczny 255) na kanałach sterowanych ręcznie przez Baseboard, automat po zdjęciu blokady; dla procesora warunek „osiągnie próg” (≥ 95 °C w 3 kolejnych odczytach) zamiast „przekroczy”; blokada zapisana w `/run/baseboard`, więc trwa po wyjściu i restarcie pomocnika. Rozstrzyga D14. Zaostrzenie B4 | §4 (B4), §3.3 |
+| D49 | 2026-11-11 | Nowa reguła B3(g): po ponownym pojawieniu się urządzenia hwmon (przeładowanie modułu) kanały z dziennika B2 w trybie ręcznym wracają do automatu; krzywe porównane z migawką B18 i z zapisem pomocnika, bez nadpisywania; nowy powód `driver-reloaded` w `ControlLost` | §4 (B3), §3.5 |
+| D50 | 2026-11-11 | Pakiet pomocnika: przy aktualizacji restart pomocnika (tryb ręczny wraca do automatu przez B3 a, krzywe zostają); przy odinstalowaniu `baseboard-helper --restore-all` (krzywe pierwotne i automat) | §10.5, §7 M2 (M2.6) |
+| D51 | 2026-11-11 | Zgłoszenie na Flathub (F3) po wydaniu 0.4.0, bez czekania na M2c; manifest i zgłoszenie przygotowuje właściciel sam (D44) | §10.6 |
+| D52 | 2026-11-11 | Pompa na MS-7E61 bez sterowania (bez `tested_writes`), dopóki do PUMP_SYS1 nie zostanie podłączony wentylator albo pompa do testu przypisania (O3) i zapisu (O5) | §6.3, §7 M2 |
+| D53 | 2026-11-11 | Test CPU_FAN1 przy prawdziwym progu 95 °C (O5, O10): zgoda co do zasady. Przed wykonaniem właściciel czyta procedurę (§7 M2, M2.5, „Procedura testu CPU_FAN1”) i uruchamia test sam | §7 M2 (M2.5), O5, O10 |
+| D54 | 2026-11-11 | Bez procesu w tle przy zamkniętej aplikacji (O6 zostaje otwarte): zasady egzekwuje pomocnik, zdarzenia są w dzienniku systemd, a aplikacja po uruchomieniu pokazuje trwałą blokadę awaryjną (D48) | §3.2, O6 |
+| D55 | 2026-11-11 | Krzywa i elementy aktywne wykresu w kolorze akcentu systemu z libadwaita (`accent_bg_color`, za wyborem użytkownika), nie w stałym niebieskim; punkt pracy („teraz”) w zieleni z ikony aplikacji; ruch z planu (przejścia tylko przy zmianach, bez animacji ciągłych) z poszanowaniem ustawienia „Ogranicz animacje”; wartości i podtytuły złączy z kryciem 72 % zamiast przygaszonych 55 % | §7 M2 (M2.4) |
+| D56 | 2026-11-11 | Makiety M2 (układ A po poprawkach z D45) i plan M2 zaakceptowane, z dwiema poprawkami bez nowej rundy: baner i zdanie pod nim to jeden komunikat „Zmiany działają także po zamknięciu aplikacji, do restartu komputera”; etykiety „Krzywa z BIOS-u” nie ma przy żadnym złączu (wybór z pary „przy każdym albo nigdzie”), bo przełącznik i tak pokazuje „Automat BIOS”, czyli krzywą z BIOS-u (D11), a złącze bez przełącznika ma ramkę „Tylko podgląd”; edytor nazywa tryb w podtytule („automat BIOS”) | §5.5.3, §5.5.4, §7 M2 (M2.4) |
 
 **D8: zakres M1 (2026-11-10).**
 - Strona System tylko do odczytu jest w M1: płyta, BIOS, procesor, system, pamięć z bazy udev, karta graficzna z VBIOS, dyski z firmware, stan `nct6683`, konfiguracja lm-sensors, programy mogące konfliktować. Restart do UEFI i profile energii zostają w M4.
@@ -1245,14 +1529,14 @@ Odrzucone propozycje nazw: Bellows, Fanfare, Vane, Northbridge.
 |---|---|---|---|
 | O1 | Które złącza RGB fizycznie są na płycie i jakim strefom raportu 0x50 odpowiadają | instrukcja płyty + test z urządzeniem ARGB | M3 |
 | O2 | Czy stan RGB z RAM (store = 0) przeżywa ciepły restart | test | M3 |
-| O3 | Przypisanie PUMP_SYS1 → fan2/pwm2 i JAF_1 → fan4/pwm4 | wentylator podłączany kolejno do obu złączy | M1 (etykieta), M2b (sterowanie) |
+| O3 | Przypisanie PUMP_SYS1 → fan2/pwm2 i JAF_1 → fan4/pwm4. Oba złącza są na MS-7E61 puste, więc do testu pompa zostaje bez sterowania (D52) | wentylator podłączany kolejno do obu złączy | M1 (etykieta), M2b (sterowanie) |
 | O4 | ~~Zachowanie `pwmN_enable` i wypełnienia po uśpieniu i po ciepłym restarcie~~. **Częściowo rozstrzygnięte (testy sterownika, 2026-11-09):** po S3 BIOS cofa tryb ręczny (EC w automacie); sterownik z `7dc9dff9608d` go odtwarza. Krzywa zapisana przez v1 jest po S3 taka jak przed uśpieniem, ale na tej płycie nie da się rozróżnić, czy zachował ją EC, czy odtworzył sterownik. Po restarcie EC ma ustawienia BIOS-u. Otwarte: czy BIOS przy S3 nadpisuje krzywe; S4 (hibernacja). | test S4 za zgodą | M2b |
-| O5 | Zapis na CPU_FAN1 i PUMP_SYS1, w trybie ręcznym i w krzywej (dotąd sprawdzono tylko SYS_FAN1); dla kanałów 0–1 otwarte jest też uzgadnianie w sterowniku (notatki z projektu sterownika) | test za zgodą | M2b, M2c (D16) |
-| O6 | Jak powiadamiać o zdarzeniach awaryjnych, gdy aplikacja nie działa (np. mały proces w tle z autostartem albo portal Background) | prototyp | M2b |
+| O5 | Zapis na CPU_FAN1 i PUMP_SYS1, w trybie ręcznym i w krzywej (dotąd sprawdzono tylko SYS_FAN1); dla kanałów 0–1 otwarte jest też uzgadnianie w sterowniku (notatki z projektu sterownika) | CPU_FAN1: test według procedury z §7 M2, M2.5 (D53), uruchamia właściciel; PUMP_SYS1: po podłączeniu wentylatora albo pompy (D52) | M2b (D16) |
+| O6 | Jak powiadamiać o zdarzeniach awaryjnych, gdy aplikacja nie działa (np. mały proces w tle z autostartem albo portal Background). W M2 bez procesu w tle (D54): blokada awaryjna jest trwała w `/run`, a aplikacja pokazuje ją po uruchomieniu | prototyp | po M2 |
 | O7 | Rzeczywiste umiejscowienie czujników „System” i „Chipset A” | długi odczyt z dysku podłączonego do chipsetu, albo odczyt konfiguracji kanałów przez sterownik | M1 (opis), M2b (wybór źródeł) |
 | O8 | Czy pomocnik może działać z pustym `CapabilityBoundingSet` | test jednostki systemd | M2b |
 | O9 | Progi awaryjne (B4) i minima (B5) | testy obciążeniowe, dane pompy, jeśli zostanie podłączona | M2b |
-| O10 | Czy temp1 układu płyty (źródło progu CPU, D34) nadąża pod obciążeniem za Tctl z `k10temp` (opóźnienie i różnica) i czy osiąga próg 95 °C. Próg CPU równa się Tjmax (D5), a procesor dławi przy Tjmax, więc temp1 może zatrzymać się na progu albo poniżej i warunek „przekroczy” mógłby nigdy nie zadziałać. Wtedy warunek B4 dla CPU trzeba zmienić na „osiągnie”. Tctl służy tu tylko do porównania. | test obciążeniowy z celowo niskim wypełnieniem wentylatora CPU (za zgodą), z zapisem temp1 i Tctl co 1 s | M2b |
+| O10 | Czy temp1 układu płyty (źródło progu CPU, D34) nadąża pod obciążeniem za Tctl z `k10temp` (opóźnienie i różnica) i czy osiąga próg 95 °C. Próg CPU równa się Tjmax (D5), a procesor dławi przy Tjmax, więc temp1 może zatrzymać się na progu albo poniżej i warunek „przekroczy” mógłby nigdy nie zadziałać. Dlatego warunek B4 dla CPU to już „osiągnie” (D48). Tctl służy tu tylko do porównania. W M1 (krok 13) przy krzywej BIOS-u temp1 doszło do 92,0 °C, a Tctl do 92,1 °C po 12 s pełnego obciążenia. | test obciążeniowy z wentylatorem CPU na minimum, z zapisem temp1 i Tctl co 1 s, według procedury z §7 M2, M2.5 (D53) | M2b |
 | O11 | Lista wydań BIOS-u: dokładna ścieżka na serwerze, pola, które czytamy (płyta, wersja, data, adres pliku), zapis wersji względem DMI `bios_version`. Zapis i znaczenie warunków dopasowania (zakres wersji, wersje pominięte, wykluczenia). Czy lista podaje sumę kontrolną i jakiego rodzaju, a jeśli nie, skąd wziąć sumę wzorcową. | notatki z analizy oprogramowania producenta (§2) oraz jednorazowe pobranie listy, za zgodą | M5 |
 | O12 | Wymagania wbudowanego narzędzia aktualizacji w UEFI: tablica partycji (MBR czy GPT), FAT32 a rozmiar nośnika, położenie i nazwa pliku, czy plik trzeba rozpakować z archiwum | instrukcja płyty i test z pendrivem, bez zatwierdzania flashowania | M5 |
 | O13 | Odczyt wersji firmware kontrolera RGB na MS-7E61: czy kontroler odpowiada, format odpowiedzi, czy pole `bcdDevice` urządzenia USB (dziś 0001) ma z nią związek | test na sprzęcie (tylko odczyt) | M3 |
@@ -1261,4 +1545,4 @@ Odrzucone propozycje nazw: Bellows, Fanfare, Vane, Northbridge.
 | O16 | Ostateczny kształt ABI zapisu krzywych po recenzji v1 i łatki 5 | lista linux-hwmon | M2c, M2d |
 | O17 | Czy krzywa zapisana przez v1 przetrwa hibernację (S4) i ciepły restart przez kexec | test za zgodą | M2c |
 | O18 | RGB z Flatpaka: hidraw jest dostępny tylko przez `--device=all`, które odsłania też `/dev/port` i inne urządzenia. Czy RGB przenieść do pomocnika (§3.4), czy wymagać instalacji natywnej, czy przyjąć `--device=all` | decyzja przed M3 | M3 |
-| O19 | Czy polkit z `auth_admin_keep` (D3) działa dla wywołań z Flatpaka przez pośrednika D-Bus tak jak dla aplikacji natywnej (jedno hasło na kilka minut) | test w M2b | M2b |
+| O19 | Czy polkit z `auth_admin_keep` (D3) działa dla wywołań z Flatpaka przez pośrednika D-Bus tak jak dla aplikacji natywnej (jedno hasło na kilka minut); zapamiętanie autoryzacji może dotyczyć procesu pośrednika | test w kroku 13: natywnie i we Flatpaku, ile razy w ciągu 5 minut pojawia się pytanie o hasło (§7 M2, M2.6) | M2b |

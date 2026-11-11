@@ -23,7 +23,7 @@ Zasady lokalne właściciela (notatki na jego komputerze, uprawnienia, git, pami
 
 - Zapis do sprzętu (`pwm*` i `pwm*_enable` w sysfs, `SET_FEATURE` na `/dev/hidraw*`, ładowanie i wyładowanie modułów) i polecenia z `sudo` tylko za zgodą właściciela komputera, za każdym razem osobno.
 - Do kontrolera RGB wolno wysyłać wyłącznie raport 0x50 (odczyt i zapis) oraz 0x51 (zapis). Bajt store w 0x50 domyślnie 0.
-- Zasady bezpieczeństwa wentylatorów (`docs/PROJEKT.md` §4, B1–B15) są twarde. Ich złagodzenie wymaga decyzji właściciela projektu zapisanej w projekcie.
+- Zasady bezpieczeństwa wentylatorów (`docs/PROJEKT.md` §4, B1–B18) są twarde. Ich złagodzenie wymaga decyzji właściciela projektu zapisanej w projekcie.
 - Do sysfs pisze tylko pomocnik. Aplikacja, testy i skrypty nie piszą do sysfs. Testy używają sztucznego drzewa sysfs w `tests/fixtures/`.
 
 ## Git
