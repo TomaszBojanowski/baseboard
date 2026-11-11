@@ -59,8 +59,9 @@ pub fn line_at(points: &[CurvePoint], temp: f64) -> Option<f64> {
 }
 
 /// Runs of equal consecutive points as (first, last) indices. The
-/// controller always has 7 points, and a curve with fewer levels repeats
-/// the last one; the interface draws one handle per run ("6–7").
+/// controller of MS-7E61 has 7 points, and a curve with fewer levels
+/// repeats the last one; the interface draws one handle per run ("6–7").
+/// Any number of points works.
 pub fn runs(points: &[CurvePoint]) -> Vec<(usize, usize)> {
     let mut runs: Vec<(usize, usize)> = Vec::new();
     for (i, point) in points.iter().enumerate() {
@@ -199,6 +200,21 @@ mod tests {
         for t in [-10_000, 49_999, 50_000, 90_000] {
             assert_eq!(at(&one, t), 128);
         }
+    }
+
+    #[test]
+    fn any_number_of_points() {
+        // Five points, as another controller might have.
+        let five = curve(&[(30, 60), (45, 90), (60, 130), (75, 200), (85, 255)]);
+        assert_eq!(at(&five, 20_000), 60);
+        assert_eq!(at(&five, 50_000), 104); // 103.3 up
+        assert_eq!(at(&five, 90_000), 255);
+        assert_eq!(runs(&five), [(0, 0), (1, 1), (2, 2), (3, 3), (4, 4)]);
+        // One point: its duty cycle everywhere.
+        let single = curve(&[(50, 128)]);
+        assert_eq!(at(&single, 0), 128);
+        assert_eq!(at(&single, 99_000), 128);
+        assert_eq!(runs(&single), [(0, 0)]);
     }
 
     #[test]

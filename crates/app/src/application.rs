@@ -21,6 +21,11 @@ pub fn run() -> glib::ExitCode {
             window.present();
             return;
         }
+        #[cfg(debug_assertions)]
+        if crate::fan_chart_demo::wanted() {
+            crate::fan_chart_demo::open(app);
+            return;
+        }
         if gio::SettingsSchemaSource::default()
             .and_then(|s| s.lookup(APP_ID, true))
             .is_none()
@@ -163,6 +168,18 @@ fn show_about(app: &adw::Application) {
     dialog.present(app.active_window().as_ref());
 }
 
+/// Debug builds only: `BASEBOARD_DEBUG_SCREENSHOT` for another window than
+/// the main one (the fan chart demo); `before` runs just before the
+/// screenshot is taken.
+#[cfg(debug_assertions)]
+pub fn debug_screenshot(
+    app: &adw::Application,
+    window: &gtk::Window,
+    before: impl Fn(&gtk::Window) + 'static,
+) {
+    debug::capture(app, window, before);
+}
+
 /// Debug builds only: settings for looking at the window without a mouse.
 /// GNOME Shell does not let other programs take screenshots, so the window
 /// renders itself to a PNG.
@@ -234,33 +251,25 @@ mod debug {
         }
     }
 
+    fn delay() -> u32 {
+        var("BASEBOARD_DEBUG_SCREENSHOT_DELAY")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(3)
+    }
+
     /// `BASEBOARD_DEBUG_SCREENSHOT=shot.png` saves the window to a PNG after
     /// `BASEBOARD_DEBUG_SCREENSHOT_DELAY` seconds (default 3) and quits. The
     /// file goes to `BASEBOARD_DEBUG_SCREENSHOT_DIR`, by default
     /// `$XDG_CACHE_HOME/baseboard/`, and never into the source tree. The
     /// window is rendered at the scale of its surface, so the PNG has the
-    /// pixels of the screen. A screenshot that cannot be saved quits too, so
-    /// that no window is left behind.
+    /// pixels of the screen, or at `BASEBOARD_DEBUG_SCREENSHOT_SCALE` (e.g.
+    /// 1 for a screen at 100 %). A screenshot that cannot be saved quits
+    /// too, so that no window is left behind.
     pub fn screenshot(app: &adw::Application, window: &BaseboardWindow) {
-        let Some(name) = var("BASEBOARD_DEBUG_SCREENSHOT") else {
+        if var("BASEBOARD_DEBUG_SCREENSHOT").is_none() {
             return;
-        };
-        let path = match screenshot_path(
-            &name,
-            var("BASEBOARD_DEBUG_SCREENSHOT_DIR").map(PathBuf::from),
-            &glib::user_cache_dir(),
-            &source_root(),
-        ) {
-            Ok(path) => path,
-            Err(e) => {
-                eprintln!("baseboard: no screenshot: {e}");
-                app.quit();
-                return;
-            }
-        };
-        let delay: u32 = var("BASEBOARD_DEBUG_SCREENSHOT_DELAY")
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(3);
+        }
+        let delay = delay();
         // `BASEBOARD_DEBUG_SCROLL=end`: the page, or the page of an open
         // dialog, scrolled to its end a second before the screenshot.
         if var("BASEBOARD_DEBUG_SCROLL").as_deref() == Some("end") {
@@ -287,16 +296,43 @@ mod debug {
                 ),
             );
         }
-        let window: &gtk::Window = window.upcast_ref();
+        capture(app, window.upcast_ref(), |_| {});
+    }
+
+    /// The screenshot of `BASEBOARD_DEBUG_SCREENSHOT`, for any window;
+    /// `before` runs just before it is taken.
+    pub fn capture(
+        app: &adw::Application,
+        window: &gtk::Window,
+        before: impl Fn(&gtk::Window) + 'static,
+    ) {
+        let Some(name) = var("BASEBOARD_DEBUG_SCREENSHOT") else {
+            return;
+        };
+        let path = match screenshot_path(
+            &name,
+            var("BASEBOARD_DEBUG_SCREENSHOT_DIR").map(PathBuf::from),
+            &glib::user_cache_dir(),
+            &source_root(),
+        ) {
+            Ok(path) => path,
+            Err(e) => {
+                eprintln!("baseboard: no screenshot: {e}");
+                app.quit();
+                return;
+            }
+        };
+        let scale = var("BASEBOARD_DEBUG_SCREENSHOT_SCALE").and_then(|s| s.parse::<f64>().ok());
         glib::timeout_add_seconds_local_once(
-            delay,
+            delay(),
             glib::clone!(
                 #[weak]
                 app,
                 #[weak]
                 window,
                 move || {
-                    save_png(&window, &path);
+                    before(&window);
+                    save_png(&window, &path, scale);
                     app.quit();
                 }
             ),
@@ -344,13 +380,15 @@ mod debug {
         Ok(dir.join(file))
     }
 
-    fn save_png(window: &gtk::Window, path: &Path) {
+    fn save_png(window: &gtk::Window, path: &Path, scale: Option<f64>) {
         let paintable = gtk::WidgetPaintable::new(Some(window));
         let snapshot = gtk::Snapshot::new();
-        let scale = window
-            .native()
-            .and_then(|n| n.surface())
-            .map_or(1.0, |s| s.scale());
+        let scale = scale.unwrap_or_else(|| {
+            window
+                .native()
+                .and_then(|n| n.surface())
+                .map_or(1.0, |s| s.scale())
+        });
         let (dx, dy) = window
             .native()
             .map_or((0.0, 0.0), |n| n.surface_transform());

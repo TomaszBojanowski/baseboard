@@ -3,6 +3,7 @@ data/me.bojanowski.Baseboard.desktop.in
 data/me.bojanowski.Baseboard.gschema.xml
 data/me.bojanowski.Baseboard.metainfo.xml.in
 crates/app/src/application.rs
+crates/app/src/fan_chart.rs
 crates/app/src/overview.rs
 crates/app/src/overview.ui
 crates/app/src/preferences.rs

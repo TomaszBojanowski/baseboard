@@ -5,6 +5,9 @@
 mod application;
 mod board;
 mod config;
+mod fan_chart;
+#[cfg(debug_assertions)]
+mod fan_chart_demo;
 mod i18n;
 mod libsensors;
 mod libudev;

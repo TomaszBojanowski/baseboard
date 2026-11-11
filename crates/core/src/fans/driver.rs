@@ -731,6 +731,25 @@ mod tests {
     }
 
     #[test]
+    fn curve_length_comes_from_the_files() {
+        let hwmon = Hwmon::new("length");
+        // Five points: a curve of five, read in full.
+        let five = [(30, 60), (45, 90), (60, 130), (75, 200), (85, 255)];
+        hwmon.curve_values(1, &five);
+        assert_eq!(hwmon.caps(1).curve_points(), 5);
+        assert_eq!(hwmon.driver().curve(1), Ok(points(&five)));
+        assert_eq!(read(&hwmon.driver(), 1).curve, Some(Ok(points(&five))));
+        // Points 1, 2 and 4: no curve, neither of two points nor of four.
+        hwmon.curve_values(2, &five[..2]);
+        hwmon.write("pwm2_auto_point4_temp", "60000\n");
+        hwmon.write("pwm2_auto_point4_pwm", "130\n");
+        assert_eq!(hwmon.caps(2).curve_points(), 0);
+        assert!(!hwmon.caps(2).contains(Capability::CurveRead));
+        assert_eq!(hwmon.driver().curve(2), Err(ReadError::Missing));
+        assert_eq!(read(&hwmon.driver(), 2).curve, None);
+    }
+
+    #[test]
     fn curves_of_other_channels_do_not_count() {
         let hwmon = Hwmon::new("prefix");
         hwmon.file("pwm1", 0o444);
