@@ -4,7 +4,7 @@ A native GNOME app for the sensors and fans of motherboards on Linux.
 
 Website: https://baseboard.bojanowski.me
 
-> **Early version.** Baseboard has finished its first milestone (M1): it only reads. There are no releases or packages yet; build it from source. The design, in Polish, is in [docs/PROJEKT.md](docs/PROJEKT.md).
+> **Early version.** Baseboard has finished its first milestone (M1): it only reads. The first release is 0.1.0, see [Install](#install). The design, in Polish, is in [docs/PROJEKT.md](docs/PROJEKT.md).
 
 ## What it is for
 
@@ -15,6 +15,39 @@ Website: https://baseboard.bojanowski.me
   - a System page with the board, BIOS, processor, memory, graphics card, disks and the state of the fan driver, and a "Copy Information" button for bug reports (no serial numbers or MAC addresses);
   - English and Polish.
 - One verified board: **MAG B850M MORTAR WIFI (MS-7E61)**, PCB revision 1. On other computers Baseboard runs in a generic mode: readings without the board's header names and no fan control.
+
+## Install
+
+Baseboard comes as a Flatpak. A release on Flathub will be considered after fan control lands.
+
+1. **Recommended: from the bojanowski.me repository.** It is signed and shared with the author's other apps. Updates come with a regular `flatpak update`; the GNOME runtime comes from Flathub.
+
+   ```sh
+   flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+   flatpak remote-add --user --if-not-exists bojanowski https://flatpak.bojanowski.me/bojanowski.flatpakrepo
+   flatpak install --user bojanowski me.bojanowski.Baseboard
+   ```
+
+2. **From the release file.** Download `me.bojanowski.Baseboard.flatpak` from the [latest release](https://github.com/TomaszBojanowski/baseboard/releases/latest) and install it. Flatpak takes the GNOME runtime from Flathub. A package installed this way does not update itself; install a newer release the same way.
+
+   ```sh
+   flatpak install --user me.bojanowski.Baseboard.flatpak
+   ```
+
+3. **From source:** see [Building](#building).
+
+The Flatpak reads the sensors and the system information with read-only access to the udev database (`/run/udev`). Differences from a native installation:
+
+- It does not see the system's lm-sensors configuration, so labels, `ignore` and `compute` statements from `/etc/sensors.d` do not apply; the board's readings still come scaled and named from its profile. To use the configuration, give the app read-only access to the whole of `/etc`:
+
+  ```sh
+  flatpak override --user --filesystem=host-etc:ro me.bojanowski.Baseboard
+  ```
+
+- It cannot see other programs that control fans, so the System page says it cannot check them.
+- Its settings and own reading names are kept apart from a native installation, under `~/.var/app/me.bojanowski.Baseboard/`.
+
+Fan control (M2) will need a system helper that cannot be part of a Flatpak; it will come as a separate system package.
 
 ## Roadmap and kernel support
 
@@ -91,18 +124,11 @@ flatpak-builder --user --install --install-deps-from=flathub --force-clean \
 flatpak run me.bojanowski.Baseboard
 ```
 
-The Flatpak reads the sensors and the system information with read-only access to the udev database (`/run/udev`). Differences from a native installation:
+The differences from a native installation are listed under [Install](#install).
 
-- It does not see the system's lm-sensors configuration, so labels, `ignore` and `compute` statements from `/etc/sensors.d` do not apply; the board's readings still come scaled and named from its profile. To use the configuration, give the app read-only access to the whole of `/etc`:
+## How Baseboard is developed
 
-  ```sh
-  flatpak override --user --filesystem=host-etc:ro me.bojanowski.Baseboard
-  ```
-
-- It cannot see other programs that control fans, so the System page says it cannot check them.
-- Its settings and own reading names are kept apart from a native installation, under `~/.var/app/me.bojanowski.Baseboard/`.
-
-Fan control (M2) will need a system helper that cannot be part of a Flatpak; it will come as a separate system package.
+Baseboard is developed with the help of an AI assistant (Claude Code). The direction, the design decisions, the review of changes and the tests on the hardware are by Tomasz Bojanowski.
 
 ## License
 

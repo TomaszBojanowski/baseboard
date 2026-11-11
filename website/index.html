@@ -66,7 +66,7 @@
 <main id="main">
 <section id="today" aria-labelledby="today-title">
 <h2 id="today-title">What it shows today</h2>
-<p>Baseboard shows readings and system information and does not control anything yet. There are no releases or packages; it is built from source.</p>
+<p>Baseboard shows readings and system information and does not control anything yet. The first release is 0.1.0.</p>
 <ul>
 <li>Temperatures, fan speeds and voltages, named after the fan headers and rails in the board profile.</li>
 <li>Voltages rated against their tolerance, and the minimum and maximum of each reading since the app started.</li>
@@ -170,7 +170,18 @@
 
 <section id="install" aria-labelledby="install-title">
 <h2 id="install-title">Install</h2>
-<p>There are no packages yet. A release on Flathub is planned.</p>
+<p>Baseboard comes as a Flatpak. A release on Flathub will be considered after fan control lands.</p>
+<h3>From the bojanowski.me repository (recommended)</h3>
+<p>The repository is signed and shared with the author’s other apps. Updates come with a regular <code>flatpak update</code>; the GNOME runtime comes from Flathub.</p>
+<pre><code>flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak remote-add --user --if-not-exists bojanowski https://flatpak.bojanowski.me/bojanowski.flatpakrepo
+flatpak install --user bojanowski me.bojanowski.Baseboard</code></pre>
+<h3>From the release file</h3>
+<p>Download <code>me.bojanowski.Baseboard.flatpak</code> from the <a href="https://github.com/TomaszBojanowski/baseboard/releases/latest">latest release on GitHub</a> and install it. Flatpak takes the GNOME runtime from Flathub. A package installed this way does not update itself; install a newer release the same way.</p>
+<pre><code>flatpak install --user me.bojanowski.Baseboard.flatpak</code></pre>
+<p>The Flatpak reads the sensors and the system information with read-only access to the udev database. It does not see the system’s lm-sensors configuration, so its labels and <code>ignore</code> statements do not apply; the board’s readings are still scaled and named from its profile. To use the configuration, give the app read-only access to the whole of <code>/etc</code>:</p>
+<pre><code>flatpak override --user --filesystem=host-etc:ro me.bojanowski.Baseboard</code></pre>
+<p>From the sandbox Baseboard cannot see other programs that control fans, and the System page says so.</p>
 <h3>From source</h3>
 <p>Requires Rust 1.92 or newer, GTK 4.22, libadwaita 1.9 and Meson 1.1.</p>
 <pre><code>git clone https://github.com/TomaszBojanowski/baseboard.git
@@ -178,14 +189,11 @@ cd baseboard
 meson setup build
 meson compile -C build
 meson devenv -C build ./crates/app/baseboard</code></pre>
-<h3>Local Flatpak</h3>
+<h3>Your own Flatpak build</h3>
 <p>The manifest uses the GNOME 51 runtime and builds without network access for the Rust dependencies.</p>
 <pre><code>flatpak-builder --user --install --install-deps-from=flathub --force-clean \
     build/flatpak build-aux/flatpak/me.bojanowski.Baseboard.json
 flatpak run me.bojanowski.Baseboard</code></pre>
-<p>The Flatpak reads the sensors and the system information with read-only access to the udev database. It does not see the system’s lm-sensors configuration, so its labels and <code>ignore</code> statements do not apply; the board’s readings are still scaled and named from its profile. To use the configuration, give the app read-only access to the whole of <code>/etc</code>:</p>
-<pre><code>flatpak override --user --filesystem=host-etc:ro me.bojanowski.Baseboard</code></pre>
-<p>From the sandbox Baseboard cannot see other programs that control fans, and the System page says so.</p>
 </section>
 
 <section id="plans" aria-labelledby="plans-title">

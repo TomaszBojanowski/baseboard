@@ -66,7 +66,7 @@
 <main id="main">
 <section id="dzis" aria-labelledby="dzis-tytul">
 <h2 id="dzis-tytul">Co pokazuje dziś</h2>
-<p>Baseboard pokazuje odczyty i informacje o systemie, ale jeszcze niczym nie steruje. Nie ma wydań ani pakietów; aplikację buduje się ze źródeł.</p>
+<p>Baseboard pokazuje odczyty i informacje o systemie, ale jeszcze niczym nie steruje. Pierwsze wydanie to 0.1.0.</p>
 <ul>
 <li>Temperatury, obroty wentylatorów i napięcia, nazwane tak jak złącza i szyny w profilu płyty.</li>
 <li>Ocenę napięć względem tolerancji oraz minimum i maksimum każdego odczytu od uruchomienia aplikacji.</li>
@@ -170,7 +170,18 @@
 
 <section id="instalacja" aria-labelledby="instalacja-tytul">
 <h2 id="instalacja-tytul">Instalacja</h2>
-<p>Pakietów jeszcze nie ma. Planowane jest wydanie na Flathubie.</p>
+<p>Baseboard jest dostępny jako Flatpak. Wydanie na Flathubie będzie rozważane, gdy pojawi się sterowanie wentylatorami.</p>
+<h3>Z repozytorium bojanowski.me (zalecane)</h3>
+<p>Repozytorium jest podpisane i wspólne z innymi aplikacjami autora. Aktualizacje przychodzą ze zwykłym <code>flatpak update</code>, a środowisko GNOME pochodzi z Flathuba.</p>
+<pre><code>flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak remote-add --user --if-not-exists bojanowski https://flatpak.bojanowski.me/bojanowski.flatpakrepo
+flatpak install --user bojanowski me.bojanowski.Baseboard</code></pre>
+<h3>Z pliku z wydania</h3>
+<p>Pobierz <code>me.bojanowski.Baseboard.flatpak</code> z <a href="https://github.com/TomaszBojanowski/baseboard/releases/latest" hreflang="en">najnowszego wydania na GitHubie</a> i zainstaluj go. Środowisko GNOME Flatpak pobierze z Flathuba. Pakiet zainstalowany w ten sposób nie aktualizuje się sam; nowsze wydanie instaluje się tak samo.</p>
+<pre><code>flatpak install --user me.bojanowski.Baseboard.flatpak</code></pre>
+<p>Flatpak czyta czujniki i informacje o systemie z dostępem tylko do odczytu do bazy udev. Nie widzi konfiguracji lm-sensors systemu, więc jej etykiety i instrukcje <code>ignore</code> nie działają; odczyty płyty i tak są przeliczone i nazwane według profilu. Żeby korzystać z tej konfiguracji, daj aplikacji dostęp tylko do odczytu do całego <code>/etc</code>:</p>
+<pre><code>flatpak override --user --filesystem=host-etc:ro me.bojanowski.Baseboard</code></pre>
+<p>Z piaskownicy Baseboard nie widzi innych programów sterujących wentylatorami i strona System mówi to wprost.</p>
 <h3>Ze źródeł</h3>
 <p>Potrzebne są Rust 1.92 lub nowszy, GTK 4.22, libadwaita 1.9 i Meson 1.1.</p>
 <pre><code>git clone https://github.com/TomaszBojanowski/baseboard.git
@@ -178,14 +189,11 @@ cd baseboard
 meson setup build
 meson compile -C build
 meson devenv -C build ./crates/app/baseboard</code></pre>
-<h3>Lokalny Flatpak</h3>
+<h3>Własne budowanie Flatpaka</h3>
 <p>Manifest korzysta ze środowiska GNOME 51, a zależności Rusta buduje bez dostępu do sieci.</p>
 <pre><code>flatpak-builder --user --install --install-deps-from=flathub --force-clean \
     build/flatpak build-aux/flatpak/me.bojanowski.Baseboard.json
 flatpak run me.bojanowski.Baseboard</code></pre>
-<p>Flatpak czyta czujniki i informacje o systemie z dostępem tylko do odczytu do bazy udev. Nie widzi konfiguracji lm-sensors systemu, więc jej etykiety i instrukcje <code>ignore</code> nie działają; odczyty płyty i tak są przeliczone i nazwane według profilu. Żeby korzystać z tej konfiguracji, daj aplikacji dostęp tylko do odczytu do całego <code>/etc</code>:</p>
-<pre><code>flatpak override --user --filesystem=host-etc:ro me.bojanowski.Baseboard</code></pre>
-<p>Z piaskownicy Baseboard nie widzi innych programów sterujących wentylatorami i strona System mówi to wprost.</p>
 </section>
 
 <section id="plany" aria-labelledby="plany-tytul">
