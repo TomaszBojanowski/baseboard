@@ -1,0 +1,71 @@
+{
+    "id": "me.bojanowski.Baseboard",
+    "runtime": "org.gnome.Platform",
+    "runtime-version": "51",
+    "sdk": "org.gnome.Sdk",
+    "sdk-extensions": [
+        "org.freedesktop.Sdk.Extension.rust-stable"
+    ],
+    "command": "baseboard",
+    "finish-args": [
+        "--share=ipc",
+        "--socket=wayland",
+        "--socket=fallback-x11",
+        "--device=dri",
+        "--filesystem=/run/udev:ro",
+        "--env=SENSORS_SYSFS_ROOT=/sys"
+    ],
+    "build-options": {
+        "append-path": "/usr/lib/sdk/rust-stable/bin"
+    },
+    "cleanup": [
+        "/include",
+        "/man",
+        "*.a"
+    ],
+    "modules": [
+        {
+            "name": "libsensors",
+            "buildsystem": "simple",
+            "build-commands": [
+                "make PREFIX=/app ETCDIR=/run/host/etc BUILD_STATIC_LIB=0 all-lib",
+                "make PREFIX=/app ETCDIR=/run/host/etc BUILD_STATIC_LIB=0 install-lib",
+                "install -Dm644 COPYING.LGPL /app/share/licenses/lm-sensors/COPYING.LGPL"
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://github.com/lm-sensors/lm-sensors/archive/refs/tags/V3-6-2.tar.gz",
+                    "sha256": "c6a0587e565778a40d88891928bf8943f27d353f382d5b745a997d635978a8f0"
+                }
+            ]
+        },
+        {
+            "name": "baseboard",
+            "buildsystem": "meson",
+            "config-opts": [
+                "--buildtype=release"
+            ],
+            "build-options": {
+                "env": {
+                    "CARGO_HOME": "/run/build/baseboard/cargo",
+                    "CARGO_NET_OFFLINE": "true"
+                }
+            },
+            "sources": [
+                {
+                    "type": "dir",
+                    "path": "../..",
+                    "skip": [
+                        ".git",
+                        "build",
+                        "target",
+                        "makiety/png",
+                        "CLAUDE.local.md"
+                    ]
+                },
+                "cargo-sources.json"
+            ]
+        }
+    ]
+}
