@@ -15,6 +15,56 @@ row.monospace-value .subtitle {
   opacity: 0.72;
 }
 
+/* The temperature the curves follow, large, on top of the list (D62). */
+.fan-hero-label {
+  font-weight: 600;
+  opacity: 0.65;
+}
+
+.fan-hero-value {
+  font-size: 54pt;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+}
+
+.fan-hero-unit {
+  font-size: 21pt;
+  opacity: 0.55;
+  margin-top: 12px;
+  margin-left: 4px;
+}
+
+.fan-hero.narrow .fan-hero-value {
+  font-size: 45pt;
+}
+
+.fan-hero.narrow .fan-hero-unit {
+  font-size: 18pt;
+  margin-top: 9px;
+}
+
+/* A row of the list of fans (D62). */
+.fan-row-name {
+  font-weight: 600;
+}
+
+.fan-row-sub {
+  font-size: 0.9em;
+  opacity: 0.72;
+}
+
+.fan-row-rpm {
+  font-size: 1.12em;
+}
+
+.fan-row-rpm.fan-still {
+  opacity: 0.5;
+}
+
+.fan-row-pct {
+  font-size: 0.92em;
+}
+
 .fan-card {
   padding: 16px 18px 12px;
 }
@@ -67,9 +117,9 @@ row.monospace-value .subtitle {
   padding: 6px 0;
 }
 
-/* The legend of the charts above the cards (D60). */
+/* The legend of the large chart on the curve page (D60, D62). */
 .fan-chart-legend {
-  margin: 2px 2px 14px;
+  margin-bottom: 4px;
 }
 
 .fan-note {

@@ -1,43 +1,49 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The Fans page (docs/PROJEKT.md §5.5.3, §5.5.4, §7 M2, M2.4) of version
-//! 0.2.0: what the board's controller does with the fans, without changing
-//! anything. The model comes from `core::fans::page`; this module gives it
-//! texts and widgets. Widgets are made again only when the cards change
-//! (another driver after a reload, a header turned off), otherwise their
-//! values are set. Samples come from the window's sensor reader, which
-//! reads the fan channels only while this page is shown.
+//! The Fans page (docs/PROJEKT.md §5.5.3, §5.5.4, §7 M2, M2.4, D62) of
+//! version 0.2.0: what the board's controller does with the fans, without
+//! changing anything, in plain words. On top the temperature the curves
+//! follow, large; under it a list of the fans as wide as in GNOME Settings,
+//! a row each with a small chart. The model comes from `core::fans::page`;
+//! this module gives it texts and widgets. Rows are made again only when
+//! the fans change (another driver after a reload, a header turned off),
+//! otherwise their values are set. Samples come from the window's sensor
+//! reader, which reads the fan channels only while this page is shown.
 
+// The cards of D45, D60 and D61, replaced by the list (D62); removed in the
+// next commit.
+#[allow(dead_code)]
 mod card;
 mod curve_page;
+#[allow(dead_code)]
 mod layout;
+mod row;
+#[allow(dead_code)]
 mod slot;
+mod spark;
 
 use std::cell::{Cell, OnceCell, RefCell};
-use std::rc::Rc;
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
-use baseboard_core::fans::driver::Source;
-use baseboard_core::fans::page::{self, Note, Page, SourceRow};
-use baseboard_core::overview::{Name, RowId, Visibility};
-use baseboard_core::profile::Profile;
-use baseboard_core::sensors::Kind;
+use baseboard_core::fans::driver::{Mode, Source};
+use baseboard_core::fans::page::{self, Card, CardKind, Note, Page, SourceRow};
+use baseboard_core::overview::{Name, Row, Subtitle, Visibility};
+use baseboard_core::profile::{FanRole, Profile, TempRole};
 use baseboard_core::units::{Numbers, UNIT_SPACE};
-use gettextrs::{gettext, ngettext};
+use gettextrs::gettext;
 use gtk::{gio, glib};
 
 use crate::config;
-use crate::fan_chart::swatch::{Mark, Swatch};
-use crate::overview::{self, RowWidgets};
+use crate::fan_chart::swatch::Mark;
+use crate::fan_chart::{self, ChartCurve, Reading};
+use crate::overview;
 use crate::sampler::Sample;
-use card::{CardWidgets, Shape};
-use curve_page::CurvePage;
-use layout::{CardsGrid, HeadNeeds, PageLayout};
+use curve_page::{CurvePage, card_mode};
+use row::{FanLine, FanRow};
 
-/// How wide the page is (fans.ui), for the curve page, the charts, the
-/// source and the line on top. The cards follow their own rule by width
-/// (`layout`, D61).
+/// How wide the page is (fans.ui): the curve page in two columns or one;
+/// the rows of the list wide or narrow.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) enum Layout {
     #[default]
@@ -86,8 +92,18 @@ pub(crate) fn source_name(row: &SourceRow, numbers: &Numbers) -> String {
     }
 }
 
-/// The line on top of the page in version 0.2.0 at a driver that controls
-/// the fans, and the note of the curve page.
+/// What the large temperature on top is (D62): "CPU" for the processor's
+/// temperature of the profile, otherwise its name as on the Overview.
+fn temperature_name(row: &SourceRow, numbers: &Numbers) -> String {
+    match row.temp.as_ref().map(|t| t.role) {
+        // Translators: above the large temperature on the Fans page, the
+        // temperature of the processor.
+        Some(TempRole::Cpu) => gettext("CPU"),
+        _ => source_name(row, numbers),
+    }
+}
+
+/// The note of the curve page in version 0.2.0.
 fn preview_note() -> String {
     gettext("This version of Baseboard shows the fan settings without changing them.")
 }
@@ -106,17 +122,35 @@ fn kernel_url() -> String {
     format!("{website}{section}")
 }
 
-/// The description of the temperature source: what the controller does
-/// with it, and what the gray range is (D60, the same words as on the
-/// Overview).
-fn source_description() -> String {
-    let what = gettext(
-        // Translators: under "Temperature source" on the Fans page; the next
-        // sentence follows on the same line, which both should fit.
-        "The board's controller computes the duty cycle from this temperature.",
+/// Under the temperature on a driver without control (D62): what the
+/// system can do, with a link to the kernel section of the website.
+fn kernel_markup() -> String {
+    let text = gettext(
+        // Translators: under the large temperature on the Fans page when the
+        // kernel driver can only read the fans.
+        "This system can only read the fans for now. Fan control is coming in a future Linux \
+         version.",
     );
-    let range = gettext("Gray range: minimum and maximum since the app started.");
-    keep_last_words(&format!("{what} {range}"), 3)
+    let link = gettext(
+        // Translators: a link after the sentence about the kernel on the
+        // Fans page; it opens the website's section on fan control in the
+        // kernel.
+        "Kernel status",
+    );
+    format!(
+        "{} <a href=\"{}\">{}</a>",
+        glib::markup_escape_text(&text),
+        glib::markup_escape_text(&kernel_url()),
+        glib::markup_escape_text(&link)
+    )
+}
+
+/// The footer of the list in version 0.2.0 (D62).
+fn footer_text() -> String {
+    keep_last_words(
+        &gettext("For now, Baseboard only shows the fan settings from the BIOS."),
+        3,
+    )
 }
 
 /// `text` with its last `count` words held together by no-break spaces,
@@ -136,8 +170,9 @@ fn keep_last_words(text: &str, count: usize) -> String {
     kept
 }
 
-/// The legend of the charts on the cards (D60): each mark with its name.
-/// A name does not wrap, so the legend breaks between whole items.
+/// The legend of the large chart on the curve page (D60, D62): each mark
+/// with its name. A name does not wrap, so the legend breaks between whole
+/// items.
 fn legend_items() -> [(Mark, String); 4] {
     [
         // Translators: in the legend of the fan charts, the hatched zone
@@ -153,127 +188,125 @@ fn legend_items() -> [(Mark, String); 4] {
     ]
 }
 
-/// The row of the temperature source: value above the range in a narrow
-/// window, next to it otherwise.
-struct SourceWidgets {
-    row: adw::ActionRow,
-    values: gtk::Box,
-    range: gtk::Inscription,
-    value: gtk::Inscription,
+/// A row of the list for a card of the model. `temp` is the temperature
+/// on top, in °C, for the point of a fan in manual mode.
+fn card_line(card: &Card, context: &PageContext, temp: Option<f64>) -> FanLine {
+    let numbers = context.numbers;
+    let name = overview::name(&card.row.name, numbers);
+    let has_mode = matches!(card.kind, CardKind::Full { .. });
+    let mode = card_mode(card).filter(|_| has_mode);
+    let (chart, now, chart_description) = match card.chart() {
+        Some(data) => {
+            let points = data
+                .points
+                .iter()
+                .map(|p| (f64::from(p.temp), f64::from(p.duty)))
+                .collect();
+            let reading = data
+                .millidegrees
+                .zip(card.duty)
+                .map(|(millidegrees, duty)| Reading { millidegrees, duty });
+            let now = reading.map(|r| (r.millidegrees as f64 / 1000.0, f64::from(r.duty)));
+            let source = data
+                .own_source
+                .as_ref()
+                .or(context.source)
+                .map(|s| source_name(s, numbers))
+                .unwrap_or_default();
+            let curve = ChartCurve {
+                name: name.clone(),
+                source,
+                points: data.points.clone(),
+                min_percent: card.min_percent,
+                threshold: data.threshold,
+                needs_full: data.needs_full,
+            };
+            (
+                points,
+                now,
+                Some(fan_chart::describe(&curve, reading, numbers)),
+            )
+        }
+        // Manual mode: the flat line of the duty cycle set.
+        None if mode == Some(Mode::Manual) => match card.duty.map(f64::from) {
+            Some(duty) => (
+                vec![(0.0, duty), (100.0, duty)],
+                temp.map(|t| (t, duty)),
+                None,
+            ),
+            None => (Vec::new(), None, None),
+        },
+        None => (Vec::new(), None, None),
+    };
+    FanLine {
+        key: card.key.clone(),
+        name,
+        header: card.header.clone(),
+        rpm: card.row.value,
+        duty: card.duty,
+        has_mode,
+        mode,
+        min_percent: card.min_percent,
+        target: card.moving_to(),
+        unchecked: !card.verified,
+        // The extra header is read only with every driver; as on the
+        // Overview, its row says nothing about an empty header.
+        maybe_empty: card.maybe_empty() && card.role != FanRole::Aux,
+        opens: card.chart().is_some(),
+        chart,
+        now,
+        chart_description,
+    }
 }
 
-impl SourceWidgets {
-    fn new() -> Self {
-        let row = adw::ActionRow::builder().use_markup(false).build();
-        let icon = gtk::Image::from_icon_name("baseboard-temperature-symbolic");
-        icon.set_accessible_role(gtk::AccessibleRole::Presentation);
-        row.add_prefix(&icon);
-        let values = gtk::Box::builder()
-            .spacing(6)
-            .valign(gtk::Align::Center)
-            .build();
-        let range = gtk::Inscription::builder()
-            .min_chars(11)
-            .nat_chars(12)
-            .xalign(1.0)
-            .css_classes(["dimmed", "numeric", "caption"])
-            .build();
-        let value = gtk::Inscription::builder()
-            .min_chars(8)
-            .nat_chars(9)
-            .xalign(1.0)
-            .css_classes(["numeric"])
-            .build();
-        values.append(&range);
-        values.append(&value);
-        row.add_suffix(&values);
-        Self {
-            row,
-            values,
-            range,
-            value,
-        }
+/// A row of the list for a header the driver does not control (JAF_1), as
+/// the Overview shows it.
+fn read_only_line(row: &Row, numbers: &Numbers) -> FanLine {
+    let (header, duty, verified) = match &row.subtitle {
+        Subtitle::Header {
+            header,
+            duty,
+            verified,
+            ..
+        } => (
+            header.clone(),
+            duty.filter(|d| d.is_finite())
+                .map(|d| d.round().clamp(0.0, 255.0) as u8),
+            *verified,
+        ),
+        _ => (String::new(), None, true),
+    };
+    FanLine {
+        key: row.id.channel.clone(),
+        name: overview::name(&row.name, numbers),
+        header,
+        rpm: row.value,
+        duty,
+        has_mode: false,
+        mode: None,
+        min_percent: 0,
+        target: None,
+        unchecked: !verified,
+        maybe_empty: false,
+        chart: Vec::new(),
+        now: None,
+        chart_description: None,
+        opens: false,
     }
+}
 
-    fn set_layout(&self, layout: Layout) {
-        let narrow = layout == Layout::Narrow;
-        self.values.set_orientation(if narrow {
-            gtk::Orientation::Vertical
-        } else {
-            gtk::Orientation::Horizontal
-        });
-        self.values.set_spacing(if narrow { 2 } else { 6 });
-        // The value first, the range under it.
-        if narrow {
-            self.values
-                .reorder_child_after(&self.range, Some(&self.value));
-        } else {
-            self.values
-                .reorder_child_after(&self.value, Some(&self.range));
-        }
-    }
-
-    fn update(&self, source: &SourceRow, numbers: &Numbers) {
-        let title = source_name(source, numbers);
-        let channel = match source.source {
-            Source::Temp(input) => Some(format!("temp{input}")),
-            _ => None,
-        };
-        let threshold = source.temp.as_ref().and_then(|t| t.emergency_c);
-        let subtitle = match (&channel, threshold) {
-            (Some(channel), Some(threshold)) => {
-                // Translators: under the temperature source of the fan
-                // curves, e.g. "nct6687 · temp1 · emergency threshold 95 °C".
-                gettext("{chip} · {channel} · emergency threshold {temperature}")
-                    .replace("{chip}", &source.chip)
-                    .replace("{channel}", channel)
-                    .replace("{temperature}", &format!("{threshold}{UNIT_SPACE}°C"))
-            }
-            (Some(channel), None) => format!("{} · {channel}", source.chip),
-            (None, _) => source.chip.clone(),
-        };
-        let (value, range) = match &source.row {
-            Some(row) => (
-                numbers.value(Kind::Temp, row.value),
-                row.range
-                    .map(|(lo, hi)| numbers.range_of(Kind::Temp, lo, hi, None))
-                    .unwrap_or_default(),
-            ),
-            None => (String::new(), String::new()),
-        };
-        if self.row.title() != title {
-            self.row.set_title(&title);
-        }
-        if self.row.subtitle().as_deref() != Some(subtitle.as_str()) {
-            self.row.set_subtitle(&subtitle);
-        }
-        if self.value.text().as_deref() != Some(value.as_str()) {
-            self.value.set_text(Some(&value));
-        }
-        if self.range.text().as_deref() != Some(range.as_str()) {
-            self.range.set_text(Some(&range));
-            self.range.set_visible(!range.is_empty());
-        }
-        let description = if range.is_empty() {
-            gettext("{subtitle}. Now {value}")
-        } else {
-            gettext("{subtitle}. Now {value}, since start {range}")
-        }
-        .replace("{subtitle}", &subtitle)
-        .replace("{value}", &value)
-        .replace("{range}", &range);
-        self.row
-            .upcast_ref::<gtk::Widget>()
-            .update_property(&[gtk::accessible::Property::Description(&description)]);
+fn set_label(label: &gtk::Label, text: &str) {
+    if label.label() != text {
+        label.set_label(text);
     }
 }
 
 #[derive(Default)]
 struct State {
-    shapes: Vec<Shape>,
-    cards: Vec<CardWidgets>,
-    source: Option<SourceWidgets>,
-    read_only: Vec<(RowId, RowWidgets)>,
+    /// What decides whether the rows are made again: key, whether the row
+    /// opens the curve, whether it has a chart.
+    shapes: Vec<(String, bool, bool)>,
+    rows: Vec<FanRow>,
 }
 
 mod imp {
@@ -297,30 +330,21 @@ mod imp {
         #[template_child]
         pub scrolled: TemplateChild<gtk::ScrolledWindow>,
         #[template_child]
-        pub note_row: TemplateChild<adw::PreferencesRow>,
+        pub hero: TemplateChild<gtk::Box>,
         #[template_child]
-        pub note_header: TemplateChild<gtk::Box>,
+        pub hero_label: TemplateChild<gtk::Label>,
         #[template_child]
-        pub note_texts: TemplateChild<gtk::Box>,
+        pub hero_value: TemplateChild<gtk::Label>,
         #[template_child]
-        pub note_title: TemplateChild<gtk::Label>,
+        pub hero_unit: TemplateChild<gtk::Label>,
         #[template_child]
-        pub note_subtitle: TemplateChild<gtk::Label>,
+        pub speeding: TemplateChild<gtk::Label>,
         #[template_child]
-        pub kernel_button: TemplateChild<gtk::Button>,
+        pub kernel: TemplateChild<gtk::Label>,
         #[template_child]
-        pub source_group: TemplateChild<adw::PreferencesGroup>,
+        pub list: TemplateChild<gtk::ListBox>,
         #[template_child]
-        pub legend: TemplateChild<adw::WrapBox>,
-        #[template_child]
-        pub cards_group: TemplateChild<adw::PreferencesGroup>,
-        /// The cards, in one or two columns by the page's rule (D61).
-        pub(super) cards: OnceCell<CardsGrid>,
-        /// What the cards need for their widest content, shared with the
-        /// grid and the header lines.
-        pub(super) page_layout: Rc<PageLayout>,
-        #[template_child]
-        pub read_only_group: TemplateChild<adw::PreferencesGroup>,
+        pub footer: TemplateChild<gtk::Label>,
         /// The board profile; `None` in generic mode.
         pub(super) profile: RefCell<Option<Profile>>,
         /// Why there is no profile, as the System page says it.
@@ -364,32 +388,12 @@ mod imp {
             // Samples are only stored while the page cannot be seen.
             obj.connect_map(|page| page.display());
 
-            let grid = CardsGrid::new(self.page_layout.clone());
-            self.cards_group.add(&grid);
-            let _ = self.cards.set(grid);
-
-            self.source_group
-                .set_description(Some(&glib::markup_escape_text(&source_description())));
-            for (mark, text) in legend_items() {
-                let item = gtk::Box::builder().spacing(7).build();
-                item.append(&Swatch::new(mark));
-                item.append(
-                    &gtk::Label::builder()
-                        .label(text)
-                        .css_classes(["caption", "fan-soft"])
-                        .build(),
-                );
-                self.legend.append(&item);
-            }
-            // Translators: read by screen readers for the legend above the
-            // fan cards.
-            let name = gettext("Legend of the charts");
-            self.legend
-                .upcast_ref::<gtk::Widget>()
-                .update_property(&[gtk::accessible::Property::Label(&name)]);
-            self.kernel_button.connect_clicked(|button| {
-                let window = button.root().and_downcast::<gtk::Window>();
-                gtk::UriLauncher::new(&kernel_url()).launch(
+            self.speeding
+                .update_state(&[gtk::accessible::State::Hidden(true)]);
+            self.kernel.set_label(&kernel_markup());
+            self.kernel.connect_activate_link(|label, uri| {
+                let window = label.root().and_downcast::<gtk::Window>();
+                gtk::UriLauncher::new(uri).launch(
                     window.as_ref(),
                     gio::Cancellable::NONE,
                     |result| {
@@ -398,7 +402,13 @@ mod imp {
                         }
                     },
                 );
+                glib::Propagation::Stop
             });
+            self.footer.set_label(&footer_text());
+            // Translators: read by screen readers for the list of fans.
+            let name = gettext("Fans");
+            self.list
+                .update_property(&[gtk::accessible::Property::Label(&name)]);
         }
     }
 
@@ -421,7 +431,7 @@ impl FansPage {
         self.display();
     }
 
-    /// The readings turned off in the preferences; their cards go.
+    /// The readings turned off in the preferences; their rows go.
     pub fn set_visibility(&self, visibility: Visibility) {
         self.imp().visibility.replace(visibility);
         self.display();
@@ -505,77 +515,25 @@ impl FansPage {
         self.apply_layout();
     }
 
-    /// Puts the cards in the grid, which stands them in one or two columns
-    /// by the page's rule and pairs their status boxes in rows (D60, D61).
-    fn arrange(&self, cards: &[CardWidgets]) {
-        if let Some(grid) = self.imp().cards.get() {
-            let widgets: Vec<&gtk::Widget> = cards.iter().map(|c| c.card.upcast_ref()).collect();
-            grid.set_cards(&widgets);
-        }
-    }
-
-    /// The needs of the widest content of the cards (D61); when they
-    /// change, the header lines and the grid lay out again.
-    fn update_needs(&self, cards: &[CardWidgets]) {
-        let imp = self.imp();
-        let numbers = self.numbers();
-        let needs = cards
-            .iter()
-            .map(|card| card.needs(numbers))
-            .fold(HeadNeeds::default(), HeadNeeds::max);
-        if imp.page_layout.needs.replace(needs) != needs {
-            for card in cards {
-                card.relayout_head();
-            }
-            if let Some(grid) = imp.cards.get() {
-                grid.queue_resize();
-            }
-        }
-    }
-
-    /// The button of the line on top: next to the text, or under it in a
-    /// narrow window, where the text keeps the whole width (D60).
-    fn place_kernel_button(&self, layout: Layout) {
-        let imp = self.imp();
-        let narrow = layout == Layout::Narrow;
-        // A reference of its own while the button moves.
-        let button = imp.kernel_button.get();
-        let target: &gtk::Box = if narrow {
-            &imp.note_texts
-        } else {
-            &imp.note_header
-        };
-        if button.parent().as_ref() != Some(target.upcast_ref()) {
-            if let Some(parent) = button.parent().and_downcast::<gtk::Box>() {
-                parent.remove(&button);
-            }
-            target.append(&button);
-        }
-        button.set_halign(if narrow {
-            gtk::Align::Start
-        } else {
-            gtk::Align::Fill
-        });
-        button.set_margin_top(if narrow { 6 } else { 0 });
-    }
-
     fn apply_layout(&self) {
         let imp = self.imp();
         let layout = imp.layout.get();
-        self.place_kernel_button(layout);
-        let state = imp.state.borrow();
-        for card in &state.cards {
-            card.set_layout(layout);
+        let narrow = layout == Layout::Narrow;
+        if narrow {
+            imp.hero.add_css_class("narrow");
+        } else {
+            imp.hero.remove_css_class("narrow");
         }
-        if let Some(source) = &state.source {
-            source.set_layout(layout);
+        let numbers = self.numbers();
+        for row in &imp.state.borrow().rows {
+            row.set_narrow(narrow, numbers);
         }
         if let Some(curve) = imp.curve.borrow().as_ref() {
             curve.set_layout(layout);
         }
     }
 
-    /// A status page in place of the cards.
+    /// A status page in place of the list.
     fn show_status(&self, title: &str, description: Option<&str>, details: bool) {
         let imp = self.imp();
         imp.status.set_title(title);
@@ -647,94 +605,71 @@ impl FansPage {
     fn render(&self, model: &Page) {
         let imp = self.imp();
         let numbers = self.numbers();
-        let layout = imp.layout.get();
-
-        // The line on top, with the information icon in both cases: a driver
-        // without control is the usual state of released kernels (D60).
-        let (title, subtitle, kernel) = match model.note {
-            Note::NoControl { sys_without_duty } => (
-                gettext("Fan control unavailable"),
-                crate::system::no_control(sys_without_duty),
-                true,
-            ),
-            Note::PreviewOnly => (preview_note(), String::new(), false),
-        };
-        if imp.note_title.label() != title || imp.note_subtitle.label() != subtitle {
-            imp.note_title.set_label(&title);
-            imp.note_subtitle.set_label(&subtitle);
-            imp.note_subtitle.set_visible(!subtitle.is_empty());
-            imp.note_row.upcast_ref::<gtk::Widget>().update_property(&[
-                gtk::accessible::Property::Label(&title),
-                gtk::accessible::Property::Description(&subtitle),
-            ]);
-        }
-        imp.kernel_button.set_visible(kernel);
-        imp.legend
-            .set_visible(model.cards.iter().any(|card| card.chart().is_some()));
-
-        let mut state = imp.state.borrow_mut();
-
-        // The temperature source.
-        imp.source_group.set_visible(model.source.is_some());
-        if let Some(source) = &model.source {
-            let widgets = state.source.get_or_insert_with(|| {
-                let widgets = SourceWidgets::new();
-                imp.source_group.add(&widgets.row);
-                widgets.set_layout(layout);
-                widgets
-            });
-            widgets.update(source, numbers);
-        }
-
-        // The cards, made again when they change.
-        let shapes: Vec<Shape> = model.cards.iter().map(Shape::of).collect();
-        if state.shapes != shapes {
-            state.cards = model
-                .cards
-                .iter()
-                .map(|card| CardWidgets::new(card, layout, imp.page_layout.clone()))
-                .collect();
-            state.shapes = shapes;
-            self.arrange(&state.cards);
-        }
         let context = PageContext {
             numbers,
             source: model.source.as_ref(),
         };
-        for (widgets, card) in state.cards.iter().zip(&model.cards) {
-            widgets.update(card, &context);
-        }
-        self.update_needs(&state.cards);
 
-        // The headers without control, as on the Overview.
-        imp.read_only_group.set_visible(!model.read_only.is_empty());
-        let ids: Vec<RowId> = model.read_only.iter().map(|r| r.id.clone()).collect();
-        let shown: Vec<RowId> = state.read_only.iter().map(|(id, _)| id.clone()).collect();
-        if ids != shown {
-            for (_, old) in state.read_only.drain(..) {
-                imp.read_only_group.remove(&old.row);
-            }
-            for row in &model.read_only {
-                let widgets = RowWidgets::new(false);
-                let icon = gtk::Image::builder()
-                    .icon_name("baseboard-fan-symbolic")
-                    .css_classes(["dimmed"])
-                    .accessible_role(gtk::AccessibleRole::Presentation)
-                    .build();
-                widgets.row.add_prefix(&icon);
-                imp.read_only_group.add(&widgets.row);
-                state.read_only.push((row.id.clone(), widgets));
-            }
-            let count = u32::try_from(ids.len()).unwrap_or(u32::MAX);
-            imp.read_only_group
-                .set_description(Some(&glib::markup_escape_text(&ngettext(
-                    "The kernel driver does not support control of this header.",
-                    "The kernel driver does not support control of these headers.",
-                    count,
-                ))));
+        // The temperature on top, in whole degrees.
+        let temperature = model.temperature.as_ref();
+        let value = temperature
+            .and_then(|t| t.row.as_ref())
+            .map(|r| r.value)
+            .filter(|v| v.is_finite());
+        for widget in [
+            imp.hero_label.upcast_ref::<gtk::Widget>(),
+            imp.hero_value.upcast_ref(),
+            imp.hero_unit.upcast_ref(),
+        ] {
+            widget.set_visible(value.is_some());
         }
-        for ((_, widgets), row) in state.read_only.iter().zip(&model.read_only) {
-            widgets.update(row, numbers);
+        if let (Some(temperature), Some(value)) = (temperature, value) {
+            set_label(&imp.hero_label, &temperature_name(temperature, numbers));
+            set_label(&imp.hero_value, &format!("{}", value.round() as i64));
+        }
+
+        // The rows.
+        let mut lines: Vec<FanLine> = model
+            .cards
+            .iter()
+            .map(|card| card_line(card, &context, value))
+            .collect();
+        lines.extend(model.read_only.iter().map(|r| read_only_line(r, numbers)));
+
+        // Under the temperature: the reserved line, or what the kernel can
+        // do.
+        let no_control = matches!(model.note, Note::NoControl { .. });
+        imp.kernel.set_visible(no_control);
+        imp.speeding.set_visible(!no_control);
+        imp.footer.set_visible(!no_control);
+        let speeding = !no_control && row::speeding_up(&lines);
+        let opacity = if speeding { 1.0 } else { 0.0 };
+        if imp.speeding.opacity() != opacity {
+            imp.speeding.set_opacity(opacity);
+            imp.speeding
+                .update_state(&[gtk::accessible::State::Hidden(!speeding)]);
+        }
+
+        let narrow = imp.layout.get() == Layout::Narrow;
+        let shapes: Vec<(String, bool, bool)> = lines
+            .iter()
+            .map(|line| (line.key.clone(), line.opens, line.chart.is_empty()))
+            .collect();
+        let mut state = imp.state.borrow_mut();
+        if state.shapes != shapes {
+            imp.list.remove_all();
+            state.rows = lines
+                .iter()
+                .map(|line| FanRow::new(line, numbers, narrow))
+                .collect();
+            for row in &state.rows {
+                imp.list.append(&row.row);
+            }
+            state.shapes = shapes;
+        } else {
+            for (row, line) in state.rows.iter().zip(&lines) {
+                row.update(line, numbers);
+            }
         }
         drop(state);
 
@@ -762,9 +697,12 @@ impl FansPage {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use baseboard_core::profile::{Temp, TempRole};
 
     use super::*;
+    use layout::{CardsGrid, HeadNeeds, PageLayout};
     use slot::StatusSlot;
 
     fn source(source: Source, temp: Option<Temp>) -> SourceRow {
@@ -776,19 +714,22 @@ mod tests {
         }
     }
 
-    #[test]
-    fn names_of_sources() {
-        let numbers = Numbers::new(".");
-        let cpu = Temp {
+    fn cpu() -> Temp {
+        Temp {
             key: "cpu".into(),
             role: TempRole::Cpu,
             input: 1,
             emergency_c: Some(95),
             label: None,
-        };
+        }
+    }
+
+    #[test]
+    fn names_of_sources() {
+        let numbers = Numbers::new(".");
         let name = |s: SourceRow| source_name(&s, &numbers);
         assert_eq!(
-            name(source(Source::Temp(1), Some(cpu))),
+            name(source(Source::Temp(1), Some(cpu()))),
             "CPU (board sensor)"
         );
         // A temperature the profile does not name, by its channel.
@@ -805,31 +746,45 @@ mod tests {
         assert_eq!(percent(30), "30\u{a0}%");
     }
 
-    /// A wrapped description never leaves fewer than three words alone on
-    /// its last line (D60).
+    /// On top, the processor is just "CPU"; another source by its name.
+    #[test]
+    fn name_of_the_temperature_on_top() {
+        let numbers = Numbers::new(".");
+        assert_eq!(
+            temperature_name(&source(Source::Temp(1), Some(cpu())), &numbers),
+            "CPU"
+        );
+        assert_eq!(
+            temperature_name(&source(Source::Temp(5), None), &numbers),
+            "temp5"
+        );
+    }
+
+    /// A wrapped text never leaves fewer than three words alone on its last
+    /// line (D60).
     #[test]
     fn last_words_held_together() {
         assert_eq!(keep_last_words("a b c d e", 3), "a b c\u{a0}d\u{a0}e");
         assert_eq!(keep_last_words("one two", 3), "one\u{a0}two");
         assert_eq!(keep_last_words("one", 3), "one");
-        let description = source_description();
-        assert!(
-            description.starts_with(
-                "The board's controller computes the duty cycle from this temperature. Gray range:"
-            ),
-            "{description}"
-        );
-        assert!(
-            description.ends_with(" since the\u{a0}app\u{a0}started."),
-            "{description}"
+        assert_eq!(
+            footer_text(),
+            "For now, Baseboard only shows the fan settings from\u{a0}the\u{a0}BIOS."
         );
     }
 
     /// The kernel section of the website; the Polish translation names the
-    /// Polish page.
+    /// Polish page. The link is a real link.
     #[test]
     fn kernel_section_of_the_website() {
         assert_eq!(kernel_url(), "https://baseboard.bojanowski.me/#kernel");
+        assert!(
+            kernel_markup().ends_with(
+                " <a href=\"https://baseboard.bojanowski.me/#kernel\">Kernel status</a>"
+            ),
+            "{}",
+            kernel_markup()
+        );
     }
 
     /// Two cards in a row: the status box of an unchecked header with three
@@ -863,9 +818,6 @@ mod tests {
             let (_, height, _, _) = grid.measure(gtk::Orientation::Vertical, width);
             grid.allocate(width, height, -1, None);
         };
-
-        // A card wide enough for the first sentence, so that the second
-        // one, the longer, wraps once.
         let (_, sentence, _, _) = empty.measure(gtk::Orientation::Horizontal, -1);
         let (_, icon, _, _) = unchecked
             .first_child()
@@ -874,40 +826,14 @@ mod tests {
         let card_width = icon + 10 + sentence * 4 / 5;
         let width = 2 * card_width + layout::SPACING;
         lay_out(width);
-        assert_eq!(left.width(), card_width);
-        assert_eq!(top(&grid, &left), top(&grid, &right));
-
-        let lines = |box_: &gtk::Box| {
-            let mut count = 0;
-            let mut child = box_.last_child().and_then(|c| c.first_child());
-            while let Some(widget) = child {
-                if let Some(label) = widget.downcast_ref::<gtk::Label>() {
-                    count += label.layout().line_count();
-                }
-                child = widget.next_sibling();
-            }
-            count
+        assert_eq!(mode.height(), unchecked.height());
+        let top = |widget: &gtk::Box| {
+            widget
+                .compute_point(&grid, &gtk::graphene::Point::new(0.0, 0.0))
+                .unwrap()
+                .y()
         };
-        assert_eq!(lines(&unchecked), 3, "the unchecked box has three lines");
-        assert_eq!(label.layout().line_count(), 1);
-        assert_eq!(mode.height(), unchecked.height());
-        assert_eq!(top(&grid, &left_chart), top(&grid, &right_chart));
-
-        // The header gets a fan: its note goes, and the box next to it
-        // follows, as the card says when its status changes.
-        let three_lines = unchecked.height();
-        empty.set_visible(false);
-        unchecked_slot.content_changed();
-        lay_out(width);
-        assert!(unchecked.height() < three_lines);
-        assert_eq!(mode.height(), unchecked.height());
-        assert_eq!(top(&grid, &left_chart), top(&grid, &right_chart));
-
-        // Header lines that need more than half the width: one column,
-        // the right card under the left one, and once the grid has paired
-        // the boxes for it, each box as high as its own text.
-        empty.set_visible(true);
-        unchecked_slot.content_changed();
+        assert_eq!(top(&left_chart), top(&right_chart));
         page_layout
             .needs
             .set(HeadNeeds::of(0, card_width - layout::GAP, 0, 0));
@@ -915,26 +841,7 @@ mod tests {
         lay_out(width);
         while glib::MainContext::default().iteration(false) {}
         lay_out(width);
-        assert_eq!(left.width(), width);
-        assert!(top(&grid, &right) > top(&grid, &left));
-        assert!(mode.height() < unchecked.height());
-
-        // Wide again: paired again.
-        page_layout.needs.set(HeadNeeds::default());
-        grid.queue_resize();
-        lay_out(width);
-        while glib::MainContext::default().iteration(false) {}
-        lay_out(width);
-        assert_eq!(top(&grid, &left), top(&grid, &right));
-        assert_eq!(mode.height(), unchecked.height());
-    }
-
-    /// Where `widget` starts, from the top of `grid`.
-    fn top(grid: &CardsGrid, widget: &impl IsA<gtk::Widget>) -> f32 {
-        widget
-            .compute_point(grid, &gtk::graphene::Point::new(0.0, 0.0))
-            .unwrap()
-            .y()
+        assert!(top(&right) > top(&left));
     }
 
     /// Four marks in the legend, each with a name.

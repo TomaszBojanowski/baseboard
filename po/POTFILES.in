@@ -8,6 +8,7 @@ crates/app/src/fans.rs
 crates/app/src/fans.ui
 crates/app/src/fans/card.rs
 crates/app/src/fans/curve_page.rs
+crates/app/src/fans/row.rs
 crates/app/src/overview.rs
 crates/app/src/overview.ui
 crates/app/src/preferences.rs

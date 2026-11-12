@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The Fans page as a model (docs/PROJEKT.md §5.5.3, §5.5.4, §7 M2,
-//! M2.4), without text: the note on top, the row of the temperature
-//! source, the cards of the headers and the headers without control, for
-//! what the driver allows and reports. Version 0.2.0 shows the settings
-//! only: no card changes anything.
+//! M2.4, D62), without text: the note, the temperature on top and the
+//! source of the curves, the cards of the headers (rows of the list in the
+//! app) and the headers without control, for what the driver allows and
+//! reports. Version 0.2.0 shows the settings only: nothing changes
+//! anything.
 //!
 //! The speeds, duty cycles and temperatures come from the Overview's model
 //! of the same sample, so both pages show the same values; the modes,
@@ -17,7 +18,7 @@ use crate::fans::driver::{
     Source,
 };
 use crate::overview::{Group, Row, Subtitle, Visibility};
-use crate::profile::{Fan, FanRole, Profile, Temp};
+use crate::profile::{Fan, FanRole, Profile, Temp, TempRole};
 
 /// What the app reads for one fan channel while the page is shown.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -83,6 +84,9 @@ pub struct Page {
     /// The temperature the curves follow, once for all cards; `None`
     /// without a curve source.
     pub source: Option<SourceRow>,
+    /// The temperature on top of the page (D62): the source the curves
+    /// follow, or without one the processor's temperature of the profile.
+    pub temperature: Option<SourceRow>,
     /// In the order of the headers on the board.
     pub cards: Vec<Card>,
     /// Headers the driver does not control (the auxiliary fan on MS-7E61),
@@ -326,12 +330,19 @@ pub fn build(input: &Input) -> Page {
     } else {
         Note::PreviewOnly
     };
+    let source = common
+        .filter(|_| level != DriverLevel::ReadOnly)
+        .map(source_row);
+    let cpu = profile
+        .temps
+        .iter()
+        .find(|t| t.role == TempRole::Cpu)
+        .map(|t| source_row(Source::Temp(t.input)));
     Page {
         level,
         note,
-        source: common
-            .filter(|_| level != DriverLevel::ReadOnly)
-            .map(source_row),
+        temperature: source.clone().or(cpu),
+        source,
         cards,
         read_only,
     }
@@ -589,6 +600,11 @@ mod tests {
         assert!(page.cards.iter().all(|c| c.kind == CardKind::Low));
         assert!(page.read_only.is_empty());
         assert_eq!(page.source, None);
+        // On top the processor's temperature of the profile (D62).
+        let temperature = page.temperature.as_ref().unwrap();
+        assert_eq!(temperature.source, Source::Temp(1));
+        assert_eq!(temperature.temp.as_ref().unwrap().role, TempRole::Cpu);
+        assert_eq!(temperature.millidegrees(), Some(46_000));
         assert_eq!(card(&page, "cpu1").duty, Some(100));
         assert_eq!(card(&page, "sys1").duty, None);
     }
@@ -608,6 +624,8 @@ mod tests {
         assert_eq!(source.source, Source::Temp(1));
         assert_eq!(source.temp.as_ref().unwrap().emergency_c, Some(95));
         assert_eq!(source.millidegrees(), Some(46_000));
+        // On top the source of the curves.
+        assert_eq!(page.temperature.as_ref(), Some(source));
         // Two positions without curve writes; the pump, not checked on this
         // board, has the box instead.
         let cpu = card(&page, "cpu1");
@@ -659,6 +677,11 @@ mod tests {
         let page = page(DriverLevel::Manual);
         assert_eq!(page.level, DriverLevel::Manual);
         assert_eq!(page.source, None);
+        // Without curves, the processor's temperature on top.
+        assert_eq!(
+            page.temperature.as_ref().map(|t| t.source),
+            Some(Source::Temp(1))
+        );
         assert!(matches!(
             card(&page, "sys3").kind,
             CardKind::Full {
