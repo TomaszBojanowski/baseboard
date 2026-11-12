@@ -62,9 +62,9 @@ pub fn name(name: &Name, numbers: &Numbers) -> String {
             number,
         ),
         Name::Temp(role) => match role {
-            TempRole::Cpu => gettext("CPU (board sensor)"),
+            TempRole::Cpu => gettext("Processor (board sensor)"),
             TempRole::System => gettext("System temperature"),
-            TempRole::Vrm => gettext("CPU power stage"),
+            TempRole::Vrm => gettext("Processor power stage"),
             TempRole::Chipset => gettext("Chipset"),
         },
         Name::Voltage(role) => match role {
@@ -72,11 +72,11 @@ pub fn name(name: &Name, numbers: &Numbers) -> String {
                 .nominal()
                 .map(|volts| numbers.nominal(volts))
                 .unwrap_or_default(),
-            VoltageRole::Vcore => gettext("CPU cores"),
-            VoltageRole::Soc => gettext("CPU SoC"),
-            VoltageRole::Vddio => gettext("CPU VDDIO"),
+            VoltageRole::Vcore => gettext("Processor cores"),
+            VoltageRole::Soc => gettext("Processor SoC"),
+            VoltageRole::Vddio => gettext("Processor VDDIO"),
         },
-        Name::CpuTctl => gettext("CPU (Tctl)"),
+        Name::CpuTctl => gettext("Processor (Tctl)"),
         // Translators: {} is the number of the processor's core chiplet (CCD).
         Name::CpuChiplet(number) => numbered(gettext("Chiplet CCD{}"), number),
         Name::GpuChip => gettext("Graphics chip"),
@@ -150,23 +150,23 @@ pub fn subtitle(row: &Row, numbers: &Numbers) -> String {
                 // Translators: nobody has yet checked on this board that
                 // the reading belongs to this header. Keep it short: it
                 // has to fit in one line with the header and duty cycle.
-                (Some(_), false, false) => gettext("{header} · duty {duty} · header not tested"),
+                (Some(_), false, false) => gettext("{header} · duty {duty} · header not checked"),
                 (None, true, false) => return header.clone(),
-                (None, false, false) => gettext("{header} · header not tested"),
+                (None, false, false) => gettext("{header} · header not checked"),
                 // Translators: {mode} is "manual mode" for a fan in manual
                 // mode, e.g. "CPU_FAN1 · duty 45 % · manual mode".
                 (Some(_), true, true) => gettext("{header} · duty {duty} · {mode}"),
                 (Some(_), false, true) => {
                     // Translators: as "{header} · duty {duty} · {mode}", for
                     // a header nobody has checked on this board.
-                    gettext("{header} · duty {duty} · {mode} · header not tested")
+                    gettext("{header} · duty {duty} · {mode} · header not checked")
                 }
                 // Translators: {mode} is "manual mode" for a fan in manual
                 // mode; the driver gives no duty cycle.
                 (None, true, true) => gettext("{header} · {mode}"),
                 // Translators: as "{header} · {mode}", for a header nobody
                 // has checked on this board.
-                (None, false, true) => gettext("{header} · {mode} · header not tested"),
+                (None, false, true) => gettext("{header} · {mode} · header not checked"),
             };
             let text = text
                 .replace("{header}", header)
@@ -903,14 +903,14 @@ mod tests {
         };
         assert_eq!(
             header(Some(255.0), false, None),
-            "PUMP_FAN1 · duty 100\u{a0}% · header not tested"
+            "PUMP_FAN1 · duty 100\u{a0}% · header not checked"
         );
         assert_eq!(
             header(Some(255.0), true, None),
             "PUMP_FAN1 · duty 100\u{a0}%"
         );
         assert_eq!(header(None, true, None), "PUMP_FAN1");
-        assert_eq!(header(None, false, None), "PUMP_FAN1 · header not tested");
+        assert_eq!(header(None, false, None), "PUMP_FAN1 · header not checked");
     }
 
     /// Manual mode (§5.5.3, D59) after the duty cycle, before "header not
@@ -933,7 +933,7 @@ mod tests {
         );
         assert_eq!(
             header(Some(255.0), false, Mode::Manual),
-            "CPU_FAN1 · duty 100\u{a0}% · manual\u{a0}mode · header not tested"
+            "CPU_FAN1 · duty 100\u{a0}% · manual\u{a0}mode · header not checked"
         );
         assert_eq!(
             header(None, true, Mode::Manual),
@@ -941,7 +941,7 @@ mod tests {
         );
         assert_eq!(
             header(None, false, Mode::Manual),
-            "CPU_FAN1 · manual\u{a0}mode · header not tested"
+            "CPU_FAN1 · manual\u{a0}mode · header not checked"
         );
         assert_eq!(
             header(Some(124.0), true, Mode::Auto),
@@ -949,7 +949,7 @@ mod tests {
         );
         assert_eq!(
             header(Some(255.0), false, Mode::Auto),
-            "CPU_FAN1 · duty 100\u{a0}% · header not tested"
+            "CPU_FAN1 · duty 100\u{a0}% · header not checked"
         );
         assert_eq!(header(None, true, Mode::Auto), "CPU_FAN1");
     }

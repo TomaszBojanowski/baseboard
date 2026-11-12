@@ -15,7 +15,7 @@ use crate::overview;
 /// The warning about a stopped CPU fan (D65), also in the Fans row of the
 /// Overview and in the status row of the System page.
 pub fn cpu_fan_stopped() -> String {
-    // Translators: a CPU fan turned before and shows 0 rpm now (D65), on the
+    // Translators: a CPU fan was spinning and shows 0 rpm now (D65), on the
     // Overview, the Fans page and the System page.
     gettext("CPU fan stopped")
 }
@@ -23,18 +23,21 @@ pub fn cpu_fan_stopped() -> String {
 /// Why the app says the CPU fan stopped, under the warning on the Fans page.
 pub fn cpu_fan_stopped_why() -> String {
     // Translators: under "CPU fan stopped" on the Fans page (D65).
-    gettext("It turned before and has shown 0 rpm for at least 10 seconds.")
+    gettext("It was spinning earlier and has shown 0 rpm for at least 10 seconds.")
 }
 
-/// A rail outside its tolerance, in a few words: the row of the Overview
-/// and the status row of the System page.
+/// A rail outside its tolerance, in a few words, in the tone of the power
+/// row's "Normal": the row of the Overview and the status row of the System
+/// page.
 pub fn rail_outside(rail: &OutsideRail, numbers: &Numbers) -> String {
     let text = if rail.too_low() {
-        // Translators: {rail} is a supply rail, e.g. "+12 V".
-        gettext("Voltage {rail} below the normal range")
+        // Translators: {rail} is a supply rail, e.g. "+12 V"; the power
+        // row of the Overview otherwise says "Normal".
+        gettext("{rail} below normal")
     } else {
-        // Translators: {rail} is a supply rail, e.g. "+12 V".
-        gettext("Voltage {rail} above the normal range")
+        // Translators: {rail} is a supply rail, e.g. "+12 V"; the power
+        // row of the Overview otherwise says "Normal".
+        gettext("{rail} above normal")
     };
     text.replace("{rail}", &overview::name(&rail.name, numbers))
 }
@@ -47,11 +50,11 @@ pub fn rail_warning(rail: &OutsideRail, numbers: &Numbers) -> (String, String) {
     let title = if rail.too_low() {
         // Translators: {rail} is a supply rail, e.g. "+12 V", and {value}
         // what the board reads, e.g. "11.20 V".
-        gettext("Voltage {rail} below the normal range: {value}")
+        gettext("{rail} below normal: {value}")
     } else {
         // Translators: {rail} is a supply rail, e.g. "+12 V", and {value}
         // what the board reads, e.g. "12.80 V".
-        gettext("Voltage {rail} above the normal range: {value}")
+        gettext("{rail} above normal: {value}")
     }
     .replace("{rail}", &overview::name(&rail.name, numbers))
     .replace("{value}", &value);
@@ -60,7 +63,7 @@ pub fn rail_warning(rail: &OutsideRail, numbers: &Numbers) -> (String, String) {
         // Translators: under the warning about a supply rail; {range} is
         // the normal range, e.g. "11.40–12.60 V".
         "The normal range is {range}. Board readings can be inaccurate; if the computer is \
-         unstable, it is worth checking the power supply.",
+         unstable, consider checking the power supply.",
     )
     .replace("{range}", &range);
     (title, text)
@@ -163,15 +166,9 @@ mod tests {
             low: 11.4,
             high: 12.6,
         };
-        assert_eq!(
-            rail_outside(&low, &numbers),
-            "Voltage +12\u{a0}V below the normal range"
-        );
+        assert_eq!(rail_outside(&low, &numbers), "+12\u{a0}V below normal");
         let (title, text) = rail_warning(&low, &numbers);
-        assert_eq!(
-            title,
-            "Voltage +12\u{a0}V below the normal range: 11,20\u{a0}V"
-        );
+        assert_eq!(title, "+12\u{a0}V below normal: 11,20\u{a0}V");
         assert!(
             text.starts_with("The normal range is 11,40–12,60\u{a0}V. Board readings can be"),
             "{text}"

@@ -6,7 +6,7 @@
 //! marks, and a legend for what the chart could not label; the points as
 //! read from the board's controller; what the list of fans does not show
 //! about the header (its mode, minimum, and whether it was checked and
-//! turns); the temperature source and how a curve works.
+//! spins); the temperature source and how a curve works.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -371,9 +371,9 @@ impl CurvePage {
         );
         let empty = info_row(
             "help-about-symbolic",
-            // Translators: on the curve page of a fan that has not turned
+            // Translators: on the curve page of a fan that has not spun
             // since Baseboard started.
-            &gettext("No speed since the app started"),
+            &gettext("Not spinning since the app started"),
             &gettext("The header may be empty."),
         );
         for row in [&mode_row, &manual, &minimum_row, &unchecked, &empty] {
@@ -384,7 +384,8 @@ impl CurvePage {
         let source_group = group(&gettext("Temperature source"));
         // Translators: under "Temperature source" on the curve page; "it"
         // is the temperature.
-        source_group.set_description(Some(&gettext("The controller computes the duty from it.")));
+        let computes = gettext("The controller computes the duty cycle from it.");
+        source_group.set_description(Some(&computes));
         let source_row = adw::ActionRow::builder().use_markup(false).build();
         let thermometer = gtk::Image::from_icon_name("baseboard-temperature-symbolic");
         thermometer.set_accessible_role(gtk::AccessibleRole::Presentation);
@@ -405,7 +406,7 @@ impl CurvePage {
         how.add(&info_row(
             "baseboard-curve-symbolic",
             &gettext("The duty cycle changes linearly between the points"),
-            &gettext("Below the first point and above the last one their duty cycle holds."),
+            &gettext("Below the first point and above the last one, their duty cycle applies."),
         ));
         how.add(&info_row(
             "baseboard-board-symbolic",
@@ -842,7 +843,7 @@ mod tests {
 
     /// The group "Header" says what the list of fans no longer shows
     /// (D62): the minimum where there is one, and the notes of a header
-    /// nobody checked and of one that does not turn. Needs a display.
+    /// nobody checked and of one that does not spin. Needs a display.
     #[test]
     fn header_group_of_the_curve_page() {
         crate::gtk_test::run("header_group_of_the_curve_page", || {

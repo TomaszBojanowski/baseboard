@@ -55,7 +55,7 @@ pub(super) struct FanLine {
     pub unchecked: bool,
     /// No speed since the start at a duty cycle above 0.
     pub maybe_empty: bool,
-    /// A CPU fan that turned and stands now (D65).
+    /// A CPU fan that was spinning and stands now (D65).
     pub stopped: bool,
     /// The line of the small chart, in °C and 0–255; empty without one.
     pub chart: Vec<(f64, f64)>,
@@ -80,14 +80,14 @@ impl FanLine {
     /// empty header, manual mode, or a visible move to the target.
     pub(super) fn state(&self) -> Option<String> {
         if self.stopped {
-            // Translators: under the CPU fan on the Fans page when it turned
-            // before and stands now (D65).
+            // Translators: under the CPU fan on the Fans page when it was
+            // spinning before and stands now (D65).
             return Some(pgettext("fan state", "Stopped"));
         }
         if self.maybe_empty {
             // Translators: under a fan on the Fans page when it has not
-            // turned since Baseboard started; one sentence.
-            return Some(gettext("Not turning – the header may be empty."));
+            // spun since Baseboard started; one sentence.
+            return Some(gettext("Not spinning – the header may be empty."));
         }
         if self.mode == Some(Mode::Manual) {
             // Translators: under a fan on the Fans page, its mode.
@@ -154,7 +154,7 @@ impl FanLine {
         }
         if self.maybe_empty {
             parts.push(gettext(
-                "No speed since the app started: the header may be empty.",
+                "Not spinning since the app started: the header may be empty.",
             ));
         }
         parts.join(", ")
@@ -574,7 +574,7 @@ mod tests {
     fn states_in_plain_words() {
         assert_eq!(
             pump().state().as_deref(),
-            Some("Not turning – the header may be empty.")
+            Some("Not spinning – the header may be empty.")
         );
         assert_eq!(cpu().state().as_deref(), Some("Speeding up"));
         // A change under 5 points only goes to screen readers.
@@ -627,8 +627,8 @@ mod tests {
         assert_eq!(
             pump().subtitles(true, &numbers),
             [
-                "0\u{a0}rpm · 100\u{a0}% · Not turning – the header may be empty.",
-                "Not turning – the header may be empty."
+                "0\u{a0}rpm · 100\u{a0}% · Not spinning – the header may be empty.",
+                "Not spinning – the header may be empty."
             ]
         );
         let quiet = FanLine {
@@ -663,7 +663,7 @@ mod tests {
         assert_eq!(
             pump().description(&numbers),
             "PUMP_SYS1, 0\u{a0}rpm, duty 100\u{a0}%, mode: Automatic BIOS, minimum 50\u{a0}%, \
-             This header was not checked on this board., No speed since the app started: \
+             This header was not checked on this board., Not spinning since the app started: \
              the header may be empty."
         );
     }
@@ -743,12 +743,12 @@ mod tests {
             let width = 376;
             let (_, height, _, _) = row.row.measure(gtk::Orientation::Vertical, width);
             row.row.allocate(width, height, -1, None);
-            assert_eq!(row.subtitle(), "Not turning – the header may be empty.");
+            assert_eq!(row.subtitle(), "Not spinning – the header may be empty.");
             // Wide, in the list of 600 px: the sentence alone.
             row.set_narrow(false, &numbers);
             let (_, height, _, _) = row.row.measure(gtk::Orientation::Vertical, 600);
             row.row.allocate(600, height, -1, None);
-            assert_eq!(row.subtitle(), "Not turning – the header may be empty.");
+            assert_eq!(row.subtitle(), "Not spinning – the header may be empty.");
         });
     }
 }

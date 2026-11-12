@@ -322,7 +322,7 @@ fn draw_dot(snapshot: &gtk::Snapshot, plot: &Plot, palette: &Palette, marker: &g
 /// on its own (§9).
 pub fn describe(curve: &ChartCurve, reading: Option<Reading>, numbers: &Numbers) -> String {
     let mut sentences = vec![
-        // Translators: {source} is a temperature, e.g. "CPU (board sensor)".
+        // Translators: {source} is a temperature, e.g. "Processor (board sensor)".
         gettext("Temperature source: {source}.").replace("{source}", &curve.source),
     ];
     for (first, last) in curve::runs(&curve.points) {
@@ -805,7 +805,7 @@ impl FanChart {
             draw_text(snapshot, &title, -w / 2.0, 0.0, &tick);
             snapshot.restore();
             // Translators: the title of the horizontal axis of a fan curve;
-            // {source} is a temperature, e.g. "CPU (board sensor)".
+            // {source} is a temperature, e.g. "Processor (board sensor)".
             let text = gettext("Temperature: {source}").replace("{source}", &curve.source);
             let title = layout(widget, &text, text_scale, false);
             let (w, _) = size_of(&title);
@@ -1112,7 +1112,7 @@ mod tests {
         points.extend([points[3]; 3]);
         ChartCurve {
             name: "System fan 1".into(),
-            source: "CPU (board sensor)".into(),
+            source: "Processor (board sensor)".into(),
             points,
             min_percent: 0,
             threshold: Some(95),
@@ -1134,7 +1134,7 @@ mod tests {
         );
         assert_eq!(
             text,
-            "Temperature source: CPU (board sensor). Point 1: 0\u{a0}°C, 37\u{a0}%. \
+            "Temperature source: Processor (board sensor). Point 1: 0\u{a0}°C, 37\u{a0}%. \
              Point 2: 5\u{a0}°C, 38\u{a0}%. Point 3: 84\u{a0}°C, 39\u{a0}%. \
              Points 4 to 7: 85\u{a0}°C, 100\u{a0}%. Now 46.0\u{a0}°C, duty cycle 38\u{a0}%. \
              Emergency threshold: 95\u{a0}°C."

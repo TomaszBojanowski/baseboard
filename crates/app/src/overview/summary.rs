@@ -3,7 +3,7 @@
 //! The top of the Overview page (docs/PROJEKT.md §5.1, D64), from
 //! `core::summary`: a warning about a rail outside its tolerance, three
 //! large numbers in the style of the Fans page, and a short list (power,
-//! fans, memory, drives, every reading). A number or a row opens the page
+//! fans, memory, disks, every reading). A number or a row opens the page
 //! "All Sensors" on its group; the fans row opens the Fans page.
 
 use adw::prelude::*;
@@ -243,7 +243,7 @@ impl SummaryWidgets {
         let every = SummaryRow::new(all, &gettext("All sensors"), false).opens(show, Some(""));
         every.show(
             "",
-            &gettext("Every reading with its source and its range since the app started"),
+            &gettext("Every reading with its source and range since the app started"),
             None,
         );
         list.update_property(&[gtk::accessible::Property::Label(&gettext(
@@ -314,9 +314,9 @@ impl SummaryWidgets {
             None => self.fans.row.set_visible(false),
             Some(fans) => {
                 let count = u32::try_from(fans.turning).unwrap_or(u32::MAX);
-                // Translators: how many fans turn, on the Overview.
+                // Translators: how many fans spin, on the Overview.
                 let value =
-                    ngettext("{} running", "{} running", count).replace("{}", &count.to_string());
+                    ngettext("{} spinning", "{} spinning", count).replace("{}", &count.to_string());
                 if fans.cpu_stopped {
                     self.fans
                         .show(&value, &alert::cpu_fan_stopped(), Some(true));
@@ -331,14 +331,20 @@ impl SummaryWidgets {
             ngettext("Warmest of {} module", "Warmest of {} modules", count)
         });
         show_warmest(&self.disks, summary.disks, numbers, |count| {
-            // Translators: under the warmest drive on the Overview.
-            ngettext("Warmest of {} drive", "Warmest of {} drives", count)
+            // Translators: under the warmest disk on the Overview.
+            ngettext("Warmest of {} disk", "Warmest of {} disks", count)
         });
     }
 
     fn show_power(&self, rails: &[OutsideRail], numbers: &Numbers) {
         match rails {
-            [] => self.power.show(&gettext("In order"), "", Some(false)),
+            [] => self.power.show(
+                // Translators: the value of the power row of the Overview when
+                // every rated rail is within its tolerance.
+                &gettext("Normal"),
+                "",
+                Some(false),
+            ),
             [rail] => self.power.show(
                 &numbers.value_of(Kind::Voltage, rail.value, Some(rail.nominal)),
                 &alert::rail_outside(rail, numbers),
@@ -445,12 +451,13 @@ mod tests {
                 Some("cpu".to_variant())
             );
             let (title, _) = widgets.alert().unwrap();
-            assert_eq!(
-                title,
-                "Voltage +12\u{a0}V below the normal range: 11,20\u{a0}V"
-            );
+            assert_eq!(title, "+12\u{a0}V below normal: 11,20\u{a0}V");
             assert_eq!(widgets.power.value.label(), "11,20\u{a0}V");
-            assert_eq!(widgets.fans.value.label(), "5 running");
+            assert_eq!(
+                widgets.power.row.subtitle().as_deref(),
+                Some("+12\u{a0}V below normal")
+            );
+            assert_eq!(widgets.fans.value.label(), "5 spinning");
             assert_eq!(
                 widgets.fans.row.subtitle().as_deref(),
                 Some("CPU fan stopped")
@@ -461,7 +468,7 @@ mod tests {
             );
             assert!(!widgets.disks.row.is_visible());
 
-            // All well: no warning, power in order, no fan subtitle.
+            // All well: no warning, power normal, no fan subtitle.
             let calm = Summary {
                 power: Some(Vec::new()),
                 fans: Some(Fans {
@@ -472,7 +479,7 @@ mod tests {
             };
             widgets.update(&calm, &numbers);
             assert_eq!(widgets.alert(), None);
-            assert_eq!(widgets.power.value.label(), "In order");
+            assert_eq!(widgets.power.value.label(), "Normal");
             assert_eq!(widgets.fans.row.subtitle().as_deref(), Some(""));
         });
     }

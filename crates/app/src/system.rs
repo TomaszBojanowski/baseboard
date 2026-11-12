@@ -129,6 +129,9 @@ pub enum Style {
 pub enum Status {
     Ok,
     Warning,
+    /// Neither: something to know, e.g. readings straight from sysfs. In a
+    /// group of checks every row has an icon, so that the texts line up.
+    Info,
 }
 
 impl Line {
@@ -504,7 +507,7 @@ fn skipped_files(files: &[SkippedFile]) -> Section {
         .map(|file| {
             let kind = match file.kind {
                 FileKind::Profile => gettext("Board profile"),
-                FileKind::Labels => gettext("Own names"),
+                FileKind::Labels => gettext("Custom names"),
             };
             Line::item(
                 crate::preferences::home_relative(&file.path),
@@ -624,11 +627,13 @@ fn profile_line(detection: &Detection) -> Line {
             // one code can differ in fan headers.
             gettext("The profiles for {} are for models with other fan headers")
                 .replace("{}", &code_label(code)),
-        ),
+        )
+        .status(Some(Status::Info)),
         Detection::Generic => Line::item(
             gettext("No profile for this board: generic mode"),
             gettext("Readings without header names, no fan control"),
-        ),
+        )
+        .status(Some(Status::Info)),
     }
 }
 
@@ -966,6 +971,11 @@ fn sensors_and_fans(detection: &Detection, info: &SystemInfo, source: Option<&Ch
         config,
         programs,
     ]);
+    // A check that is neither fine nor a problem is information, with its
+    // icon, so that every text of the group starts at one place.
+    for line in &mut lines {
+        line.status.get_or_insert(Status::Info);
+    }
     section(gettext("Sensors and fans"), None, lines)
 }
 
@@ -1081,6 +1091,7 @@ fn row(line: &Line) -> adw::ActionRow {
         let (icon, class) = match status {
             Status::Ok => ("object-select-symbolic", "success"),
             Status::Warning => ("dialog-warning-symbolic", "warning"),
+            Status::Info => ("help-about-symbolic", "dimmed"),
         };
         let image = gtk::Image::builder()
             .icon_name(icon)
@@ -1380,7 +1391,7 @@ mod tests {
         );
         // Without a profile the driver is information, not a warning.
         let drivers = section(&sections, "Sensors and fans");
-        assert_eq!(drivers.lines[0].status, None);
+        assert_eq!(drivers.lines[0].status, Some(Status::Info));
         assert_eq!(titled(drivers, "lm-sensors configuration").value, "No data");
         // Before the Overview's first sample nothing is known of libsensors.
         assert_eq!(titled(drivers, "lm-sensors library").value, "No data");
@@ -1507,7 +1518,7 @@ mod tests {
             (
                 "No profile for this model: generic mode".into(),
                 "The profiles for MS-7E56 are for models with other fan headers".into(),
-                None
+                Some(Status::Info)
             )
         );
         assert_eq!(
@@ -1515,7 +1526,7 @@ mod tests {
             (
                 "No profile for this board: generic mode".into(),
                 "Readings without header names, no fan control".into(),
-                None
+                Some(Status::Info)
             )
         );
     }
@@ -1613,7 +1624,8 @@ mod tests {
                 .value
                 .ends_with("libsensors.so.5: cannot open shared object file")
         );
-        assert_eq!(missing.status, None);
+        // Information, with its icon in line with the others (D64).
+        assert_eq!(missing.status, Some(Status::Info));
     }
 
     /// In a Flatpak sandbox (§10.3): the lm-sensors configuration row says
@@ -1655,10 +1667,10 @@ mod tests {
         assert!(config.monospace);
         let programs = titled(rows, "Other fan control programs");
         assert_eq!(programs.value, "Cannot be checked in Flatpak");
-        assert_eq!(programs.status, None);
+        assert_eq!(programs.status, Some(Status::Info));
         let library = titled(rows, "lm-sensors library");
         assert!(library.value.contains("Flatpak does not share"));
-        assert_eq!(library.status, None);
+        assert_eq!(library.status, Some(Status::Info));
         assert_eq!(
             rows.lines[0].value,
             "The nct6683 driver is loaded · module origin unknown"
@@ -1712,7 +1724,7 @@ mod tests {
             files.lines[0].value,
             "Board profile · invalid profile: missing field `id`"
         );
-        assert!(files.lines[1].value.starts_with("Own names · "));
+        assert!(files.lines[1].value.starts_with("Custom names · "));
         assert!(
             files
                 .lines

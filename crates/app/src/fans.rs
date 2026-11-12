@@ -85,13 +85,12 @@ pub(crate) fn source_name(row: &SourceRow, numbers: &Numbers) -> String {
     }
 }
 
-/// What the large temperature on top is (D62): "CPU" for the processor's
-/// temperature of the profile, otherwise its name as on the Overview.
+/// What the large temperature on top is (D62): "Processor" for the
+/// processor's temperature of the profile, as the large number of the
+/// Overview; otherwise its name as on the Overview.
 fn temperature_name(row: &SourceRow, numbers: &Numbers) -> String {
     match row.temp.as_ref().map(|t| t.role) {
-        // Translators: above the large temperature on the Fans page, the
-        // temperature of the processor.
-        Some(TempRole::Cpu) => gettext("CPU"),
+        Some(TempRole::Cpu) => gettext("Processor"),
         _ => source_name(row, numbers),
     }
 }
@@ -802,7 +801,7 @@ mod tests {
         let name = |s: SourceRow| source_name(&s, &numbers);
         assert_eq!(
             name(source(Source::Temp(1), Some(cpu()))),
-            "CPU (board sensor)"
+            "Processor (board sensor)"
         );
         // A temperature the profile does not name, by its channel.
         assert_eq!(name(source(Source::Temp(5), None)), "temp5");
@@ -818,13 +817,14 @@ mod tests {
         assert_eq!(percent(30), "30\u{a0}%");
     }
 
-    /// On top, the processor is just "CPU"; another source by its name.
+    /// On top, the processor is just "Processor", as on the Overview;
+    /// another source by its name.
     #[test]
     fn name_of_the_temperature_on_top() {
         let numbers = Numbers::new(".");
         assert_eq!(
             temperature_name(&source(Source::Temp(1), Some(cpu())), &numbers),
-            "CPU"
+            "Processor"
         );
         assert_eq!(
             temperature_name(&source(Source::Temp(5), None), &numbers),

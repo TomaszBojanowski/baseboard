@@ -232,7 +232,7 @@ fn parse_seconds(text: &str) -> Option<u32> {
 fn own_names_row(file: &Path) -> adw::ActionRow {
     let row = adw::ActionRow::builder()
         .use_markup(false)
-        .title(gettext("Own names"))
+        .title(gettext("Custom names"))
         .subtitle(gettext("Changes apply after a restart"))
         .tooltip_text(home_relative(file))
         .build();
@@ -306,7 +306,7 @@ fn readings_list(setup: &DialogSetup) -> adw::PreferencesPage {
         .description(gettext(
             "Readings that are turned off are not shown on the Overview page, \
              for example headers without a fan. The numbered temperature \
-             sensors of drives are off until turned on.",
+             sensors of disks are off until turned on.",
         ))
         .build();
     if setup.groups.is_empty() {
