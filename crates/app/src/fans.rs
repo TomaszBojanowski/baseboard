@@ -10,16 +10,8 @@
 //! otherwise their values are set. Samples come from the window's sensor
 //! reader, which reads the fan channels only while this page is shown.
 
-// The cards of D45, D60 and D61, replaced by the list (D62); removed in the
-// next commit.
-#[allow(dead_code)]
-mod card;
 mod curve_page;
-#[allow(dead_code)]
-mod layout;
 mod row;
-#[allow(dead_code)]
-mod slot;
 mod spark;
 
 use std::cell::{Cell, OnceCell, RefCell};
@@ -697,13 +689,9 @@ impl FansPage {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
-
     use baseboard_core::profile::{Temp, TempRole};
 
     use super::*;
-    use layout::{CardsGrid, HeadNeeds, PageLayout};
-    use slot::StatusSlot;
 
     fn source(source: Source, temp: Option<Temp>) -> SourceRow {
         SourceRow {
@@ -785,63 +773,6 @@ mod tests {
             "{}",
             kernel_markup()
         );
-    }
-
-    /// Two cards in a row: the status box of an unchecked header with three
-    /// lines (its second sentence wraps once) and the mode box with one line
-    /// are equally high, and the charts under them start at one height
-    /// (D60). In one column each box is as high as its own text (D61).
-    /// Needs a display; skipped without one.
-    #[test]
-    fn status_boxes_in_a_row_equally_high() {
-        crate::gtk_test::run("status_boxes_in_a_row_equally_high", status_boxes);
-    }
-
-    fn status_boxes() {
-        let card = |slot: &StatusSlot| {
-            let card = gtk::Box::new(gtk::Orientation::Vertical, 12);
-            let chart = gtk::Box::builder().height_request(150).build();
-            card.append(slot);
-            card.append(&chart);
-            (card, chart)
-        };
-        let (mode, label) = card::mode_box();
-        label.set_markup("Mode: <b>Automatic BIOS</b>");
-        let (unchecked, empty) = card::unchecked_box();
-        let unchecked_slot = StatusSlot::new(&unchecked);
-        let (left, left_chart) = card(&StatusSlot::new(&mode));
-        let (right, right_chart) = card(&unchecked_slot);
-        let page_layout = Rc::new(PageLayout::default());
-        let grid = CardsGrid::new(page_layout.clone());
-        grid.set_cards(&[left.upcast_ref(), right.upcast_ref()]);
-        let lay_out = |width: i32| {
-            let (_, height, _, _) = grid.measure(gtk::Orientation::Vertical, width);
-            grid.allocate(width, height, -1, None);
-        };
-        let (_, sentence, _, _) = empty.measure(gtk::Orientation::Horizontal, -1);
-        let (_, icon, _, _) = unchecked
-            .first_child()
-            .unwrap()
-            .measure(gtk::Orientation::Horizontal, -1);
-        let card_width = icon + 10 + sentence * 4 / 5;
-        let width = 2 * card_width + layout::SPACING;
-        lay_out(width);
-        assert_eq!(mode.height(), unchecked.height());
-        let top = |widget: &gtk::Box| {
-            widget
-                .compute_point(&grid, &gtk::graphene::Point::new(0.0, 0.0))
-                .unwrap()
-                .y()
-        };
-        assert_eq!(top(&left_chart), top(&right_chart));
-        page_layout
-            .needs
-            .set(HeadNeeds::of(0, card_width - layout::GAP, 0, 0));
-        grid.queue_resize();
-        lay_out(width);
-        while glib::MainContext::default().iteration(false) {}
-        lay_out(width);
-        assert!(top(&right) > top(&left));
     }
 
     /// Four marks in the legend, each with a name.
