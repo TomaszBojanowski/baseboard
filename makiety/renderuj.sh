@@ -15,7 +15,7 @@ out=${OUT:-png}
 mkdir -p "$out"
 
 browser=$(command -v chromium-browser || command -v chromium || command -v google-chrome)
-pages=${*:-"przeglad wentylatory wentylatory-szczegoly wentylatory-krzywa wentylatory-stany rgb wydajnosc system"}
+pages=${*:-"przeglad czujniki wentylatory wentylatory-szczegoly wentylatory-krzywa wentylatory-stany rgb wydajnosc system preferencje"}
 scale=${SCALE:-2}
 widths=wide
 if [ "${NARROW:-0}" = 1 ]; then

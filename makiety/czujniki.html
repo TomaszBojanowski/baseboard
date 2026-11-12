@@ -1,0 +1,179 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baseboard – Wszystkie czujniki (makieta)</title>
+<link rel="stylesheet" href="wspolne.css">
+</head>
+<body data-page="przeglad" data-title="Wszystkie czujniki" data-back="1">
+
+<!--
+  "All Sensors" (D64): the Overview before D64, now a subpage that a large
+  number or a row of the Overview (przeglad.html) opens on its group. No
+  line about the gray range above the groups any more: the range has a
+  tooltip.
+  Real readings from this machine, 2026-11-06: 90 samples of `sensors -j`
+  taken once per second. "Now" is the last sample, the dim range is min–max.
+  Default names: board profile roles (gettext), then built-in names for
+  known drivers and device types, then the driver label. Labels from the
+  lm-sensors configuration are an option in preferences.
+  Texts brought in line with the app on 2026-11-10 (M1 step 8): units on
+  ranges, driver channels in subtitles, GPU name from the brackets (D23),
+  three decimals for voltages below 2 V (D27), unverified fan mappings.
+  And on 2026-11-11 (M1 step 13, D38): no range while both ends look the
+  same, the source instead of "not rated", short chip names, "header not
+  tested", disks by device number.
+-->
+
+<main id="content" class="page">
+  <div class="clamp wide">
+    <div class="columns">
+      <!-- left column -->
+      <div class="stack">
+
+        <section class="group">
+          <div class="group-header"><div class="labels">
+            <div class="heading">Procesor</div>
+            <div class="desc">AMD Ryzen 7 9700X</div>
+          </div></div>
+          <div class="boxed-list">
+            <div class="row"><div class="tb"><div class="t">Procesor (Tctl)</div><div class="sub">k10temp · Tctl</div></div>
+              <div class="suffix"><span class="v-range">39,6–48,4 °C</span><span class="v-now">39,8 °C</span></div></div>
+            <div class="row"><div class="tb"><div class="t">Chiplet CCD1</div><div class="sub">k10temp · Tccd1</div></div>
+              <div class="suffix"><span class="v-range">27,1–34,3 °C</span><span class="v-now">28,0 °C</span></div></div>
+            <div class="row"><div class="tb"><div class="t">Procesor (czujnik płyty)</div><div class="sub">nct6687 · temp1</div></div>
+              <div class="suffix"><span class="v-range">39,0–48,0 °C</span><span class="v-now">39,0 °C</span></div></div>
+          </div>
+        </section>
+
+        <section class="group">
+          <div class="group-header"><div class="labels">
+            <div class="heading">Płyta</div>
+            <div class="desc">MAG B850M MORTAR WIFI (MS-7E61)</div>
+          </div></div>
+          <div class="boxed-list">
+            <div class="row"><div class="tb"><div class="t">Temperatura systemowa</div><div class="sub">nct6687 · temp2</div></div>
+              <div class="suffix"><span class="v-range">36,0–36,5 °C</span><span class="v-now">36,0 °C</span></div></div>
+            <div class="row"><div class="tb"><div class="t">Sekcja zasilania procesora</div><div class="sub">nct6687 · temp3</div></div>
+              <div class="suffix"><span class="v-now">32,0 °C</span></div></div>
+            <div class="row"><div class="tb"><div class="t">Chipset</div><div class="sub">nct6687 · temp4</div></div>
+              <div class="suffix"><span class="v-now">36,0 °C</span></div></div>
+          </div>
+        </section>
+
+        <section class="group">
+          <div class="group-header"><div class="labels">
+            <div class="heading">Wentylatory</div>
+            <div class="desc">W kolejności złączy na płycie</div>
+          </div></div>
+          <div class="boxed-list">
+            <div class="row"><div class="tb"><div class="t">Wentylator procesora 1</div><div class="sub">CPU_FAN1 · wypełnienie 49 %</div></div>
+              <div class="suffix"><span class="v-range">888–890 rpm</span><span class="v-now">888 rpm</span></div></div>
+            <div class="row"><div class="tb"><div class="t">Pompa 1</div><div class="sub">PUMP_SYS1 · wypełnienie 100 % · złącze nietestowane</div></div>
+              <div class="suffix"><span class="v-now muted">0 rpm</span></div></div>
+            <div class="row"><div class="tb"><div class="t">Wentylator systemowy 1</div><div class="sub">SYS_FAN1</div></div>
+              <div class="suffix"><span class="v-range">911–929 rpm</span><span class="v-now">916 rpm</span></div></div>
+            <div class="row"><div class="tb"><div class="t">Wentylator systemowy 2</div><div class="sub">SYS_FAN2</div></div>
+              <div class="suffix"><span class="v-range">769–777 rpm</span><span class="v-now">771 rpm</span></div></div>
+            <div class="row"><div class="tb"><div class="t">Wentylator systemowy 3</div><div class="sub">SYS_FAN3</div></div>
+              <div class="suffix"><span class="v-range">736–750 rpm</span><span class="v-now">749 rpm</span></div></div>
+            <div class="row"><div class="tb"><div class="t">Wentylator systemowy 4</div><div class="sub">SYS_FAN4</div></div>
+              <div class="suffix"><span class="v-range">966–1012 rpm</span><span class="v-now">970 rpm</span></div></div>
+            <div class="row"><div class="tb"><div class="t">Wentylator dodatkowy 1</div><div class="sub">JAF_1 · wypełnienie 60 % · złącze nietestowane</div></div>
+              <div class="suffix"><span class="v-now muted">0 rpm</span></div></div>
+          </div>
+        </section>
+
+        <section class="group">
+          <div class="group-header"><div class="labels">
+            <div class="heading">Pamięć</div>
+          </div></div>
+          <div class="boxed-list">
+            <div class="row"><div class="tb"><div class="t">DIMMA2</div><div class="sub">spd5118 · adres 0x51</div></div>
+              <div class="suffix"><span class="v-now">28,5 °C</span></div></div>
+            <div class="row"><div class="tb"><div class="t">DIMMB2</div><div class="sub">spd5118 · adres 0x53</div></div>
+              <div class="suffix"><span class="v-now">27,8 °C</span></div></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- right column -->
+      <div class="stack">
+
+        <section class="group">
+          <div class="group-header"><div class="labels">
+            <div class="heading">Napięcia</div>
+            <div class="desc">Ocena względem tolerancji z profilu płyty</div>
+          </div></div>
+          <div class="boxed-list">
+            <div class="row"><div class="tb"><div class="t">+12 V</div><div class="sub">W tolerancji ±5 % (+0,8 %)</div></div>
+              <div class="suffix"><i data-ic="ok" class="success" title="W tolerancji"></i><span class="v-now" style="width:62px">12,10 V</span></div></div>
+            <div class="row"><div class="tb"><div class="t">+5 V</div><div class="sub">W tolerancji ±5 % (−0,8 %)</div></div>
+              <div class="suffix"><i data-ic="ok" class="success" title="W tolerancji"></i><span class="v-now" style="width:62px">4,96 V</span></div></div>
+            <div class="row"><div class="tb"><div class="t">+3,3 V</div><div class="sub">W tolerancji ±5 % (+0,4 %)</div></div>
+              <div class="suffix"><i data-ic="ok" class="success" title="W tolerancji"></i><span class="v-now" style="width:62px">3,31 V</span></div></div>
+            <div class="row"><div class="tb"><div class="t">Rdzenie procesora</div><div class="sub">nct6687 · in4</div></div>
+              <div class="suffix"><span class="v-range">0,656–1,296 V</span><span style="width:16px"></span><span class="v-now" style="width:62px">0,976 V</span></div></div>
+            <div class="row"><div class="tb"><div class="t">SoC procesora</div><div class="sub">nct6687 · in2</div></div>
+              <div class="suffix"><span style="width:16px"></span><span class="v-now" style="width:62px">1,200 V</span></div></div>
+            <div class="row"><div class="tb"><div class="t">VDDIO procesora</div><div class="sub">nct6687 · in3</div></div>
+              <div class="suffix"><span style="width:16px"></span><span class="v-now" style="width:62px">1,344 V</span></div></div>
+          </div>
+        </section>
+
+        <section class="group">
+          <div class="group-header"><div class="labels">
+            <div class="heading">Karta graficzna</div>
+            <div class="desc">Radeon RX 9050 / 9060 XT</div>
+          </div></div>
+          <div class="boxed-list">
+            <div class="row"><div class="tb"><div class="t">Układ graficzny</div><div class="sub">amdgpu · edge</div></div>
+              <div class="suffix"><span class="v-range">28,0–29,0 °C</span><span class="v-now">28,0 °C</span></div></div>
+            <div class="row"><div class="tb"><div class="t">Najgorętszy punkt</div><div class="sub">amdgpu · junction</div></div>
+              <div class="suffix"><span class="v-range">30,0–31,0 °C</span><span class="v-now">30,0 °C</span></div></div>
+            <div class="row"><div class="tb"><div class="t">Pamięć</div><div class="sub">amdgpu · mem</div></div>
+              <div class="suffix"><span class="v-range">28,0–30,0 °C</span><span class="v-now">30,0 °C</span></div></div>
+            <div class="row"><div class="tb"><div class="t">Wentylator</div><div class="sub">amdgpu · fan1</div></div>
+              <div class="suffix"><span class="v-now muted">0 rpm</span></div></div>
+            <div class="row"><div class="tb"><div class="t">Napięcie rdzenia</div><div class="sub">amdgpu · vddgfx</div></div>
+              <div class="suffix"><span class="v-range">0,030–0,690 V</span><span class="v-now">0,215 V</span></div></div>
+            <div class="row"><div class="tb"><div class="t">Pobór mocy</div><div class="sub">amdgpu · PPT</div></div>
+              <div class="suffix"><span class="v-range">4,0–10,0 W</span><span class="v-now">4,0 W</span></div></div>
+          </div>
+        </section>
+
+        <section class="group">
+          <div class="group-header"><div class="labels">
+            <div class="heading">Dyski</div>
+          </div></div>
+          <div class="boxed-list">
+            <div class="row"><div class="tb"><div class="t">WD_BLACK SN7100 2TB</div><div class="sub">nvme0</div></div>
+              <div class="suffix"><span class="v-range">25,9–26,9 °C</span><span class="v-now">26,9 °C</span></div></div>
+            <div class="row"><div class="tb"><div class="t">CT2000P3PSSD8</div><div class="sub">nvme1</div></div>
+              <div class="suffix"><span class="v-range">27,9–28,9 °C</span><span class="v-now">28,9 °C</span></div></div>
+          </div>
+        </section>
+
+        <section class="group">
+          <div class="group-header"><div class="labels">
+            <div class="heading">Inne</div>
+          </div></div>
+          <div class="boxed-list">
+            <div class="row"><div class="tb"><div class="t">Karta Wi-Fi</div><div class="sub">ath12k · temp1</div></div>
+              <div class="suffix"><span class="v-range">34,0–38,0 °C</span><span class="v-now">34,0 °C</span></div></div>
+            <div class="row"><div class="tb"><div class="t">Karta sieciowa</div><div class="sub">r8169 · temp1</div></div>
+              <div class="suffix"><span class="v-range">38,5–39,0 °C</span><span class="v-now">39,0 °C</span></div></div>
+            <div class="row"><div class="tb"><div class="t">Napięcia pomocnicze</div><div class="sub">VSB 3,34 V · AVSB 3,34 V · VTT 2,03 V · VBAT 3,10 V · VREF 1,824&nbsp;V</div></div>
+              <div class="suffix"><i data-ic="down" class="dim"></i></div></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="wspolne.js"></script>
+</body>
+</html>

@@ -2,7 +2,8 @@
 
 // The Fans page of D62: the temperature of the curves' source large on top,
 // under it a list of the fans as wide as in GNOME Settings (600 px).
-// ?stan=spoczynek (default), 85, reczny, fabryczny. Values as in the test
+// ?stan=spoczynek (default), 85, reczny, fabryczny, stoi (the CPU fan
+// turned and stands now, D65: a warning above the list). Values as in the test
 // tree of the app: MS-7E61, BIOS curves of the owner; the manual 45 % of
 // SYS_FAN2 is illustrative. ?w=1024 sets the window width, ?h=1100 a
 // fixed window height (one screen), ?bare=1 draws the window alone.
@@ -61,6 +62,10 @@
       temp: 50, curves: false,
       fans: { cpu1: [890, 124], pump1: [0, 255], sys1: [948, null], sys2: [777, null], sys3: [753, null], sys4: [1013, null] },
     },
+    stoi: {
+      temp: 50, curves: true,
+      fans: { cpu1: [0, 124, "stopped"], pump1: [0, 255], sys1: [948, 98], sys2: [777, 108], sys3: [753, 76], sys4: [1013, 102] },
+    },
   };
   const S = STATES[stateName];
 
@@ -75,10 +80,13 @@
     // On screen only a change of 5 points or more; screen readers get all.
     const shown = moving && Math.abs(pct(target) - pct(duty)) >= 5;
     let state = "";
-    if (rpm === 0 && duty !== 0 && !f.readOnly) state = "Nie kręci się – złącze może być puste.";
+    // D65: it turned since the start, so the header is not empty.
+    const stopped = mode === "stopped";
+    if (stopped) state = "Stoi";
+    else if (rpm === 0 && duty !== 0 && !f.readOnly) state = "Nie kręci się – złącze może być puste.";
     else if (manual) state = "Ręcznie";
     else if (shown) state = target > duty ? "Przyspiesza" : "Zwalnia";
-    return { ...f, name: keepNumber(f.name), rpm, duty, manual, target, moving, shown, state };
+    return { ...f, name: keepNumber(f.name), rpm, duty, manual, stopped, target, moving, shown, state };
   }
   const fans = FANS.map(f => model(f, S.fans[f.key]));
   const aux = model(AUX, [0, 153]);
@@ -202,6 +210,9 @@
         ${under}
       </div>
       <div class="w-clamp">
+        ${fans.some(f => f.stopped) ? `<div class="w-alert" role="alert"><i data-ic="warning"></i>
+          <div><div class="t">Wentylator procesora stoi</div>
+          <div class="s">Kręcił się wcześniej, a od co najmniej 10${NB}s ma 0${NB}rpm.</div></div></div>` : ""}
         <div class="boxed-list w-list">${all.map(row).join("")}</div>
         ${S.curves ? `<p class="quiet">Baseboard na razie tylko pokazuje ustawienia wentylatorów${NB}z${NB}BIOS-u.</p>` : ""}
       </div>
@@ -233,6 +244,7 @@
         if (fits()) break;
       }
       if (!fits()) el.classList.add("span");
+      if (f.stopped) sub.classList.add("warn");
       if (!sub.textContent) sub.remove();
       const box = el.querySelector("[data-spark]");
       if (box) box.outerHTML = narrow ? spark(f, 84, 28) : spark(f, 192, 36);

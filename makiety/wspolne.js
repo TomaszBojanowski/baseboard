@@ -62,6 +62,12 @@
     hand: `<path d="M5 8.5V3.6a1.1 1.1 0 0 1 2.2 0V7.5M7.2 7V2.6a1.1 1.1 0 0 1 2.2 0V7M9.4 7V3.4a1.1 1.1 0 0 1 2.2 0V9.5c0 2.8-1.8 4.8-4.4 4.8-2 0-3-1-4-2.6L1.9 9.6a1.1 1.1 0 0 1 1.8-1.2L5 9.8"/>`,
     package: `<path d="M8 1.6 L14 4.6 V11.4 L8 14.4 L2 11.4 V4.6 Z"/><path d="M2 4.6 L8 7.6 L14 4.6M8 7.6 V14.4"/>`,
     keyboard: `<rect x="1.5" y="4" width="13" height="8.5" rx="1.5"/><path d="M4 6.8h.1M6.6 6.8h.1M9.3 6.8h.1M12 6.8h.1M5 9.8h6"/>`,
+    // As in the app (D64): the board, a frame with parts in it, and the
+    // three buttons of the window.
+    board: `<rect x="1.8" y="1.8" width="12.4" height="12.4" rx="1.5"/><rect x="4.5" y="4.5" width="4" height="4" rx=".6" ${F}/><path d="M10.5 5h1.5M10.5 7.5h1.5M4.5 11h7"/>`,
+    minimize: `<path d="M4.5 10.5h7"/>`,
+    maximize: `<rect x="4.5" y="4.5" width="7" height="7" rx="1"/>`,
+    chevron: `<path d="M6 3.5 L10.5 8 L6 12.5"/>`,
   };
 
   window.iconPaths = ICONS;
@@ -75,7 +81,7 @@
   const PAGES = [
     ["przeglad", "Przegląd", "gauge"],
     ["wentylatory", "Wentylatory", "fan"],
-    ["system", "System", "chip"],
+    ["system", "System", "board"],
   ];
 
   function replaceIcons() {
@@ -122,10 +128,8 @@
         </div>
         <nav class="nav">${nav}</nav>
         <div class="sidebar-footer">
-          ${icon("chip", "dim")}
-          <div class="lines caption">
+          <div class="lines caption dim">
             <div>MAG B850M MORTAR WIFI</div>
-            <div class="dim">MS-7E61 · BIOS 1.A68</div>
           </div>
         </div>
       </aside>`}
@@ -138,7 +142,11 @@
           </div>
           <div class="end">
             ${headEnd ? headEnd.innerHTML : ""}
-            <div class="windowcontrols"><div class="wbtn" title="Zamknij"><span>${icon("close")}</span></div></div>
+            <div class="windowcontrols">
+              <div class="wbtn" title="Minimalizuj"><span>${icon("minimize")}</span></div>
+              <div class="wbtn" title="Maksymalizuj"><span>${icon("maximize")}</span></div>
+              <div class="wbtn" title="Zamknij"><span>${icon("close")}</span></div>
+            </div>
           </div>
         </div>
       </section>`;

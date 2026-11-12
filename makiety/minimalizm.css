@@ -1,0 +1,71 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* The pages of D63 and D64 (Overview, System, Preferences): plain words
+   first, technical details one click further, one column as wide as in
+   GNOME Settings (600 px). */
+
+:root[data-bare="1"], :root[data-bare="1"] body { background: transparent; }
+:root[data-bare="1"] body { padding: 0; }
+:root[data-bare="1"] .window { box-shadow: none; }
+
+.n-page { display: flex; flex-direction: column; gap: 24px; }
+.n-clamp { width: 100%; max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+.n-group { display: flex; flex-direction: column; gap: 10px; }
+.n-group > .heading { padding: 0 2px; }
+.n-group > .desc { padding: 0 2px; opacity: .55; margin-top: -4px; }
+
+/* a row: icon | title (and subtitle) | value | arrow */
+.n-row { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 14px; border-bottom: 1px solid var(--card-shade); }
+.boxed-list > .n-row:last-child { border-bottom: 0; }
+.n-row .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.n-row .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.n-row .s { font-size: 88%; opacity: .65; }
+.n-row .v { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; opacity: .8; }
+.n-row .chev { opacity: .45; flex: none; }
+.n-row .ok { color: var(--success); }
+.n-row .warn { color: var(--warning); }
+.n-row .info { opacity: .7; }
+.n-row.status { min-height: 60px; }
+.n-row a.link { color: var(--accent); text-decoration: underline; }
+.n-row .mono { font-family: "Adwaita Mono", monospace; font-size: 85%; }
+
+/* three large numbers without frames, in the style of the large
+   temperature of the Fans page; each opens its group */
+.n-hero { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.n-hero-item { padding: 6px 4px 2px; border-radius: 12px; text-align: center; }
+.n-hero-item .l { font-weight: 600; opacity: .65; }
+.n-hero-item .n { font-size: 72px; font-weight: 300; line-height: 1.05; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.n-hero-item .n .u { font-size: 28px; opacity: .55; vertical-align: 100%; margin-left: 4px; }
+
+/* the warning on top of a page */
+.n-banner { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--warning-bg) 18%, transparent); }
+.n-banner .grow { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.n-banner .t { font-weight: 700; }
+.n-banner svg.ic { color: var(--warning); flex: none; margin-top: 2px; }
+
+@container (max-width: 640px) {
+  /* a value goes under its title, as in GNOME Settings; readings keep
+     theirs on the right */
+  .n-row.prop:not(.reading) { flex-wrap: wrap; row-gap: 1px; }
+  .n-row.prop:not(.reading) .v { flex-basis: 100%; order: 3; text-align: left; font-size: 92%; opacity: .65; white-space: normal; }
+  .n-row.reading .s { white-space: normal; }
+  .n-hero-item .n { font-size: 60px; }
+  .n-hero-item .n .u { font-size: 24px; }
+}
+
+/* dialogs (AdwPreferencesDialog) over the window */
+.n-shade { position: absolute; inset: 0; background: rgb(0 0 6 / 30%); display: flex; align-items: center; justify-content: center; }
+.n-dialog { width: 640px; height: 600px; max-height: 92%; border-radius: 15px; overflow: hidden; background: var(--window-bg); box-shadow: var(--window-shadow); display: flex; flex-direction: column; }
+.n-dialog .hb { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 47px; padding: 6px 7px; }
+.n-dialog .hb .tt { font-weight: 700; text-align: center; }
+.n-dialog .hb .end { display: flex; justify-content: flex-end; }
+.n-dialog .body { padding: 12px 24px 28px; display: flex; flex-direction: column; gap: 24px; overflow: hidden; }
+/* below 450 sp a dialog is a bottom sheet */
+.n-shade.sheet { align-items: flex-end; }
+.n-dialog.narrow { width: 100%; height: 94%; max-height: none; border-radius: 15px 15px 0 0; }
+.n-dialog .page-desc { margin: 0 2px; opacity: .7; }
+.window { position: relative; }
+
+/* as in the app: below 500 sp the copy button keeps only its icon */
+:root[data-width="narrow"] .headerbar .end .btn > span { display: none; }
+:root[data-width="narrow"] .headerbar .end .btn { width: 34px; padding: 0; justify-content: center; background: none; }
