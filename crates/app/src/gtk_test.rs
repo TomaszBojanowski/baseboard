@@ -55,7 +55,9 @@ fn gtk_thread() -> Option<&'static Mutex<mpsc::Sender<Job>>> {
                 // locale: the texts are the English ones.
                 gtk::disable_setlocale();
                 record_warnings();
-                let ok = gtk::init().is_ok();
+                // libadwaita as in the app: its widgets build their
+                // content only after it has started.
+                let ok = adw::init().is_ok();
                 let _ = started.send(ok);
                 if ok {
                     for job in receive_jobs {

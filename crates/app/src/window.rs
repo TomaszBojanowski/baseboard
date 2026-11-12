@@ -498,17 +498,17 @@ impl BaseboardWindow {
     }
 
     /// Opens the Preferences dialog with the latest readings.
-    pub fn show_preferences(&self) -> preferences::Preferences {
+    pub fn show_preferences(&self) -> adw::PreferencesDialog {
         let imp = self.imp();
         let groups = imp.overview.groups();
-        let preferences = preferences::dialog(&DialogSetup {
+        let dialog = preferences::dialog(&DialogSetup {
             settings: self.settings(),
             groups: &groups,
             numbers: imp.overview.numbers(),
             labels_file: imp.labels_file.borrow().clone(),
         });
-        preferences.dialog.present(Some(self));
-        preferences
+        dialog.present(Some(self));
+        dialog
     }
 
     /// What the page shown needs of the fan channels: the modes on the

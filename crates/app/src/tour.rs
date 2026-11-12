@@ -268,12 +268,25 @@ impl Tour {
     }
 
     async fn dialogs(&self) {
-        let preferences = self.window.show_preferences();
+        // As Ctrl+, opens it: nothing but the dialog is kept.
+        self.app.activate_action("preferences", None);
         pause(500).await;
-        preferences.show_readings();
-        pause(500).await;
-        preferences.dialog.close();
-        pause(300).await;
+        let preferences = self
+            .window
+            .visible_dialog()
+            .and_downcast::<adw::PreferencesDialog>();
+        self.check(preferences.is_some(), "app.preferences opens Preferences");
+        if let Some(preferences) = preferences {
+            let row = crate::preferences::row_titled(&preferences, &gettext("Visible readings"));
+            let clicked = row.is_some_and(|row| WidgetExt::activate(&row));
+            pause(500).await;
+            self.check(
+                clicked && preferences.pop_subpage(),
+                "Preferences \"Visible readings\" opens its subpage",
+            );
+            preferences.close();
+            pause(300).await;
+        }
         for action in ["about", "shortcuts"] {
             self.app.activate_action(action, None);
             pause(500).await;

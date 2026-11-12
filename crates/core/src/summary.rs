@@ -114,7 +114,7 @@ pub fn summary(groups: &[Group], stopped: &[RowId]) -> Summary {
         board
             .rows
             .iter()
-            .find(|r| r.name == Name::Temp(TempRole::System))
+            .find(|r| r.role == Name::Temp(TempRole::System))
             .map(|r| r.value)
     });
     hero(HeroKind::Board, GroupKind::Board, board);
@@ -154,7 +154,7 @@ pub fn summary(groups: &[Group], stopped: &[RowId]) -> Summary {
         disks: group(GroupKind::Disks).and_then(|g| {
             // A drive once, by its composite temperature, not its sensors.
             warmest(&g.rows, |r| {
-                matches!(r.name, Name::Disk { sensor: None, .. })
+                matches!(r.role, Name::Disk { sensor: None, .. })
             })
             .or_else(|| warmest(&g.rows, |_| true))
         }),
@@ -253,7 +253,7 @@ impl FanWatch {
 fn watched(row: &Row) -> bool {
     row.kind == Kind::Fan
         && matches!(
-            row.name,
+            row.role,
             Name::Fan {
                 role: FanRole::Cpu,
                 ..
@@ -287,6 +287,7 @@ mod tests {
     fn row(channel: &str, name: Name, kind: Kind, value: f64) -> Row {
         Row {
             id: id(channel),
+            role: name.clone(),
             name,
             subtitle: Subtitle::Source {
                 driver: "nct6687".into(),
@@ -571,7 +572,7 @@ mod tests {
         );
         assert!(quiet(|| cpu_fan(0.0, 900.0, None, true)), "no duty cycle");
         let mut pump = cpu_fan(0.0, 900.0, Some(124.0), true);
-        pump.name = Name::Fan {
+        pump.role = Name::Fan {
             role: FanRole::Pump,
             number: 1,
         };

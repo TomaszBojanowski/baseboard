@@ -149,13 +149,14 @@ impl FanLine {
                 parts.push(gettext("minimum {duty}").replace("{duty}", &percent(self.min_percent)));
             }
         }
+        // The sentences of the page "Curve Details", without a full stop in
+        // the middle of the list (B3).
         if self.unchecked {
-            parts.push(gettext("This header was not checked on this board."));
+            parts.push(gettext("This header was not checked on this board"));
         }
         if self.maybe_empty {
-            parts.push(gettext(
-                "Not spinning since the app started: the header may be empty.",
-            ));
+            parts.push(gettext("Not spinning since the app started"));
+            parts.push(gettext("The header may be empty."));
         }
         parts.join(", ")
     }
@@ -652,7 +653,8 @@ mod tests {
         assert_eq!(aux.subtitles(true, &numbers), ["0\u{a0}rpm"]);
     }
 
-    /// The description says everything the row leaves out.
+    /// The description says everything the row leaves out, as one list
+    /// without a sentence ending in its middle (B3).
     #[test]
     fn description_for_screen_readers() {
         let numbers = Numbers::new(".");
@@ -661,12 +663,14 @@ mod tests {
             "CPU_FAN1, 1520\u{a0}rpm, duty 78\u{a0}%, the controller changes it gradually \
              to 100\u{a0}%, mode: Automatic BIOS, minimum 30\u{a0}%"
         );
+        let pump = pump().description(&numbers);
         assert_eq!(
-            pump().description(&numbers),
+            pump,
             "PUMP_SYS1, 0\u{a0}rpm, duty 100\u{a0}%, mode: Automatic BIOS, minimum 50\u{a0}%, \
-             This header was not checked on this board., Not spinning since the app started: \
-             the header may be empty."
+             This header was not checked on this board, Not spinning since the app started, \
+             The header may be empty."
         );
+        assert!(!pump.contains(".,"));
     }
 
     /// Tab goes from row to row, and a row with a curve opens it (Enter

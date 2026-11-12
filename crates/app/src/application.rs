@@ -250,7 +250,16 @@ mod debug {
                     "preferences" => {
                         let _ = window.show_preferences();
                     }
-                    "readings" => window.show_preferences().show_readings(),
+                    "readings" => {
+                        let dialog = window.show_preferences();
+                        let row = crate::preferences::row_titled(
+                            &dialog,
+                            &gettextrs::gettext("Visible readings"),
+                        );
+                        if let Some(row) = row {
+                            WidgetExt::activate(&row);
+                        }
+                    }
                     "about" | "shortcuts" => app.activate_action(&name, None),
                     other => eprintln!("baseboard: no dialog {other:?}"),
                 }

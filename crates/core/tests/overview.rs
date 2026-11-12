@@ -5,9 +5,9 @@
 //! readings come from raw sysfs; duty-read needs only the file, so the
 //! trees are read in place.
 
-use std::path::Path;
-
 use std::collections::HashSet;
+use std::path::Path;
+use std::time::{Duration, Instant};
 
 use baseboard_core::fans::driver::{self, Mode};
 use baseboard_core::labels::{self, UserLabels};
@@ -16,6 +16,7 @@ use baseboard_core::overview::{
 };
 use baseboard_core::profile::{self, FanRole, Profile, TempRole, VoltageRole};
 use baseboard_core::sensors::{self, Chip, Kind, SensorSource, SysfsSource};
+use baseboard_core::summary::{self, FanWatch, HeroKind};
 use baseboard_core::system;
 use baseboard_core::udev::Udev;
 
@@ -711,6 +712,71 @@ fn labels_from_lm_sensors_when_the_option_is_on() {
             assert_eq!(tctl, &Name::CpuTctl);
         }
     }
+}
+
+/// The Overview and its warnings go by what a row is, not by its name
+/// (B1): with the user's own names, and with the names of lm-sensors, a
+/// stopped CPU fan still warns (D65), "Board" keeps its number and the
+/// disks are counted one each, by their composite temperature.
+#[test]
+fn summary_does_not_go_by_names() {
+    let tree = "sysfs-ms7e61-v1";
+    let profile = profile();
+    let mut chips = chips(tree);
+    for chip in &mut chips {
+        for reading in &mut chip.readings {
+            let label = match (chip.name.as_str(), reading.kind, reading.index) {
+                ("nct6687", Kind::Fan, 1) => Some("CPU Fan"),
+                ("nct6687", Kind::Temp, 2) => Some("System"),
+                ("nvme", Kind::Temp, 1) => Some("Composite"),
+                _ => None,
+            };
+            reading.sensors_label = label.map(str::to_owned);
+        }
+    }
+    let own = labels::parse(
+        "schema = 1\n[fan]\ncpu1 = \"Tower cooler\"\n[temp]\nsystem = \"Case\"\n",
+        &profile,
+    )
+    .unwrap();
+    for (labels, sensors_labels) in [(Some(&own), false), (None, true)] {
+        let mut groups = build_with(
+            tree,
+            Some(&profile),
+            &chips,
+            sensors_labels,
+            &Database,
+            labels,
+        );
+        let top = summary::summary(&groups, &[]);
+        assert!(
+            top.heroes.iter().any(|h| h.kind == HeroKind::Board),
+            "no number for the board with names {labels:?}, lm-sensors {sensors_labels}"
+        );
+        assert_eq!(top.disks.map(|d| d.count), Some(2));
+
+        // The CPU fan turned earlier and stands for 11 s.
+        let cpu_fan = group_mut(&mut groups, GroupKind::Fans)
+            .rows
+            .iter_mut()
+            .find(|r| r.id.channel == "fan1")
+            .unwrap();
+        cpu_fan.value = 0.0;
+        cpu_fan.range = Some((0.0, 890.0));
+        let mut watch = FanWatch::default();
+        let start = Instant::now();
+        watch.update(&groups, start);
+        let stopped = watch.update(&groups, start + Duration::from_secs(11));
+        assert_eq!(
+            stopped.len(),
+            1,
+            "names {labels:?}, lm-sensors {sensors_labels}"
+        );
+    }
+}
+
+fn group_mut(groups: &mut [Group], kind: GroupKind) -> &mut Group {
+    groups.iter_mut().find(|g| g.kind == kind).unwrap()
 }
 
 /// Hidden readings and headers (§5.1): a row goes by its key, a group with

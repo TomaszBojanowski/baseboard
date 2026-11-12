@@ -112,24 +112,34 @@ pub struct DialogSetup<'a> {
 
 /// The Preferences dialog (D64): one page without tabs; the switch for
 /// every reading is one click further, on the subpage "Visible Readings".
-pub struct Preferences {
-    pub dialog: adw::PreferencesDialog,
-    readings: adw::NavigationPage,
-}
-
-impl Preferences {
-    /// Opens "Visible Readings", as its row does.
-    #[cfg(debug_assertions)]
-    pub fn show_readings(&self) {
-        self.dialog.push_subpage(&self.readings);
-    }
-}
-
-pub fn dialog(setup: &DialogSetup) -> Preferences {
+pub fn dialog(setup: &DialogSetup) -> adw::PreferencesDialog {
     let dialog = adw::PreferencesDialog::new();
     let readings = readings_page(setup);
     dialog.add(&main_page(setup, &dialog, &readings));
-    Preferences { dialog, readings }
+    dialog
+}
+
+/// Debug builds and tests: the row titled `title` in the dialog, depth
+/// first, to click it as a user does. A dialog takes its content into the
+/// window only when presented, so the search starts at its child.
+#[cfg(any(test, debug_assertions))]
+pub fn row_titled(dialog: &adw::PreferencesDialog, title: &str) -> Option<adw::ActionRow> {
+    fn find(widget: &gtk::Widget, title: &str) -> Option<adw::ActionRow> {
+        let mut child = widget.first_child();
+        while let Some(current) = child {
+            if let Some(row) = current.downcast_ref::<adw::ActionRow>()
+                && row.title() == title
+            {
+                return Some(row.clone());
+            }
+            if let Some(found) = find(&current, title) {
+                return Some(found);
+            }
+            child = current.next_sibling();
+        }
+        None
+    }
+    find(&dialog.child()?, title)
 }
 
 fn main_page(
@@ -180,10 +190,11 @@ fn main_page(
             .css_classes(["dimmed"])
             .build(),
     );
+    // The row keeps the subpage: nothing else holds it until it is shown.
     visible.connect_activated(glib::clone!(
         #[weak]
         dialog,
-        #[weak]
+        #[strong]
         readings,
         move |_| dialog.push_subpage(&readings)
     ));
@@ -508,5 +519,30 @@ mod tests {
         set_visible(&settings, &composite, false).unwrap();
         assert_eq!(stored(&settings, HIDDEN), [composite.key()]);
         assert!(!visibility(&settings).shows(&composite));
+    }
+
+    /// Clicking "Visible readings" opens its subpage, also when nothing but
+    /// the dialog is kept, as the app keeps it (B2). Needs a display.
+    #[test]
+    fn visible_readings_row_opens_the_subpage() {
+        crate::gtk_test::run("visible_readings_row_opens_the_subpage", || {
+            let Some(settings) = settings("readings-row") else {
+                return;
+            };
+            let numbers = Numbers::new(".");
+            let shown = dialog(&DialogSetup {
+                settings: &settings,
+                groups: &[],
+                numbers: &numbers,
+                labels_file: None,
+            });
+            // Over a window, as the app presents it.
+            let window = adw::Window::new();
+            shown.present(Some(&window));
+            let row = row_titled(&shown, "Visible readings").expect("the row");
+            assert!(WidgetExt::activate(&row));
+            assert!(shown.pop_subpage(), "no subpage was opened");
+            window.destroy();
+        });
     }
 }

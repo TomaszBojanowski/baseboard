@@ -506,6 +506,7 @@ mod tests {
                 device: None,
                 channel: channel.into(),
             },
+            role: name.clone(),
             name,
             subtitle,
             kind,

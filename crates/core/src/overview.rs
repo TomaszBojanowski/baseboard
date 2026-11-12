@@ -151,6 +151,10 @@ pub fn visible(groups: &[Group], visibility: &Visibility) -> Vec<Group> {
 pub struct Row {
     pub id: RowId,
     pub name: Name,
+    /// What the row is: the built-in name, before the user's own names, the
+    /// profile's labels and the labels of lm-sensors replace `name`. The
+    /// Overview and its warnings go by it, never by `name` (B1).
+    pub role: Name,
     pub subtitle: Subtitle,
     /// The kind of the value, which gives its unit.
     pub kind: Kind,
@@ -446,19 +450,19 @@ fn board_rows(chip: &Chip, board: &Board, context: &Context, out: &mut Rows) {
             .find(|(key, _)| *key == fan.key)
             .map(|&(_, mode)| mode)
             .filter(|_| has(Capability::Mode));
+        let role = Name::Fan {
+            role: fan.role,
+            number: fan.number,
+        };
         out.fans.push(Row {
             id: row_id(chip, reading),
             name: pick_own(
                 reading,
                 context,
                 |l| l.fan(&fan.key),
-                || {
-                    labelled(&fan.label).unwrap_or(Name::Fan {
-                        role: fan.role,
-                        number: fan.number,
-                    })
-                },
+                || labelled(&fan.label).unwrap_or_else(|| role.clone()),
             ),
+            role,
             subtitle: Subtitle::Header {
                 header: fan.header.clone(),
                 duty,
@@ -479,14 +483,16 @@ fn board_rows(chip: &Chip, board: &Board, context: &Context, out: &mut Rows) {
         let Some(reading) = chip.reading(Kind::Temp, temp.input) else {
             continue;
         };
+        let role = Name::Temp(temp.role);
         let row = Row {
             id: row_id(chip, reading),
             name: pick_own(
                 reading,
                 context,
                 |l| l.temp(&temp.key),
-                || labelled(&temp.label).unwrap_or(Name::Temp(temp.role)),
+                || labelled(&temp.label).unwrap_or_else(|| role.clone()),
             ),
+            role,
             subtitle: channel_source(chip, reading),
             kind: Kind::Temp,
             value: reading.value,
@@ -508,14 +514,16 @@ fn board_rows(chip: &Chip, board: &Board, context: &Context, out: &mut Rows) {
             continue;
         };
         let volts = rail.volts(reading);
+        let role = Name::Voltage(rail.role);
         out.voltages.push(Row {
             id: row_id(chip, reading),
             name: pick_own(
                 reading,
                 context,
                 |l| l.voltage(&rail.key),
-                || labelled(&rail.label).unwrap_or(Name::Voltage(rail.role)),
+                || labelled(&rail.label).unwrap_or_else(|| role.clone()),
             ),
+            role,
             subtitle: channel_source(chip, reading),
             kind: Kind::Voltage,
             value: volts,
@@ -531,13 +539,13 @@ fn board_rows(chip: &Chip, board: &Board, context: &Context, out: &mut Rows) {
         {
             continue;
         }
-        let name = pick(reading, context, || {
-            built_in(chip, reading).unwrap_or_else(|| Name::Driver(driver_label(reading)))
-        });
+        let role = built_in(chip, reading).unwrap_or_else(|| Name::Driver(driver_label(reading)));
+        let name = pick(reading, context, || role.clone());
         let row = Row {
             id: row_id(chip, reading),
             subtitle: source(chip, reading, &name),
             name,
+            role,
             kind: reading.kind,
             value: reading.value,
             rating: None,
@@ -560,13 +568,13 @@ fn generic_rows(chip: &Chip, context: &Context, module: Option<&Name>) -> Vec<Ro
         .iter()
         .filter(|r| r.kind != Kind::Pwm)
         .map(|reading| {
-            let name = pick(reading, context, || {
-                generic_name(chip, reading, context, module, single)
-            });
+            let role = generic_name(chip, reading, context, module, single);
+            let name = pick(reading, context, || role.clone());
             Row {
                 id: row_id(chip, reading),
                 subtitle: generic_subtitle(chip, reading, &name),
                 name,
+                role,
                 kind: reading.kind,
                 value: reading.value,
                 rating: None,

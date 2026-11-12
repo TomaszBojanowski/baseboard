@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: baseboard\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 22:08+0100\n"
+"POT-Creation-Date: 2026-11-12 23:46+0100\n"
 "PO-Revision-Date: 2026-11-11 20:30+0100\n"
 "Last-Translator: Tomasz Bojanowski <tomasz@bojanowski.me>\n"
 "Language-Team: \n"
@@ -27,7 +27,7 @@ msgstr "Baseboard"
 #. The summary of the metainfo and the .desktop file.
 #: data/me.bojanowski.Baseboard.desktop.in:4
 #: data/me.bojanowski.Baseboard.metainfo.xml.in:8
-#: crates/app/src/application.rs:151
+#: crates/app/src/application.rs:153
 msgid "MSI motherboard sensors and fans"
 msgstr "Czujniki i wentylatory płyt MSI"
 
@@ -50,7 +50,7 @@ msgid "Window maximized"
 msgstr "Okno zmaksymalizowane"
 
 #: data/me.bojanowski.Baseboard.gschema.xml:20
-#: crates/app/src/preferences.rs:147
+#: crates/app/src/preferences.rs:157
 msgid "Refresh interval"
 msgstr "Odświeżanie"
 
@@ -59,7 +59,7 @@ msgid "Seconds between two readings of the sensors on the Overview page."
 msgstr "Sekundy między dwoma odczytami czujników na stronie Przegląd."
 
 #: data/me.bojanowski.Baseboard.gschema.xml:25
-#: crates/app/src/preferences.rs:197
+#: crates/app/src/preferences.rs:208
 msgid "Names from lm-sensors"
 msgstr "Nazwy z lm-sensors"
 
@@ -252,24 +252,24 @@ msgstr ""
 "Norma to {range}. Odczyt z płyty bywa niedokładny; jeśli komputer jest "
 "niestabilny, warto sprawdzić zasilacz."
 
-#: crates/app/src/application.rs:130
+#: crates/app/src/application.rs:132
 msgid "The nct6683 driver of Linux and its documentation"
 msgstr "Sterownik nct6683 w Linuksie i jego dokumentacja"
 
-#: crates/app/src/application.rs:134
+#: crates/app/src/application.rs:136
 msgid "The hwmon sysfs interface of Linux"
 msgstr "Interfejs sysfs hwmon w Linuksie"
 
-#: crates/app/src/application.rs:139
+#: crates/app/src/application.rs:141
 msgid "OpenRGB issue reports on the RGB protocol"
 msgstr "Zgłoszenia w OpenRGB opisujące protokół RGB"
 
 #. Translators: your name and email, one translator per line.
-#: crates/app/src/application.rs:155
+#: crates/app/src/application.rs:157
 msgid "translator-credits"
 msgstr "Tomasz Bojanowski"
 
-#: crates/app/src/application.rs:167
+#: crates/app/src/application.rs:169
 msgid "Hardware descriptions from public sources"
 msgstr "Opis sprzętu ze źródeł publicznych"
 
@@ -458,7 +458,7 @@ msgstr "przedłużenie krzywej"
 
 #. Translators: read by screen readers for the list of fans.
 #: crates/app/src/fans.rs:475 crates/app/src/overview.rs:37
-#: crates/app/src/overview/summary.rs:238 crates/app/src/window.rs:58
+#: crates/app/src/overview/summary.rs:239 crates/app/src/window.rs:58
 #: crates/app/src/window.ui:76
 msgid "Fans"
 msgstr "Wentylatory"
@@ -474,11 +474,11 @@ msgstr "Sterowanie wentylatorami niedostępne"
 msgid "The board's {} chip was not found"
 msgstr "Nie znaleziono układu płyty {}"
 
-#: crates/app/src/fans.rs:658 crates/app/src/overview.rs:717
+#: crates/app/src/fans.rs:658 crates/app/src/overview.rs:730
 msgid "All readings are hidden"
 msgstr "Wszystkie odczyty są ukryte"
 
-#: crates/app/src/fans.rs:659 crates/app/src/overview.rs:718
+#: crates/app/src/fans.rs:659 crates/app/src/overview.rs:731
 msgid "Turn them on again in Preferences."
 msgstr "Można je włączyć z powrotem w preferencjach."
 
@@ -487,7 +487,7 @@ msgid "Reading the sensors…"
 msgstr "Odczyt czujników…"
 
 #: crates/app/src/fans.ui:39 crates/app/src/overview.ui:26
-#: crates/app/src/window.rs:470
+#: crates/app/src/window.rs:487
 msgid "Details"
 msgstr "Szczegóły"
 
@@ -557,7 +557,7 @@ msgstr "Najniższe wypełnienie, jakie Baseboard dopuści"
 
 #. Translators: on the curve page of a fan header whose channel
 #. nobody has checked on this board.
-#: crates/app/src/fans/curve_page.rs:369
+#: crates/app/src/fans/curve_page.rs:369 crates/app/src/fans/row.rs:155
 msgid "This header was not checked on this board"
 msgstr "Złącza nie sprawdzono na tej płycie"
 
@@ -567,11 +567,11 @@ msgstr "Nikt jeszcze nie potwierdził, że ten odczyt należy do tego złącza."
 
 #. Translators: on the curve page of a fan that has not spun
 #. since Baseboard started.
-#: crates/app/src/fans/curve_page.rs:376
+#: crates/app/src/fans/curve_page.rs:376 crates/app/src/fans/row.rs:158
 msgid "Not spinning since the app started"
 msgstr "Nie kręci się od uruchomienia aplikacji"
 
-#: crates/app/src/fans/curve_page.rs:377
+#: crates/app/src/fans/curve_page.rs:377 crates/app/src/fans/row.rs:159
 msgid "The header may be empty."
 msgstr "Złącze może być puste."
 
@@ -681,14 +681,6 @@ msgstr "tryb: {mode}"
 msgid "minimum {duty}"
 msgstr "minimum {duty}"
 
-#: crates/app/src/fans/row.rs:153
-msgid "This header was not checked on this board."
-msgstr "Złącza nie sprawdzono na tej płycie."
-
-#: crates/app/src/fans/row.rs:157
-msgid "Not spinning since the app started: the header may be empty."
-msgstr "Brak obrotów od startu aplikacji: złącze może być puste."
-
 #: crates/app/src/overview.rs:36 crates/app/src/overview/summary.rs:53
 #: crates/app/src/system.rs:267 crates/app/src/system.rs:587
 msgid "Mainboard"
@@ -704,12 +696,12 @@ msgstr "Napięcia"
 msgid "Graphics card"
 msgstr "Karta graficzna"
 
-#: crates/app/src/overview.rs:40 crates/app/src/overview/summary.rs:241
+#: crates/app/src/overview.rs:40 crates/app/src/overview/summary.rs:242
 #: crates/app/src/system.rs:322 crates/app/src/system.rs:817
 msgid "Disks"
 msgstr "Dyski"
 
-#: crates/app/src/overview.rs:41 crates/app/src/overview/summary.rs:239
+#: crates/app/src/overview.rs:41 crates/app/src/overview/summary.rs:240
 #: crates/app/src/system.rs:278 crates/app/src/system.rs:719
 msgctxt "system memory"
 msgid "Memory"
@@ -957,16 +949,16 @@ msgid "Rated against the tolerances in the board profile"
 msgstr "Ocena względem tolerancji z profilu płyty"
 
 #. Translators: {} is the name of the board's chip, e.g. nct6687.
-#: crates/app/src/overview.rs:687
+#: crates/app/src/overview.rs:700
 #, rust-format
 msgid "No readings from the board: its {} chip was not found"
 msgstr "Brak odczytów płyty: nie znaleziono jej układu {}"
 
-#: crates/app/src/overview.rs:722 crates/app/src/preferences.rs:316
+#: crates/app/src/overview.rs:735 crates/app/src/preferences.rs:327
 msgid "No sensor readings"
 msgstr "Brak odczytów czujników"
 
-#: crates/app/src/overview.rs:724
+#: crates/app/src/overview.rs:737
 msgid ""
 "This computer reports no hardware sensors (hwmon), for example in a virtual "
 "machine."
@@ -984,25 +976,25 @@ msgstr "Wszystkie czujniki"
 msgid "Shows every reading of the group"
 msgstr "Pokazuje wszystkie odczyty tej grupy"
 
-#: crates/app/src/overview/summary.rs:236
+#: crates/app/src/overview/summary.rs:237
 msgid "Power"
 msgstr "Zasilanie"
 
-#: crates/app/src/overview/summary.rs:243
+#: crates/app/src/overview/summary.rs:244
 msgid "All sensors"
 msgstr "Wszystkie czujniki"
 
-#: crates/app/src/overview/summary.rs:246
+#: crates/app/src/overview/summary.rs:247
 msgid "Every reading with its source and range since the app started"
 msgstr "Każdy odczyt ze źródłem i zakresem od uruchomienia aplikacji"
 
 #. Translators: read by screen readers for the short list of the
 #. Overview.
-#: crates/app/src/overview/summary.rs:252
+#: crates/app/src/overview/summary.rs:253
 msgid "Summary"
 msgstr "Podsumowanie"
 
-#: crates/app/src/overview/summary.rs:319
+#: crates/app/src/overview/summary.rs:323
 #, rust-format
 msgid "{} spinning"
 msgid_plural "{} spinning"
@@ -1011,7 +1003,7 @@ msgstr[1] "{} pracują"
 msgstr[2] "{} pracuje"
 
 #. Translators: under the warmest memory module on the Overview.
-#: crates/app/src/overview/summary.rs:331
+#: crates/app/src/overview/summary.rs:335
 #, rust-format
 msgid "Warmest of {} module"
 msgid_plural "Warmest of {} modules"
@@ -1020,7 +1012,7 @@ msgstr[1] "Najcieplejszy z {} modułów"
 msgstr[2] "Najcieplejszy z {} modułów"
 
 #. Translators: under the warmest disk on the Overview.
-#: crates/app/src/overview/summary.rs:335
+#: crates/app/src/overview/summary.rs:339
 #, rust-format
 msgid "Warmest of {} disk"
 msgid_plural "Warmest of {} disks"
@@ -1030,11 +1022,11 @@ msgstr[2] "Najcieplejszy z {} dysków"
 
 #. Translators: the value of the power row of the Overview when
 #. every rated rail is within its tolerance.
-#: crates/app/src/overview/summary.rs:344
+#: crates/app/src/overview/summary.rs:348
 msgid "Normal"
 msgstr "W normie"
 
-#: crates/app/src/overview/summary.rs:356
+#: crates/app/src/overview/summary.rs:360
 #, rust-format
 msgid "{} voltage outside the normal range"
 msgid_plural "{} voltages outside the normal range"
@@ -1042,51 +1034,51 @@ msgstr[0] "{} napięcie poza normą"
 msgstr[1] "{} napięcia poza normą"
 msgstr[2] "{} napięć poza normą"
 
-#: crates/app/src/preferences.rs:143 crates/app/src/system.rs:253
+#: crates/app/src/preferences.rs:153 crates/app/src/system.rs:253
 msgid "Readings"
 msgstr "Odczyty"
 
-#: crates/app/src/preferences.rs:172
+#: crates/app/src/preferences.rs:182
 msgid "Visible readings"
 msgstr "Widoczne odczyty"
 
-#: crates/app/src/preferences.rs:173
+#: crates/app/src/preferences.rs:183
 msgid "Choose what the Overview shows"
 msgstr "Wybierz, co pokazuje Przegląd"
 
-#: crates/app/src/preferences.rs:194
+#: crates/app/src/preferences.rs:205
 msgid "Names"
 msgstr "Nazwy"
 
-#: crates/app/src/preferences.rs:198
+#: crates/app/src/preferences.rs:209
 msgid "As the sensors command shows them"
 msgstr "Takie jak w poleceniu sensors"
 
-#: crates/app/src/preferences.rs:206
+#: crates/app/src/preferences.rs:217
 msgid "The system's lm-sensors configuration is not available in Flatpak"
 msgstr "Konfiguracja lm-sensors systemu jest niedostępna w Flatpaku"
 
-#: crates/app/src/preferences.rs:235 crates/app/src/system.rs:510
+#: crates/app/src/preferences.rs:246 crates/app/src/system.rs:510
 msgid "Custom names"
 msgstr "Własne nazwy"
 
-#: crates/app/src/preferences.rs:236
+#: crates/app/src/preferences.rs:247
 msgid "Changes apply after a restart"
 msgstr "Zmiany działają po ponownym uruchomieniu"
 
-#: crates/app/src/preferences.rs:240
+#: crates/app/src/preferences.rs:251
 msgid "Open the file"
 msgstr "Otwórz plik"
 
-#: crates/app/src/preferences.rs:243
+#: crates/app/src/preferences.rs:254
 msgid "Open the folder"
 msgstr "Otwórz katalog"
 
-#: crates/app/src/preferences.rs:297
+#: crates/app/src/preferences.rs:308
 msgid "Visible Readings"
 msgstr "Widoczne odczyty"
 
-#: crates/app/src/preferences.rs:307
+#: crates/app/src/preferences.rs:318
 msgid ""
 "Readings that are turned off are not shown on the Overview page, for example "
 "headers without a fan. The numbered temperature sensors of disks are off "
@@ -1165,7 +1157,7 @@ msgstr "Sterownik nct6683 jest załadowany, ale nie znalazł układu {}"
 msgid "Other fan control programs are running"
 msgstr "Działają inne programy sterujące wentylatorami"
 
-#: crates/app/src/system.rs:392 crates/app/src/window.rs:463
+#: crates/app/src/system.rs:392 crates/app/src/window.rs:480
 #, rust-format
 msgid "{} file skipped because of errors"
 msgid_plural "{} files skipped because of errors"
@@ -1564,11 +1556,11 @@ msgstr "Szczegóły techniczne"
 msgid "Overview"
 msgstr "Przegląd"
 
-#: crates/app/src/window.rs:542
+#: crates/app/src/window.rs:559
 msgid "System information copied"
 msgstr "Skopiowano informacje o systemie"
 
-#: crates/app/src/window.rs:556
+#: crates/app/src/window.rs:573
 msgid "Unknown board"
 msgstr "Nieznana płyta"
 
@@ -1587,6 +1579,12 @@ msgstr "_O programie Baseboard"
 #: crates/app/src/window.ui:56
 msgid "Main Menu"
 msgstr "Menu główne"
+
+#~ msgid "This header was not checked on this board."
+#~ msgstr "Złącza nie sprawdzono na tej płycie."
+
+#~ msgid "Not spinning since the app started: the header may be empty."
+#~ msgstr "Brak obrotów od startu aplikacji: złącze może być puste."
 
 #~ msgid "CPU"
 #~ msgstr "Procesor"

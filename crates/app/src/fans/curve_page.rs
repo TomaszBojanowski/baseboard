@@ -708,6 +708,10 @@ mod tests {
                     role: FanRole::Pump,
                     number: 1,
                 },
+                role: Name::Fan {
+                    role: FanRole::Pump,
+                    number: 1,
+                },
                 subtitle: Subtitle::Header {
                     header: "PUMP_SYS1".into(),
                     duty: Some(255.0),

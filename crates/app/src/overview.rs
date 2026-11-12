@@ -912,6 +912,7 @@ mod tests {
                 channel: "in1".into(),
             },
             name: Name::Driver("in1".into()),
+            role: Name::Driver("in1".into()),
             subtitle,
             kind: Kind::Voltage,
             value: 1.0,
