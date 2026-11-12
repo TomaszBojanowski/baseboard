@@ -531,6 +531,19 @@ struct State {
     wide: bool,
 }
 
+/// Debug builds: the view of "All Sensors", in pixels from the top of its
+/// content.
+#[cfg(debug_assertions)]
+pub struct SensorsView {
+    /// Where the view starts.
+    pub value: f64,
+    pub height: f64,
+    /// The farthest it scrolls.
+    pub max: f64,
+    /// Where each group starts.
+    pub groups: Vec<(GroupKind, f64)>,
+}
+
 mod imp {
     use super::*;
 
@@ -769,24 +782,35 @@ impl OverviewPage {
                 .find(|g| g.kind == kind)
                 .map(|g| g.widget.clone())
         });
+        // Where the group was in the frame before, and the frames so far.
+        let last = Cell::new(None);
+        let frames = Cell::new(0);
         imp.sensors_scrolled.add_tick_callback(move |scrolled, _| {
             let adjustment = scrolled.vadjustment();
             let Some(target) = &target else {
                 adjustment.set_value(0.0);
                 return glib::ControlFlow::Break;
             };
-            // Not laid out yet: the next frame.
-            if target.height() == 0 {
-                return glib::ControlFlow::Continue;
-            }
             // The content under the viewport, which does not scroll.
             let content = scrolled.child().and_then(|viewport| viewport.first_child());
-            if let Some(point) =
-                content.and_then(|content| target.compute_point(&content, &graphene::Point::zero()))
-            {
-                adjustment.set_value(f64::from(point.y()));
+            let y = content
+                .and_then(|content| target.compute_point(&content, &graphene::Point::zero()))
+                .map(|point| f64::from(point.y()));
+            // A frame runs this before its layout. The first one after the
+            // page is pushed still has the layout from when it was last
+            // shown, before the readings since then changed its rows: the
+            // group must stay in place for a frame (at most a second).
+            frames.set(frames.get() + 1);
+            let settled = target.height() > 0 && y.is_some() && last.replace(y) == y;
+            if !settled && frames.get() < 60 {
+                return glib::ControlFlow::Continue;
             }
+            // The focus first: the viewport scrolls to it on its own, by
+            // less than the group needs.
             target.child_focus(gtk::DirectionType::TabForward);
+            if let Some(y) = y {
+                adjustment.set_value(y);
+            }
             glib::ControlFlow::Break
         });
     }
@@ -815,6 +839,35 @@ impl OverviewPage {
     fn set_wide(&self, wide: bool) {
         self.imp().state.borrow_mut().wide = wide;
         self.layout();
+    }
+
+    /// Debug builds: where "All Sensors" is scrolled to, for the tour.
+    #[cfg(debug_assertions)]
+    pub fn sensors_view(&self) -> SensorsView {
+        let imp = self.imp();
+        let adjustment = imp.sensors_scrolled.vadjustment();
+        let content = imp
+            .sensors_scrolled
+            .child()
+            .and_then(|viewport| viewport.first_child());
+        let groups = imp
+            .state
+            .borrow()
+            .groups
+            .iter()
+            .filter_map(|group| {
+                let point = group
+                    .widget
+                    .compute_point(content.as_ref()?, &graphene::Point::zero())?;
+                Some((group.kind, f64::from(point.y())))
+            })
+            .collect();
+        SensorsView {
+            value: adjustment.value(),
+            height: adjustment.page_size(),
+            max: adjustment.upper() - adjustment.page_size(),
+            groups,
+        }
     }
 
     /// Debug builds: scrolls to the end, for a screenshot of the lower

@@ -90,6 +90,8 @@ pub fn run() -> glib::ExitCode {
         debug::dialog(app, &window);
         #[cfg(debug_assertions)]
         debug::screenshot(app, &window);
+        #[cfg(debug_assertions)]
+        crate::tour::start(app, &window);
     });
     app.run()
 }

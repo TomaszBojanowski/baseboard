@@ -21,6 +21,8 @@ mod sampler;
 mod sensors;
 mod system;
 mod system_reader;
+#[cfg(debug_assertions)]
+mod tour;
 mod window;
 
 use gtk::{gio, glib};

@@ -142,7 +142,7 @@ impl Alert {
     #[cfg(test)]
     pub fn shown(&self) -> Option<(String, String)> {
         self.widget
-            .is_visible()
+            .get_visible()
             .then(|| (self.title.label().into(), self.text.label().into()))
     }
 }

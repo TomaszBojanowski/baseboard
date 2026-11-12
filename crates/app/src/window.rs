@@ -384,6 +384,23 @@ impl BaseboardWindow {
         self.update_reading();
     }
 
+    /// Debug builds: the page shown and the subpage over it, if any.
+    #[cfg(debug_assertions)]
+    pub fn shown(&self) -> (Option<gtk::Widget>, Option<adw::NavigationPage>) {
+        let imp = self.imp();
+        let subpage = imp
+            .content_nav
+            .visible_page()
+            .filter(|page| page != &*imp.root_page);
+        (imp.pages.visible_child(), subpage)
+    }
+
+    /// Debug builds: back to the page from its subpages.
+    #[cfg(debug_assertions)]
+    pub fn close_subpages(&self) {
+        self.imp().content_nav.pop_to_tag("root");
+    }
+
     /// Shows the page instead of the sidebar when the window is narrow.
     #[cfg(debug_assertions)]
     pub fn show_content(&self) {

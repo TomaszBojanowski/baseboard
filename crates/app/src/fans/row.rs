@@ -397,9 +397,10 @@ impl FanRow {
     fn set_opens(&self, line: &FanLine) {
         self.row.set_activatable(line.opens);
         if line.opens {
-            self.row.set_action_name(Some("win.show-curve"));
+            // The target before the name, as in the Overview's summary.
             self.row
                 .set_action_target_value(Some(&line.key.to_variant()));
+            self.row.set_action_name(Some("win.show-curve"));
         }
         // Kept in place, so that the numbers of all rows line up.
         self.chevron.set_opacity(if line.opens { 1.0 } else { 0.0 });

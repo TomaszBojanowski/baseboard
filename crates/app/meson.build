@@ -18,7 +18,7 @@ cargo_env = [
   'BASEBOARD_PKGDATADIR=' + datadir / 'baseboard',
 ]
 
-custom_target(
+app = custom_target(
   'cargo-build',
   build_by_default: true,
   build_always_stale: true,
@@ -41,3 +41,20 @@ test(
   env: cargo_env,
   timeout: 600,
 )
+
+# The tour of every page and subpage on an invisible X server
+# (tests/tour.sh); only debug builds have it.
+if rust_target == 'debug'
+  test(
+    'tour',
+    find_program(meson.project_source_root() / 'tests' / 'tour.sh'),
+    args: [app],
+    depends: app,
+    env: [
+      'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
+      'BASEBOARD_LOCALEDIR=' + meson.project_build_root() / 'po',
+      'BASEBOARD_BOARDS_DIR=' + meson.project_source_root() / 'data' / 'boards',
+    ],
+    timeout: 900,
+  )
+endif

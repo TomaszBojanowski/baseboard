@@ -148,10 +148,11 @@ impl SummaryRow {
     }
 
     fn opens(self, action: &str, target: Option<&str>) -> Self {
-        self.row.set_action_name(Some(action));
+        // The target before the name (see `SummaryWidgets::update`).
         if let Some(target) = target {
             self.row.set_action_target_value(Some(&target.to_variant()));
         }
+        self.row.set_action_name(Some(action));
         self
     }
 
@@ -291,8 +292,11 @@ impl SummaryWidgets {
             }
             let key = group_key(hero.group).to_variant();
             if widgets.button.action_target_value().as_ref() != Some(&key) {
-                widgets.button.set_action_name(Some("win.show-sensors"));
+                // The target before the name: GTK checks the action as soon
+                // as it has a name, and without its parameter turns it off
+                // with a warning.
                 widgets.button.set_action_target_value(Some(&key));
+                widgets.button.set_action_name(Some("win.show-sensors"));
             }
         }
         self.heroes_box.set_visible(!summary.heroes.is_empty());
@@ -408,15 +412,38 @@ mod tests {
     }
 
     /// The numbers, the rows and the warning for a sample with a low
-    /// +12 V rail and a stopped CPU fan. Needs a display.
+    /// +12 V rail and a stopped CPU fan, in a window with the actions; a
+    /// large number opens its group. Needs a display.
     #[test]
     fn top_of_the_page() {
         crate::gtk_test::run("top_of_the_page", || {
+            use std::cell::RefCell;
+            use std::rc::Rc;
+
+            use gtk::{gio, glib};
+
+            let opened = Rc::new(RefCell::new(Vec::<String>::new()));
+            let action = gio::SimpleAction::new("show-sensors", Some(glib::VariantTy::STRING));
+            let seen = opened.clone();
+            action.connect_activate(move |_, key| {
+                seen.borrow_mut()
+                    .extend(key.and_then(|k| k.get::<String>()));
+            });
+            let group = gio::SimpleActionGroup::new();
+            group.add_action(&action);
+            group.add_action(&gio::SimpleAction::new("show-fans", None));
+
             let numbers = Numbers::new(",");
             let column = gtk::Box::new(gtk::Orientation::Vertical, 0);
             let heroes = gtk::Box::new(gtk::Orientation::Horizontal, 0);
             let list = gtk::ListBox::new();
             let all = gtk::ListBox::new();
+            column.append(&heroes);
+            column.append(&list);
+            column.append(&all);
+            let window = gtk::Window::new();
+            window.insert_action_group("win", Some(&group));
+            window.set_child(Some(&column));
             let widgets = SummaryWidgets::new(&column, &heroes, &list, &all);
             let rail = OutsideRail {
                 name: Name::Voltage(VoltageRole::P12v),
@@ -444,12 +471,11 @@ mod tests {
             };
             widgets.update(&summary, &numbers);
             assert_eq!(widgets.heroes[0].value.label(), "68");
-            assert!(widgets.heroes[0].button.is_visible());
-            assert!(!widgets.heroes[1].button.is_visible());
-            assert_eq!(
-                widgets.heroes[0].button.action_target_value(),
-                Some("cpu".to_variant())
-            );
+            // The window is not shown: whether each one is set visible.
+            assert!(widgets.heroes[0].button.get_visible());
+            assert!(!widgets.heroes[1].button.get_visible());
+            widgets.heroes[0].button.emit_clicked();
+            assert_eq!(*opened.borrow(), ["cpu"]);
             let (title, _) = widgets.alert().unwrap();
             assert_eq!(title, "+12\u{a0}V below normal: 11,20\u{a0}V");
             assert_eq!(widgets.power.value.label(), "11,20\u{a0}V");
@@ -466,7 +492,7 @@ mod tests {
                 widgets.memory.row.subtitle().as_deref(),
                 Some("Warmest of 2 modules")
             );
-            assert!(!widgets.disks.row.is_visible());
+            assert!(!widgets.disks.row.get_visible());
 
             // All well: no warning, power normal, no fan subtitle.
             let calm = Summary {
@@ -481,6 +507,7 @@ mod tests {
             assert_eq!(widgets.alert(), None);
             assert_eq!(widgets.power.value.label(), "Normal");
             assert_eq!(widgets.fans.row.subtitle().as_deref(), Some(""));
+            window.destroy();
         });
     }
 }
