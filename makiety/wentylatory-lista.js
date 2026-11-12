@@ -172,7 +172,8 @@
 
   function row(f) {
     const chart = S.curves && f.curve;
-    const open = chart && !f.manual;
+    // Also in manual mode: the curve stays in the board's controller.
+    const open = chart;
     return `<div class="r${f.rpm === 0 ? " zero" : ""}" role="${open ? "button" : "group"}"
         aria-label="${f.name}" aria-description="${rowDescription(f)}" data-key="${f.key}">
       <div class="r-name">${f.name}</div>

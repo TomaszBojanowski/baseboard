@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: baseboard\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 20:20+0100\n"
+"POT-Creation-Date: 2026-11-12 20:43+0100\n"
 "PO-Revision-Date: 2026-11-11 20:30+0100\n"
 "Last-Translator: Tomasz Bojanowski <tomasz@bojanowski.me>\n"
 "Language-Team: \n"
@@ -221,72 +221,73 @@ msgid "Hardware descriptions from public sources"
 msgstr "Opis sprzętu ze źródeł publicznych"
 
 #. Translators: {source} is a temperature, e.g. "CPU (board sensor)".
-#: crates/app/src/fan_chart.rs:323
+#: crates/app/src/fan_chart.rs:326
 #, rust-format
 msgid "Temperature source: {source}."
 msgstr "Źródło temperatury: {source}."
 
 #. Translators: a point of a fan curve, e.g. "Point 3: 60 °C, 35 %."
-#: crates/app/src/fan_chart.rs:329 crates/app/src/fans/curve_page.rs:616
+#: crates/app/src/fan_chart.rs:332 crates/app/src/fans/curve_page.rs:192
 #, rust-format
 msgid "Point {number}: {temperature}, {duty}."
 msgstr "Punkt {number}: {temperature}, {duty}."
 
-#. Translators: repeated points of a fan curve, e.g.
-#. "Points 4–7: 85 °C, 100 %."
-#: crates/app/src/fan_chart.rs:334
+#. The same words as the list of points on the curve page.
+#. Translators: read by screen readers for a row of equal points
+#. of a fan curve, e.g. "Points 4 to 7: 85 °C, 100 %.".
+#: crates/app/src/fan_chart.rs:336 crates/app/src/fans/curve_page.rs:185
 #, rust-format
-msgid "Points {first}–{last}: {temperature}, {duty}."
-msgstr "Punkty {first}–{last}: {temperature}, {duty}."
+msgid "Points {first} to {last}: {temperature}, {duty}."
+msgstr "Punkty od {first} do {last}: {temperature}, {duty}."
 
 #. Translators: the source temperature and the fan's duty cycle
 #. now, e.g. "Now 46.0 °C, duty cycle 38 %."
-#: crates/app/src/fan_chart.rs:348
+#: crates/app/src/fan_chart.rs:350
 #, rust-format
 msgid "Now {temperature}, duty cycle {duty}."
 msgstr "Teraz {temperature}, wypełnienie {duty}."
 
 #. Translators: the controller changes the duty cycle
 #. gradually; {duty} is where it is heading, e.g. "40 %".
-#: crates/app/src/fan_chart.rs:358
+#: crates/app/src/fan_chart.rs:361
 #, rust-format
 msgid "The fan is moving to {duty}."
 msgstr "Wentylator dochodzi do {duty}."
 
 #. Translators: the lowest duty cycle allowed for this fan, e.g. "30 %".
-#: crates/app/src/fan_chart.rs:366
+#: crates/app/src/fan_chart.rs:369
 #, rust-format
 msgid "Minimum duty cycle: {duty}."
 msgstr "Minimalne wypełnienie: {duty}."
 
 #. Translators: the emergency temperature of the source, e.g. "95 °C".
-#: crates/app/src/fan_chart.rs:373
+#: crates/app/src/fan_chart.rs:376
 #, rust-format
 msgid "Emergency threshold: {temperature}."
 msgstr "Próg awaryjny: {temperature}."
 
 #. Translators: the name of the chart for the screen reader;
 #. {name} is a fan, e.g. "CPU fan 1".
-#: crates/app/src/fan_chart.rs:547
+#: crates/app/src/fan_chart.rs:550
 #, rust-format
 msgid "Curve of {name}"
 msgstr "Krzywa: {name}"
 
 #. Translators: the title of the vertical axis of a fan curve.
-#: crates/app/src/fan_chart.rs:793
+#: crates/app/src/fan_chart.rs:800
 msgid "Duty cycle"
 msgstr "Wypełnienie"
 
 #. Translators: the title of the horizontal axis of a fan curve;
 #. {source} is a temperature, e.g. "CPU (board sensor)".
-#: crates/app/src/fan_chart.rs:802
+#: crates/app/src/fan_chart.rs:809
 #, rust-format
 msgid "Temperature: {source}"
 msgstr "Temperatura: {source}"
 
 #. Translators: the zone of a fan curve below the lowest duty
 #. cycle allowed; {duty} is e.g. "30 %".
-#: crates/app/src/fan_chart.rs:870
+#: crates/app/src/fan_chart.rs:877
 #, rust-format
 msgid "Below the minimum of {duty}"
 msgstr "Poniżej minimum {duty}"
@@ -294,28 +295,28 @@ msgstr "Poniżej minimum {duty}"
 #. Translators: the emergency temperature of the source on
 #. a fan curve that must reach full duty by then; e.g.
 #. "Emergency threshold 95 °C: 100 % from there".
-#: crates/app/src/fan_chart.rs:908
+#: crates/app/src/fan_chart.rs:915
 #, rust-format
 msgid "Emergency threshold {temperature}: {duty} from there"
 msgstr "Próg awaryjny {temperature}: od niego {duty}"
 
 #. Translators: the emergency temperature of the source on
 #. a fan curve, e.g. "Emergency threshold 95 °C".
-#: crates/app/src/fan_chart.rs:914
+#: crates/app/src/fan_chart.rs:921
 #, rust-format
 msgid "Emergency threshold {temperature}"
 msgstr "Próg awaryjny {temperature}"
 
 #. Translators: the label of the operating point on a fan curve,
 #. e.g. "Now 46.0 °C · 38 %".
-#: crates/app/src/fan_chart.rs:1034
+#: crates/app/src/fan_chart.rs:1041
 #, rust-format
 msgid "Now {temperature} · {duty}"
 msgstr "Teraz {temperature} · {duty}"
 
 #. Translators: under the label of the operating point, where
 #. the fan is heading, e.g. "target 40 %".
-#: crates/app/src/fan_chart.rs:1046
+#: crates/app/src/fan_chart.rs:1053
 #, rust-format
 msgid "target {duty}"
 msgstr "cel {duty}"
@@ -361,7 +362,7 @@ msgstr "/pl/#jadro"
 
 #. Translators: under the large temperature on the Fans page when the
 #. kernel driver can only read the fans.
-#: crates/app/src/fans.rs:123
+#: crates/app/src/fans.rs:130
 msgid ""
 "This system can only read the fans for now. Fan control is coming in a "
 "future Linux version."
@@ -372,58 +373,58 @@ msgstr ""
 #. Translators: a link after the sentence about the kernel on the
 #. Fans page; it opens the website's section on fan control in the
 #. kernel.
-#: crates/app/src/fans.rs:130
+#: crates/app/src/fans.rs:137
 msgid "Kernel status"
 msgstr "Stan w jądrze"
 
-#: crates/app/src/fans.rs:143
+#: crates/app/src/fans.rs:194
 msgid "For now, Baseboard only shows the fan settings from the BIOS."
 msgstr "Baseboard na razie tylko pokazuje ustawienia wentylatorów z BIOS-u."
 
 #. Translators: in the legend of the fan charts, the hatched zone
 #. below the lowest duty cycle of a header.
-#: crates/app/src/fans.rs:172
+#: crates/app/src/fans.rs:223
 msgid "below the header's minimum"
 msgstr "poniżej minimum złącza"
 
 #. Translators: in the legend of the fan charts, the red dashed line.
-#: crates/app/src/fans.rs:174
+#: crates/app/src/fans.rs:225
 msgid "emergency threshold"
 msgstr "próg awaryjny"
 
 #. Translators: in the legend of the fan charts, the green dot.
-#: crates/app/src/fans.rs:176
+#: crates/app/src/fans.rs:227
 msgid "now: temperature and duty cycle"
 msgstr "teraz: temperatura i wypełnienie"
 
 #. Translators: in the legend of the fan charts, the dashed line of
 #. a curve before its first point and after its last one.
-#: crates/app/src/fans.rs:179
+#: crates/app/src/fans.rs:230
 msgid "curve extension"
 msgstr "przedłużenie krzywej"
 
 #. Translators: read by screen readers for the list of fans.
-#: crates/app/src/fans.rs:401 crates/app/src/overview.rs:32
+#: crates/app/src/fans.rs:465 crates/app/src/overview.rs:32
 #: crates/app/src/window.rs:58 crates/app/src/window.ui:76
 msgid "Fans"
 msgstr "Wentylatory"
 
 #. Translators: Baseboard cannot control the board's fans here.
-#: crates/app/src/fans.rs:556 crates/app/src/system.rs:688
+#: crates/app/src/fans.rs:620 crates/app/src/system.rs:688
 msgid "Fan control unavailable"
 msgstr "Sterowanie wentylatorami niedostępne"
 
 #. Translators: {} is the name of the board's chip, e.g. nct6687.
-#: crates/app/src/fans.rs:568 crates/app/src/system.rs:695
+#: crates/app/src/fans.rs:632 crates/app/src/system.rs:695
 #, rust-format
 msgid "The board's {} chip was not found"
 msgstr "Nie znaleziono układu płyty {}"
 
-#: crates/app/src/fans.rs:584 crates/app/src/overview.rs:652
+#: crates/app/src/fans.rs:648 crates/app/src/overview.rs:652
 msgid "All readings are hidden"
 msgstr "Wszystkie odczyty są ukryte"
 
-#: crates/app/src/fans.rs:585 crates/app/src/overview.rs:653
+#: crates/app/src/fans.rs:649 crates/app/src/overview.rs:653
 msgid "Turn them on again in Preferences."
 msgstr "Można je włączyć z powrotem w preferencjach."
 
@@ -441,155 +442,136 @@ msgstr "Szczegóły"
 msgid "Fans are speeding up"
 msgstr "Wentylatory przyspieszają"
 
-#: crates/app/src/fans/curve_page.rs:166
+#: crates/app/src/fans/curve_page.rs:168
 msgid "Automatic BIOS"
 msgstr "Automat BIOS"
 
-#: crates/app/src/fans/curve_page.rs:167
+#: crates/app/src/fans/curve_page.rs:169
 msgid "Manual"
 msgstr "Ręczny"
 
 #. Translators: the mode of a fan when the kernel driver gives none.
-#: crates/app/src/fans/curve_page.rs:169
+#: crates/app/src/fans/curve_page.rs:171
 msgid "The mode could not be read"
 msgstr "Nie udało się odczytać trybu"
 
 #. Translators: read by screen readers for the legend under the large
 #. chart of a fan curve.
-#: crates/app/src/fans/curve_page.rs:211
+#: crates/app/src/fans/curve_page.rs:237
 msgid "Legend of the chart"
 msgstr "Legenda wykresu"
 
-#: crates/app/src/fans/curve_page.rs:299
+#: crates/app/src/fans/curve_page.rs:325
 msgid "Points"
 msgstr "Punkty"
 
 #. Translators: under "Points" on the curve page in the preview.
-#: crates/app/src/fans/curve_page.rs:301
+#: crates/app/src/fans/curve_page.rs:327
 msgid "Values read from the board's controller."
 msgstr "Wartości odczytane z kontrolera płyty."
 
 #. Translators: on the curve page, the group about the fan
 #. header of the board: its mode, minimum and notes.
-#: crates/app/src/fans/curve_page.rs:331
+#: crates/app/src/fans/curve_page.rs:347
 msgid "Header"
 msgstr "Złącze"
 
-#: crates/app/src/fans/curve_page.rs:334
+#: crates/app/src/fans/curve_page.rs:350
 msgid "Mode"
 msgstr "Tryb"
 
+#. Translators: on the curve page of a fan in manual mode.
+#: crates/app/src/fans/curve_page.rs:354
+msgid "In manual mode the curve does not run"
+msgstr "W trybie ręcznym krzywa nie działa"
+
+#: crates/app/src/fans/curve_page.rs:356
+msgid ""
+"The fan holds a fixed duty cycle, and the curve stays in the board's "
+"controller."
+msgstr "Wentylator ma stałe wypełnienie, a krzywa zostaje w kontrolerze płyty."
+
 #. Translators: on the curve page, the lowest duty cycle of a
 #. header (B5).
-#: crates/app/src/fans/curve_page.rs:338
+#: crates/app/src/fans/curve_page.rs:362
 msgid "Minimum"
 msgstr "Minimum"
 
-#: crates/app/src/fans/curve_page.rs:339
+#: crates/app/src/fans/curve_page.rs:363
 msgid "The lowest duty cycle Baseboard allows"
 msgstr "Najniższe wypełnienie, jakie Baseboard dopuści"
 
 #. Translators: on the curve page of a fan header whose channel
 #. nobody has checked on this board.
-#: crates/app/src/fans/curve_page.rs:345
+#: crates/app/src/fans/curve_page.rs:369
 msgid "This header was not checked on this board"
 msgstr "Złącza nie sprawdzono na tej płycie"
 
-#: crates/app/src/fans/curve_page.rs:346
+#: crates/app/src/fans/curve_page.rs:370
 msgid "Nobody has confirmed yet that this reading belongs to this header."
 msgstr "Nikt jeszcze nie potwierdził, że ten odczyt należy do tego złącza."
 
 #. Translators: on the curve page of a fan that has not turned
 #. since Baseboard started.
-#: crates/app/src/fans/curve_page.rs:352
+#: crates/app/src/fans/curve_page.rs:376
 msgid "No speed since the app started"
 msgstr "Nie kręci się od uruchomienia aplikacji"
 
-#: crates/app/src/fans/curve_page.rs:353
+#: crates/app/src/fans/curve_page.rs:377
 msgid "The header may be empty."
 msgstr "Złącze może być puste."
 
-#: crates/app/src/fans/curve_page.rs:360
+#: crates/app/src/fans/curve_page.rs:384
 msgid "Temperature source"
 msgstr "Źródło temperatury"
 
 #. Translators: under "Temperature source" on the curve page; "it"
 #. is the temperature.
-#: crates/app/src/fans/curve_page.rs:363
+#: crates/app/src/fans/curve_page.rs:387
 msgid "The controller computes the duty from it."
 msgstr "Według niej kontroler liczy wypełnienie."
 
-#: crates/app/src/fans/curve_page.rs:375
+#: crates/app/src/fans/curve_page.rs:399
 msgid "Cannot be changed"
 msgstr "Nie można zmienić"
 
-#: crates/app/src/fans/curve_page.rs:380
+#: crates/app/src/fans/curve_page.rs:404
 msgid "How the curve works"
 msgstr "Jak działa krzywa"
 
-#: crates/app/src/fans/curve_page.rs:383
+#: crates/app/src/fans/curve_page.rs:407
 msgid "The duty cycle changes linearly between the points"
 msgstr "Między punktami wypełnienie zmienia się liniowo"
 
-#: crates/app/src/fans/curve_page.rs:384
+#: crates/app/src/fans/curve_page.rs:408
 msgid "Below the first point and above the last one their duty cycle holds."
 msgstr ""
 "Poniżej pierwszego punktu i powyżej ostatniego obowiązuje ich wypełnienie."
 
-#: crates/app/src/fans/curve_page.rs:388
+#: crates/app/src/fans/curve_page.rs:412
 msgid "The board's controller runs the curve"
 msgstr "Krzywą wykonuje kontroler płyty"
 
-#: crates/app/src/fans/curve_page.rs:389
+#: crates/app/src/fans/curve_page.rs:413
 msgid "Neither the app nor the helper has to run for it."
 msgstr "Aplikacja ani pomocnik nie muszą przy tym działać."
 
-#: crates/app/src/fans/curve_page.rs:502
+#: crates/app/src/fans/curve_page.rs:527
 #, rust-format
 msgid "{header} · preview"
 msgstr "{header} · podgląd"
 
 #. Translators: in the legend under a fan curve, the operating
 #. point, e.g. "Now: 46.0 °C, 38 %".
-#: crates/app/src/fans/curve_page.rs:527
+#: crates/app/src/fans/curve_page.rs:555
 #, rust-format
 msgid "Now: {temperature}, {duty}"
 msgstr "Teraz: {temperature}, {duty}"
 
-#: crates/app/src/fans/curve_page.rs:543
+#: crates/app/src/fans/curve_page.rs:571
 #, rust-format
 msgid "Target: {duty}"
 msgstr "Cel: {duty}"
-
-#. Translators: under the list of points of a curve, e.g.
-#. "Point 7 is the same as point 6."
-#: crates/app/src/fans/curve_page.rs:634
-#, rust-format
-msgid "Point {last} is the same as point {first}."
-msgstr "Punkt {last} jest taki sam jak punkt {first}."
-
-#. Translators: under the list of points of a curve, e.g.
-#. "Points 5–7 are the same as point 4."
-#: crates/app/src/fans/curve_page.rs:639
-#, rust-format
-msgid "Points {from}–{last} are the same as point {first}."
-msgstr "Punkty {from}–{last} są takie same jak punkt {first}."
-
-#: crates/app/src/fans/curve_page.rs:646
-#, rust-format
-msgid ""
-"The controller has {} point, and a curve with fewer levels repeats the last "
-"one."
-msgid_plural ""
-"The controller has {} points, and a curve with fewer levels repeats the last "
-"one."
-msgstr[0] ""
-"Kontroler ma {} punkt, a krzywa z mniejszą liczbą poziomów powtarza ostatni."
-msgstr[1] ""
-"Kontroler ma {} punkty, a krzywa z mniejszą liczbą poziomów powtarza ostatni."
-msgstr[2] ""
-"Kontroler ma {} punktów, a krzywa z mniejszą liczbą poziomów powtarza "
-"ostatni."
 
 #. Translators: under a fan on the Fans page when it has not
 #. turned since Baseboard started; one sentence.
@@ -1414,6 +1396,35 @@ msgstr "Kopiuje informacje o systemie do schowka, np. do zgłoszenia błędu"
 msgid "Copy Information"
 msgstr "Kopiuj informacje"
 
+#, rust-format
+#~ msgid "Points {first}–{last}: {temperature}, {duty}."
+#~ msgstr "Punkty {first}–{last}: {temperature}, {duty}."
+
+#, rust-format
+#~ msgid "Point {last} is the same as point {first}."
+#~ msgstr "Punkt {last} jest taki sam jak punkt {first}."
+
+#, rust-format
+#~ msgid "Points {from}–{last} are the same as point {first}."
+#~ msgstr "Punkty {from}–{last} są takie same jak punkt {first}."
+
+#, rust-format
+#~ msgid ""
+#~ "The controller has {} point, and a curve with fewer levels repeats the "
+#~ "last one."
+#~ msgid_plural ""
+#~ "The controller has {} points, and a curve with fewer levels repeats the "
+#~ "last one."
+#~ msgstr[0] ""
+#~ "Kontroler ma {} punkt, a krzywa z mniejszą liczbą poziomów powtarza "
+#~ "ostatni."
+#~ msgstr[1] ""
+#~ "Kontroler ma {} punkty, a krzywa z mniejszą liczbą poziomów powtarza "
+#~ "ostatni."
+#~ msgstr[2] ""
+#~ "Kontroler ma {} punktów, a krzywa z mniejszą liczbą poziomów powtarza "
+#~ "ostatni."
+
 #~ msgid "duty cycle"
 #~ msgstr "wypełnienie"
 
@@ -1422,9 +1433,6 @@ msgstr "Kopiuj informacje"
 #~ "show it."
 #~ msgstr ""
 #~ "Obroty ustala krzywa w kontrolerze płyty. Ten sterownik jej nie pokazuje."
-
-#~ msgid "The curve could not be read from the board's controller."
-#~ msgstr "Nie udało się odczytać krzywej z kontrolera płyty."
 
 #~ msgid "You can hide it in Preferences, on the Readings page."
 #~ msgstr "Ukryjesz je w Preferencjach, w zakładce Odczyty."

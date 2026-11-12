@@ -57,6 +57,9 @@ pub struct ChartCurve {
     pub threshold: Option<u8>,
     /// The curve must reach 100 % by the threshold (B14: CPU and pump).
     pub needs_full: bool,
+    /// The curve sets the duty cycle now. In manual mode it does not: the
+    /// chart shows the curve the controller keeps, without a target.
+    pub in_effect: bool,
 }
 
 /// The live reading: the source temperature and the duty cycle the driver
@@ -329,9 +332,8 @@ pub fn describe(curve: &ChartCurve, reading: Option<Reading>, numbers: &Numbers)
             gettext("Point {number}: {temperature}, {duty}.")
                 .replace("{number}", &(first + 1).to_string())
         } else {
-            // Translators: repeated points of a fan curve, e.g.
-            // "Points 4–7: 85 °C, 100 %."
-            gettext("Points {first}–{last}: {temperature}, {duty}.")
+            // The same words as the list of points on the curve page.
+            gettext("Points {first} to {last}: {temperature}, {duty}.")
                 .replace("{first}", &(first + 1).to_string())
                 .replace("{last}", &(last + 1).to_string())
         };
@@ -350,6 +352,7 @@ pub fn describe(curve: &ChartCurve, reading: Option<Reading>, numbers: &Numbers)
                 .replace("{duty}", &percent_text(duty_to_percent(reading.duty))),
         );
         if let Some(target) = curve::expected_duty(&curve.points, reading.millidegrees)
+            .filter(|_| curve.in_effect)
             .filter(|&t| duty_to_percent(t) != duty_to_percent(reading.duty))
         {
             sentences.push(
@@ -567,8 +570,12 @@ impl FanChart {
         self.update_description();
         let next = reading.and_then(|r| {
             let curve = imp.curve.borrow();
-            let points = &curve.as_ref()?.points;
-            let target = curve::expected_duty(points, r.millidegrees).unwrap_or(r.duty);
+            let curve = curve.as_ref()?;
+            // Without a curve in effect the target is the duty cycle itself:
+            // nothing to move to.
+            let target = curve::expected_duty(&curve.points, r.millidegrees)
+                .filter(|_| curve.in_effect)
+                .unwrap_or(r.duty);
             Some(Shown {
                 temp: r.millidegrees as f64 / 1000.0,
                 duty: f64::from(r.duty),
@@ -1110,6 +1117,7 @@ mod tests {
             min_percent: 0,
             threshold: Some(95),
             needs_full: false,
+            in_effect: true,
         }
     }
 
@@ -1128,7 +1136,7 @@ mod tests {
             text,
             "Temperature source: CPU (board sensor). Point 1: 0\u{a0}°C, 37\u{a0}%. \
              Point 2: 5\u{a0}°C, 38\u{a0}%. Point 3: 84\u{a0}°C, 39\u{a0}%. \
-             Points 4–7: 85\u{a0}°C, 100\u{a0}%. Now 46.0\u{a0}°C, duty cycle 38\u{a0}%. \
+             Points 4 to 7: 85\u{a0}°C, 100\u{a0}%. Now 46.0\u{a0}°C, duty cycle 38\u{a0}%. \
              Emergency threshold: 95\u{a0}°C."
         );
     }
@@ -1154,6 +1162,35 @@ mod tests {
         assert!(text.contains("Minimum duty cycle: 30\u{a0}%."), "{text}");
         // Without a reading, no sentence about now.
         assert!(!describe(&curve, None, &numbers).contains("Now"));
+        // In manual mode the curve sets nothing: no target.
+        curve.in_effect = false;
+        let reading = Some(Reading {
+            millidegrees: 46_000,
+            duty: 76,
+        });
+        assert!(!describe(&curve, reading, &numbers).contains("moving"));
+    }
+
+    /// In manual mode the chart shows the fixed duty cycle as the point
+    /// now, without a target. Needs a display.
+    #[test]
+    fn no_target_in_manual_mode() {
+        crate::gtk_test::run("no_target_in_manual_mode", || {
+            let chart = FanChart::new(Size::Large, false);
+            let reading = Some(Reading {
+                millidegrees: 46_000,
+                duty: 115,
+            });
+            chart.set_curve(Some(sys1()));
+            chart.set_reading(reading);
+            let shown = chart.imp().shown.get().unwrap();
+            assert_eq!(shown.target, 98.0);
+            let mut manual = sys1();
+            manual.in_effect = false;
+            chart.set_curve(Some(manual));
+            let shown = chart.imp().shown.get().unwrap();
+            assert_eq!((shown.duty, shown.target), (115.0, 115.0));
+        });
     }
 
     #[test]

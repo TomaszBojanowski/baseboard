@@ -159,11 +159,24 @@ impl Card {
         !self.spun() && self.duty != Some(0)
     }
 
-    /// The chart, when the card has one.
+    /// The chart, when the curve sets the fan's duty cycle.
     pub fn chart(&self) -> Option<&Chart> {
         match &self.kind {
             CardKind::Full {
                 body: Body::Chart(chart),
+                ..
+            } => Some(chart.as_ref()),
+            _ => None,
+        }
+    }
+
+    /// The curve in the board's controller, also in manual mode, when the
+    /// controller keeps it but holds a fixed duty cycle: what the page
+    /// "Curve Details" shows.
+    pub fn curve(&self) -> Option<&Chart> {
+        match &self.kind {
+            CardKind::Full {
+                body: Body::Chart(chart) | Body::Manual(Some(chart)),
                 ..
             } => Some(chart.as_ref()),
             _ => None,
@@ -206,8 +219,9 @@ pub enum Control {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Body {
     Chart(Box<Chart>),
-    /// Manual mode: the duty cycle in large type.
-    Manual,
+    /// Manual mode: a fixed duty cycle; the curve stays in the board's
+    /// controller and is here when it could be read.
+    Manual(Option<Box<Chart>>),
     /// The driver reports no curve (level `manual`).
     NoCurve,
     /// The driver has the curve, but reading it failed.
@@ -368,25 +382,28 @@ fn full(
     } else {
         Control::Unchecked
     };
+    let chart = |points: &Vec<CurvePoint>| {
+        let source = reading.source.clone().and_then(Result::ok);
+        let row = source.map(source_row);
+        let millidegrees = row.as_ref().and_then(SourceRow::millidegrees);
+        Box::new(Chart {
+            points: points.clone(),
+            target: millidegrees
+                .filter(|_| mode == Some(Mode::Auto))
+                .and_then(|t| curve::expected_duty(points, t)),
+            millidegrees,
+            threshold: row.as_ref().and_then(|r| r.temp.as_ref()?.emergency_c),
+            needs_full: matches!(fan.role, FanRole::Cpu | FanRole::Pump),
+            own_source: row.filter(|r| Some(r.source) != common),
+        })
+    };
     let body = match (&mode, &reading.curve) {
-        (Some(Mode::Manual), _) => Body::Manual,
+        (Some(Mode::Manual), curve) => {
+            Body::Manual(curve.as_ref().and_then(|c| c.as_ref().ok()).map(chart))
+        }
         (_, None) => Body::NoCurve,
         (_, Some(Err(_))) => Body::CurveUnreadable,
-        (_, Some(Ok(points))) => {
-            let source = reading.source.clone().and_then(Result::ok);
-            let row = source.map(source_row);
-            let millidegrees = row.as_ref().and_then(SourceRow::millidegrees);
-            Body::Chart(Box::new(Chart {
-                points: points.clone(),
-                target: millidegrees
-                    .filter(|_| mode == Some(Mode::Auto))
-                    .and_then(|t| curve::expected_duty(points, t)),
-                millidegrees,
-                threshold: row.as_ref().and_then(|r| r.temp.as_ref()?.emergency_c),
-                needs_full: matches!(fan.role, FanRole::Cpu | FanRole::Pump),
-                own_source: row.filter(|r| Some(r.source) != common),
-            }))
-        }
+        (_, Some(Ok(points))) => Body::Chart(chart(points)),
     };
     CardKind::Full { control, body }
 }
@@ -689,20 +706,43 @@ mod tests {
                 ..
             }
         ));
-        // A channel in manual mode shows its duty cycle, not the curve.
+        // A channel in manual mode: the curve sets nothing, but it stays in
+        // the controller, so its details can be shown.
         let mut driver = driver(DriverLevel::Curves);
         driver.channel_mut(14).unwrap().mode = Some(Mode::Manual);
         let page = page_of(&driver, &Visibility::default());
+        let sys3 = card(&page, "sys3");
         assert!(matches!(
-            card(&page, "sys3").kind,
+            sys3.kind,
             CardKind::Full {
                 control: Control::Switch {
                     mode: Some(Mode::Manual),
                     ..
                 },
-                body: Body::Manual,
+                body: Body::Manual(Some(_)),
             }
         ));
+        assert_eq!(sys3.chart(), None);
+        let kept = sys3.curve().unwrap();
+        assert_eq!(
+            kept.points,
+            points(&[(40, 76), (55, 76), (70, 76), (85, 76)])
+        );
+        assert_eq!(kept.target, None);
+        assert_eq!(sys3.moving_to(), None);
+        // Manual mode on a driver without curves: nothing to show.
+        let mut driver = self::driver(DriverLevel::Manual);
+        driver.channel_mut(14).unwrap().mode = Some(Mode::Manual);
+        let page = page_of(&driver, &Visibility::default());
+        let sys3 = card(&page, "sys3");
+        assert!(matches!(
+            sys3.kind,
+            CardKind::Full {
+                body: Body::Manual(None),
+                ..
+            }
+        ));
+        assert_eq!(sys3.curve(), None);
     }
 
     #[test]

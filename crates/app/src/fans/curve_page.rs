@@ -18,7 +18,7 @@ use baseboard_core::fans::page::{Card, CardKind, Control, SourceRow};
 use baseboard_core::overview::Subtitle;
 use baseboard_core::sensors::Kind;
 use baseboard_core::units::{UNIT_SPACE, duty_to_percent};
-use gettextrs::{gettext, ngettext};
+use gettextrs::gettext;
 use gtk::{glib, pango};
 
 use super::{Layout, PageContext, legend_items, percent, source_name};
@@ -26,9 +26,11 @@ use crate::fan_chart::swatch::Swatch;
 use crate::fan_chart::{ChartCurve, FanChart, Reading, Size};
 use crate::overview;
 
-/// The widgets of one row of the list of points.
+/// The widgets of one row of the list of points: one point, or a run of
+/// equal points ("4–7").
 struct PointRow {
     row: gtk::ListBoxRow,
+    number: gtk::Label,
     temp: gtk::Label,
     duty: gtk::Label,
 }
@@ -48,6 +50,7 @@ struct Columns {
 /// What the list of fans does not show about the header (D62).
 struct HeaderRows {
     mode: gtk::Label,
+    manual: adw::ActionRow,
     minimum_row: adw::ActionRow,
     minimum: gtk::Label,
     unchecked: adw::ActionRow,
@@ -68,7 +71,6 @@ pub(super) struct CurvePage {
     points: gtk::ListBox,
     rows: RefCell<Vec<PointRow>>,
     shown: RefCell<Vec<CurvePoint>>,
-    repeats: gtk::Label,
     header: HeaderRows,
     source_row: adw::ActionRow,
     /// The chart labels the operating point itself: no legend.
@@ -168,6 +170,30 @@ pub(super) fn mode_text(mode: Option<Mode>) -> String {
         // Translators: the mode of a fan when the kernel driver gives none.
         None => gettext("The mode could not be read"),
     }
+}
+
+/// The number of a row of points (indices from 0) and what a screen
+/// reader says for it: "3" and "Point 3: 80 °C, 75 %.", or for a run of
+/// equal points "4–7" and "Points 4 to 7: 85 °C, 100 %.".
+fn point_texts(first: usize, last: usize, temp: &str, duty: &str) -> (String, String) {
+    let (from, to) = ((first + 1).to_string(), (last + 1).to_string());
+    let (number, text) = if last > first {
+        (
+            format!("{from}–{to}"),
+            // Translators: read by screen readers for a row of equal points
+            // of a fan curve, e.g. "Points 4 to 7: 85 °C, 100 %.".
+            gettext("Points {first} to {last}: {temperature}, {duty}.")
+                .replace("{first}", &from)
+                .replace("{last}", &to),
+        )
+    } else {
+        (
+            from.clone(),
+            gettext("Point {number}: {temperature}, {duty}.").replace("{number}", &from),
+        )
+    };
+    let text = text.replace("{temperature}", temp).replace("{duty}", duty);
+    (number, text)
 }
 
 /// A row with a value on the right, e.g. "Mode  Automatic BIOS".
@@ -305,16 +331,6 @@ impl CurvePage {
             .valign(gtk::Align::Start)
             .build();
         points_body.append(&points);
-        let repeats = gtk::Label::builder()
-            .xalign(0.0)
-            .wrap(true)
-            .margin_top(10)
-            .margin_start(2)
-            .margin_end(2)
-            .visible(false)
-            .css_classes(["caption", "dimmed"])
-            .build();
-        points_body.append(&repeats);
 
         let side = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
@@ -332,6 +348,14 @@ impl CurvePage {
             None,
         );
         let (mode_row, mode) = value_row(&gettext("Mode"), None);
+        let manual = info_row(
+            "help-about-symbolic",
+            // Translators: on the curve page of a fan in manual mode.
+            &gettext("In manual mode the curve does not run"),
+            &gettext(
+                "The fan holds a fixed duty cycle, and the curve stays in the board's controller.",
+            ),
+        );
         let (minimum_row, minimum) = value_row(
             // Translators: on the curve page, the lowest duty cycle of a
             // header (B5).
@@ -352,7 +376,7 @@ impl CurvePage {
             &gettext("No speed since the app started"),
             &gettext("The header may be empty."),
         );
-        for row in [&mode_row, &minimum_row, &unchecked, &empty] {
+        for row in [&mode_row, &manual, &minimum_row, &unchecked, &empty] {
             header_list.append(row);
         }
         side.append(&header_list);
@@ -441,9 +465,9 @@ impl CurvePage {
             points,
             rows: RefCell::new(Vec::new()),
             shown: RefCell::new(Vec::new()),
-            repeats,
             header: HeaderRows {
                 mode,
+                manual,
                 minimum_row,
                 minimum,
                 unchecked,
@@ -487,10 +511,11 @@ impl CurvePage {
     }
 
     /// The values of the header's card; `note` says what this version does
-    /// with curves.
+    /// with curves. In manual mode the curve the controller keeps, with
+    /// the fixed duty cycle as the point now.
     pub(super) fn update(&self, card: &Card, context: &PageContext, note: &str) {
         let numbers = context.numbers;
-        let Some(data) = card.chart() else {
+        let Some(data) = card.curve() else {
             return;
         };
         let name = overview::name(&card.row.name, numbers);
@@ -513,6 +538,9 @@ impl CurvePage {
             min_percent: card.min_percent,
             threshold: data.threshold,
             needs_full: data.needs_full,
+            // In manual mode the controller keeps the curve, but it sets
+            // nothing.
+            in_effect: card.chart().is_some(),
         }));
         let reading = data
             .millidegrees
@@ -554,7 +582,9 @@ impl CurvePage {
     /// The mode, the minimum and the notes of the header (D62).
     fn show_header(&self, card: &Card) {
         let rows = &self.header;
-        set_label(&rows.mode, &mode_text(card_mode(card)));
+        let mode = card_mode(card);
+        set_label(&rows.mode, &mode_text(mode));
+        rows.manual.set_visible(mode == Some(Mode::Manual));
         let minimum = card.min_percent > 0;
         rows.minimum_row.set_visible(minimum);
         if minimum {
@@ -564,26 +594,29 @@ impl CurvePage {
         rows.empty.set_visible(card.maybe_empty());
     }
 
+    /// One row per run of equal points: the controller has a fixed number
+    /// of points, and a curve with fewer levels repeats the last one, so
+    /// "4–7" says it in one row.
     fn show_points(&self, points: &[CurvePoint]) {
         if *self.shown.borrow() == points {
             return;
         }
         self.shown.replace(points.to_vec());
+        let runs = curve::runs(points);
         let mut rows = self.rows.borrow_mut();
-        while rows.len() > points.len() {
+        while rows.len() > runs.len() {
             if let Some(old) = rows.pop() {
                 self.points.remove(&old.row);
             }
         }
-        while rows.len() < points.len() {
-            let number = rows.len() + 1;
+        while rows.len() < runs.len() {
             let line = gtk::Box::builder()
                 .spacing(10)
                 .css_classes(["fan-point"])
                 .build();
             let badge = gtk::Label::builder()
-                .label(number.to_string())
                 .valign(gtk::Align::Center)
+                .halign(gtk::Align::Start)
                 .css_classes(["fan-point-number", "numeric"])
                 .build();
             badge.set_accessible_role(gtk::AccessibleRole::Presentation);
@@ -606,49 +639,28 @@ impl CurvePage {
                 .activatable(false)
                 .build();
             self.points.append(&row);
-            rows.push(PointRow { row, temp, duty });
+            rows.push(PointRow {
+                row,
+                number: badge,
+                temp,
+                duty,
+            });
         }
-        for (i, (row, point)) in rows.iter().zip(points).enumerate() {
+        for (row, &(first, last)) in rows.iter().zip(&runs) {
+            let point = points[first];
             let temp = format!("{}{UNIT_SPACE}°C", point.temp);
             let duty = percent(duty_to_percent(point.duty));
-            row.temp.set_label(&temp);
-            row.duty.set_label(&duty);
-            let text = gettext("Point {number}: {temperature}, {duty}.")
-                .replace("{number}", &(i + 1).to_string())
-                .replace("{temperature}", &temp)
-                .replace("{duty}", &duty);
+            let (number, text) = point_texts(first, last, &temp, &duty);
+            set_label(&row.number, &number);
+            if last > first {
+                row.number.add_css_class("wide");
+            } else {
+                row.number.remove_css_class("wide");
+            }
+            set_label(&row.temp, &temp);
+            set_label(&row.duty, &duty);
             row.row
                 .update_property(&[gtk::accessible::Property::Label(&text)]);
-        }
-
-        // Points repeated at the end, as the BIOS fills a curve with fewer
-        // levels.
-        let repeated = curve::runs(points)
-            .into_iter()
-            .find(|&(first, last)| last > first && last + 1 == points.len());
-        self.repeats.set_visible(repeated.is_some());
-        if let Some((first, last)) = repeated {
-            let same = if last == first + 1 {
-                // Translators: under the list of points of a curve, e.g.
-                // "Point 7 is the same as point 6."
-                gettext("Point {last} is the same as point {first}.")
-                    .replace("{last}", &(last + 1).to_string())
-            } else {
-                // Translators: under the list of points of a curve, e.g.
-                // "Points 5–7 are the same as point 4."
-                gettext("Points {from}–{last} are the same as point {first}.")
-                    .replace("{from}", &(first + 2).to_string())
-                    .replace("{last}", &(last + 1).to_string())
-            }
-            .replace("{first}", &(first + 1).to_string());
-            let count = u32::try_from(points.len()).unwrap_or(u32::MAX);
-            let why = ngettext(
-                "The controller has {} point, and a curve with fewer levels repeats the last one.",
-                "The controller has {} points, and a curve with fewer levels repeats the last one.",
-                count,
-            )
-            .replace("{}", &count.to_string());
-            self.repeats.set_label(&format!("{same} {why}"));
         }
     }
 
@@ -732,6 +744,90 @@ mod tests {
                 })),
             },
         }
+    }
+
+    /// A run of equal points is one row, "4–7", read as "points 4 to 7".
+    #[test]
+    fn rows_of_points() {
+        assert_eq!(
+            point_texts(2, 2, "80\u{a0}°C", "75\u{a0}%"),
+            ("3".to_owned(), "Point 3: 80\u{a0}°C, 75\u{a0}%.".to_owned())
+        );
+        assert_eq!(
+            point_texts(3, 6, "85\u{a0}°C", "100\u{a0}%"),
+            (
+                "4–7".to_owned(),
+                "Points 4 to 7: 85\u{a0}°C, 100\u{a0}%.".to_owned()
+            )
+        );
+    }
+
+    /// The list of points of the curve page: one row per run, the run with
+    /// a wide number. Needs a display.
+    #[test]
+    fn list_of_points() {
+        crate::gtk_test::run("list_of_points", || {
+            let numbers = Numbers::new(".");
+            let context = PageContext {
+                numbers: &numbers,
+                source: None,
+            };
+            let page = CurvePage::new("pump1");
+            let mut card = card(true, 900.0, 0);
+            let CardKind::Full {
+                body: Body::Chart(chart),
+                ..
+            } = &mut card.kind
+            else {
+                unreachable!();
+            };
+            chart.points = [(0, 122), (75, 124), (80, 191), (85, 255)]
+                .into_iter()
+                .chain([(85, 255); 3])
+                .map(|(temp, duty)| CurvePoint { temp, duty })
+                .collect();
+            page.update(&card, &context, "");
+            let rows = page.rows.borrow();
+            let numbers: Vec<String> = rows.iter().map(|r| r.number.label().into()).collect();
+            assert_eq!(numbers, ["1", "2", "3", "4–7"]);
+            assert!(rows[3].number.has_css_class("wide"));
+            assert!(!rows[0].number.has_css_class("wide"));
+            assert_eq!(rows[3].temp.label(), "85\u{a0}°C");
+            assert_eq!(rows[3].duty.label(), "100\u{a0}%");
+        });
+    }
+
+    /// A fan in manual mode opens the curve the controller keeps, with a
+    /// note that it does not run now. Needs a display.
+    #[test]
+    fn curve_page_in_manual_mode() {
+        crate::gtk_test::run("curve_page_in_manual_mode", || {
+            let numbers = Numbers::new(".");
+            let context = PageContext {
+                numbers: &numbers,
+                source: None,
+            };
+            let page = CurvePage::new("pump1");
+            page.update(&card(true, 900.0, 0), &context, "");
+            assert!(!page.header.manual.is_visible());
+
+            let mut card = card(true, 900.0, 0);
+            let CardKind::Full { control, body } = &mut card.kind else {
+                unreachable!();
+            };
+            *control = Control::Switch {
+                mode: Some(Mode::Manual),
+                positions: 2,
+            };
+            let Body::Chart(chart) = body.clone() else {
+                unreachable!();
+            };
+            *body = Body::Manual(Some(chart));
+            page.update(&card, &context, "");
+            assert_eq!(page.header.mode.label(), "Manual");
+            assert!(page.header.manual.is_visible());
+            assert_eq!(page.rows.borrow().len(), 1);
+        });
     }
 
     #[test]

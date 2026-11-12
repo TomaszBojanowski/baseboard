@@ -119,12 +119,33 @@
                                 <property name="maximum-size">560</property>
                                 <property name="unit">sp</property>
                                 <property name="child">
-                                  <object class="GtkLabel" id="kernel">
+                                  <!-- The sentence with its link; the icon
+                                       of the link stands in the room left
+                                       for it at the end of the link. -->
+                                  <object class="GtkOverlay" id="kernel_box">
                                     <property name="visible">False</property>
-                                    <property name="use-markup">True</property>
-                                    <property name="wrap">True</property>
-                                    <property name="justify">center</property>
                                     <property name="margin-top">10</property>
+                                    <property name="child">
+                                      <object class="GtkLabel" id="kernel">
+                                        <property name="use-markup">True</property>
+                                        <property name="wrap">True</property>
+                                        <property name="justify">center</property>
+                                        <style>
+                                          <class name="fan-kernel"/>
+                                        </style>
+                                      </object>
+                                    </property>
+                                    <child type="overlay">
+                                      <object class="GtkImage" id="kernel_icon">
+                                        <property name="icon-name">adw-external-link-symbolic</property>
+                                        <property name="pixel-size">14</property>
+                                        <property name="can-target">False</property>
+                                        <property name="accessible-role">presentation</property>
+                                        <style>
+                                          <class name="accent"/>
+                                        </style>
+                                      </object>
+                                    </child>
                                   </object>
                                 </property>
                               </object>

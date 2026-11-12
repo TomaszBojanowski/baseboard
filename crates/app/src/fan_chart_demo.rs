@@ -101,6 +101,7 @@ fn channels(profile: &Profile, numbers: &Numbers) -> Vec<Channel> {
                     min_percent: fan.min_duty(),
                     threshold: temp.and_then(|t| t.emergency_c),
                     needs_full: matches!(fan.role, FanRole::Cpu | FanRole::Pump),
+                    in_effect: true,
                 },
                 temp_input: temp.map(|t| t.input),
             })

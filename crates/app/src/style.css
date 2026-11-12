@@ -43,6 +43,15 @@ row.monospace-value .subtitle {
   margin-top: 9px;
 }
 
+/* The link "Kernel status" as in the mockup: bold (in the markup), in the
+   accent color like its icon, without an underline. */
+.fan-kernel link,
+.fan-kernel link:hover,
+.fan-kernel link:visited {
+  color: var(--accent-color);
+  text-decoration-line: none;
+}
+
 /* A row of the list of fans (D62). */
 .fan-row-name {
   font-weight: 600;
@@ -123,4 +132,10 @@ row.monospace-value .subtitle {
   font-weight: 800;
   color: var(--accent-color);
   box-shadow: inset 0 0 0 2px var(--accent-bg-color);
+}
+
+/* a run of equal points, "4–7" (D62) */
+.fan-point-number.wide {
+  padding: 0 8px;
+  border-radius: 13px;
 }

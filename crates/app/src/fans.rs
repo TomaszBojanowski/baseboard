@@ -24,7 +24,7 @@ use baseboard_core::overview::{Name, Row, Subtitle, Visibility};
 use baseboard_core::profile::{FanRole, Profile, TempRole};
 use baseboard_core::units::{Numbers, UNIT_SPACE};
 use gettextrs::gettext;
-use gtk::{gio, glib};
+use gtk::{gdk, gio, glib, pango};
 
 use crate::config;
 use crate::fan_chart::swatch::Mark;
@@ -114,8 +114,15 @@ fn kernel_url() -> String {
     format!("{website}{section}")
 }
 
+/// The icon after the link "Kernel status" and the gap before it, in
+/// pixels, as in the mockup.
+const LINK_ICON: i32 = 14;
+const LINK_GAP: i32 = 4;
+
 /// Under the temperature on a driver without control (D62): what the
-/// system can do, with a link to the kernel section of the website.
+/// system can do, with a link to the kernel section of the website. The
+/// link is bold and never breaks; it ends in a no-break space that keeps
+/// the room for its icon (`reserve_link_icon`).
 fn kernel_markup() -> String {
     let text = gettext(
         // Translators: under the large temperature on the Fans page when the
@@ -130,11 +137,55 @@ fn kernel_markup() -> String {
         "Kernel status",
     );
     format!(
-        "{} <a href=\"{}\">{}</a>",
+        "{} <a href=\"{}\"><b>{}</b>\u{a0}</a>",
         glib::markup_escape_text(&text),
         glib::markup_escape_text(&kernel_url()),
-        glib::markup_escape_text(&link)
+        glib::markup_escape_text(&link.replace(' ', "\u{a0}"))
     )
+}
+
+/// The byte index of the last character of `label`: the no-break space
+/// at the end of the link, where its icon stands.
+fn link_icon_index(label: &gtk::Label) -> Option<usize> {
+    label.text().len().checked_sub('\u{a0}'.len_utf8())
+}
+
+/// Leaves room for the icon of the link: the space at its end gets the
+/// width of the gap and the icon. A Pango shape draws nothing; the icon is
+/// a widget over the label (`link_icon_place`).
+fn reserve_link_icon(label: &gtk::Label) {
+    let Some(index) = link_icon_index(label).and_then(|i| u32::try_from(i).ok()) else {
+        return;
+    };
+    let room = pango::Rectangle::new(0, 0, (LINK_GAP + LINK_ICON) * pango::SCALE, 0);
+    let mut shape = pango::AttrShape::new(&room, &room);
+    shape.set_start_index(index);
+    shape.set_end_index(index + '\u{a0}'.len_utf8() as u32);
+    let attributes = pango::AttrList::new();
+    attributes.insert(shape);
+    label.set_attributes(Some(&attributes));
+}
+
+/// Where the icon of the link stands in the label: after the gap in the
+/// room at the end of the link, in the middle of its line. The room has no
+/// height of its own, so the height is the line's.
+fn link_icon_place(label: &gtk::Label) -> Option<gdk::Rectangle> {
+    let index = i32::try_from(link_icon_index(label)?).ok()?;
+    let layout = label.layout();
+    let (line, _) = layout.index_to_line_x(index, false);
+    let mut lines = layout.iter();
+    for _ in 0..line {
+        lines.next_line();
+    }
+    let (_, extents) = lines.line_extents();
+    let (x, y) = label.layout_offsets();
+    let height = extents.height() / pango::SCALE;
+    Some(gdk::Rectangle::new(
+        x + layout.index_to_pos(index).x() / pango::SCALE + LINK_GAP,
+        y + extents.y() / pango::SCALE + (height - LINK_ICON) / 2,
+        LINK_ICON,
+        LINK_ICON,
+    ))
 }
 
 /// The footer of the list in version 0.2.0 (D62).
@@ -212,6 +263,7 @@ fn card_line(card: &Card, context: &PageContext, temp: Option<f64>) -> FanLine {
                 min_percent: card.min_percent,
                 threshold: data.threshold,
                 needs_full: data.needs_full,
+                in_effect: true,
             };
             (
                 points,
@@ -244,7 +296,8 @@ fn card_line(card: &Card, context: &PageContext, temp: Option<f64>) -> FanLine {
         // The extra header is read only with every driver; as on the
         // Overview, its row says nothing about an empty header.
         maybe_empty: card.maybe_empty() && card.role != FanRole::Aux,
-        opens: card.chart().is_some(),
+        // Also in manual mode: the curve stays in the controller.
+        opens: card.curve().is_some(),
         chart,
         now,
         chart_description,
@@ -332,6 +385,8 @@ mod imp {
         #[template_child]
         pub speeding: TemplateChild<gtk::Label>,
         #[template_child]
+        pub kernel_box: TemplateChild<gtk::Overlay>,
+        #[template_child]
         pub kernel: TemplateChild<gtk::Label>,
         #[template_child]
         pub list: TemplateChild<gtk::ListBox>,
@@ -383,6 +438,15 @@ mod imp {
             self.speeding
                 .update_state(&[gtk::accessible::State::Hidden(true)]);
             self.kernel.set_label(&kernel_markup());
+            reserve_link_icon(&self.kernel);
+            // The label is laid out before the icon over it.
+            self.kernel_box.connect_get_child_position(glib::clone!(
+                #[weak(rename_to = label)]
+                self.kernel,
+                #[upgrade_or]
+                None,
+                move |_, _| link_icon_place(&label)
+            ));
             self.kernel.connect_activate_link(|label, uri| {
                 let window = label.root().and_downcast::<gtk::Window>();
                 gtk::UriLauncher::new(uri).launch(
@@ -441,7 +505,7 @@ impl FansPage {
     }
 
     /// The curve page of header `key`, which the window pushes; `None`
-    /// when the header has no curve now.
+    /// when the controller has no curve of the header to show.
     pub fn curve_page(&self, key: &str) -> Option<adw::NavigationPage> {
         let imp = self.imp();
         let model = imp.model.borrow();
@@ -449,7 +513,7 @@ impl FansPage {
         let card = model
             .cards
             .iter()
-            .find(|c| c.key == key && c.chart().is_some())?;
+            .find(|c| c.key == key && c.curve().is_some())?;
         let curve = CurvePage::new(key);
         curve.set_layout(imp.layout.get());
         let numbers = self.numbers();
@@ -631,7 +695,7 @@ impl FansPage {
         // Under the temperature: the reserved line, or what the kernel can
         // do.
         let no_control = matches!(model.note, Note::NoControl { .. });
-        imp.kernel.set_visible(no_control);
+        imp.kernel_box.set_visible(no_control);
         imp.speeding.set_visible(!no_control);
         imp.footer.set_visible(!no_control);
         let speeding = !no_control && row::speeding_up(&lines);
@@ -671,7 +735,7 @@ impl FansPage {
             Some(curve) => match model
                 .cards
                 .iter()
-                .find(|c| c.key == curve.key && c.chart().is_some())
+                .find(|c| c.key == curve.key && c.curve().is_some())
             {
                 Some(card) => {
                     curve.update(card, &context, &preview_note());
@@ -766,13 +830,65 @@ mod tests {
     #[test]
     fn kernel_section_of_the_website() {
         assert_eq!(kernel_url(), "https://baseboard.bojanowski.me/#kernel");
+        // Bold, without a break inside, with room for the icon at the end.
         assert!(
             kernel_markup().ends_with(
-                " <a href=\"https://baseboard.bojanowski.me/#kernel\">Kernel status</a>"
+                " <a href=\"https://baseboard.bojanowski.me/#kernel\">\
+                 <b>Kernel\u{a0}status</b>\u{a0}</a>"
             ),
             "{}",
             kernel_markup()
         );
+    }
+
+    /// The icon of the link stands right after the link text, on its
+    /// line, in a wide and in a narrow label. Needs a display.
+    #[test]
+    fn icon_of_the_kernel_link() {
+        crate::gtk_test::run("icon_of_the_kernel_link", || {
+            let label = gtk::Label::builder()
+                .use_markup(true)
+                .wrap(true)
+                .justify(gtk::Justification::Center)
+                .label(kernel_markup())
+                .build();
+            reserve_link_icon(&label);
+            assert!(label.text().ends_with("Kernel\u{a0}status\u{a0}"));
+            for width in [560, 200] {
+                let (_, natural, _, _) = label.measure(gtk::Orientation::Vertical, width);
+                label.allocate(width, natural, -1, None);
+                let place = link_icon_place(&label).unwrap();
+                let layout = label.layout();
+                let (x, y) = label.layout_offsets();
+                // The end of "status": the icon follows it after the gap.
+                let text = label.text();
+                let end = text.len() - '\u{a0}'.len_utf8();
+                let status = layout.index_to_pos(i32::try_from(end).unwrap());
+                assert_eq!(place.x(), x + status.x() / pango::SCALE + LINK_GAP);
+                // The link stays whole on the last line, the icon with it.
+                let last = layout.line_count() - 1;
+                let (line, _) = layout.index_to_line_x(i32::try_from(end).unwrap(), false);
+                assert_eq!(line, last, "width {width}");
+                let start = text.find("Kernel").unwrap();
+                let (first_line, _) = layout.index_to_line_x(i32::try_from(start).unwrap(), false);
+                assert_eq!(first_line, last, "width {width}");
+                // In the middle of the text of its line, not on the
+                // baseline: its middle above the baseline, its top below
+                // the top of the line.
+                let mut lines = layout.iter();
+                for _ in 0..last {
+                    lines.next_line();
+                }
+                let (_, extents) = lines.line_extents();
+                let baseline = y + lines.baseline() / pango::SCALE;
+                let top = y + extents.y() / pango::SCALE;
+                let middle = place.y() + LINK_ICON / 2;
+                assert!(middle < baseline - 2, "width {width}");
+                assert!(place.y() >= top, "width {width}");
+                assert_eq!(place.width(), LINK_ICON);
+                assert!(place.x() + LINK_ICON <= width, "width {width}");
+            }
+        });
     }
 
     /// Four marks in the legend, each with a name.
