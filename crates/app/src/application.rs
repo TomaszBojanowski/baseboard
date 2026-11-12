@@ -231,7 +231,7 @@ mod debug {
     /// it, to check that reading stops while it cannot be seen.
     /// `BASEBOARD_DEBUG_DIALOG` opens a dialog a second after the window is
     /// shown, when the Overview has its first sample: `preferences`,
-    /// `readings` (the second page of the preferences), `about` or
+    /// `readings` (the subpage "Visible Readings"), `about` or
     /// `shortcuts`.
     pub fn dialog(app: &adw::Application, window: &BaseboardWindow) {
         let Some(name) = var("BASEBOARD_DEBUG_DIALOG") else {
@@ -248,7 +248,7 @@ mod debug {
                     "preferences" => {
                         let _ = window.show_preferences();
                     }
-                    "readings" => window.show_preferences().set_visible_page_name("readings"),
+                    "readings" => window.show_preferences().show_readings(),
                     "about" | "shortcuts" => app.activate_action(&name, None),
                     other => eprintln!("baseboard: no dialog {other:?}"),
                 }

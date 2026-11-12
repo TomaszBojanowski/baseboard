@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: baseboard\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 21:59+0100\n"
+"POT-Creation-Date: 2026-11-12 22:05+0100\n"
 "PO-Revision-Date: 2026-11-11 20:30+0100\n"
 "Last-Translator: Tomasz Bojanowski <tomasz@bojanowski.me>\n"
 "Language-Team: \n"
@@ -50,7 +50,7 @@ msgid "Window maximized"
 msgstr "Okno zmaksymalizowane"
 
 #: data/me.bojanowski.Baseboard.gschema.xml:20
-#: crates/app/src/preferences.rs:134
+#: crates/app/src/preferences.rs:147
 msgid "Refresh interval"
 msgstr "Odświeżanie"
 
@@ -59,7 +59,7 @@ msgid "Seconds between two readings of the sensors on the Overview page."
 msgstr "Sekundy między dwoma odczytami czujników na stronie Przegląd."
 
 #: data/me.bojanowski.Baseboard.gschema.xml:25
-#: crates/app/src/preferences.rs:159
+#: crates/app/src/preferences.rs:197
 msgid "Names from lm-sensors"
 msgstr "Nazwy z lm-sensors"
 
@@ -485,7 +485,7 @@ msgid "Reading the sensors…"
 msgstr "Odczyt czujników…"
 
 #: crates/app/src/fans.ui:39 crates/app/src/overview.ui:26
-#: crates/app/src/window.rs:484
+#: crates/app/src/window.rs:470
 msgid "Details"
 msgstr "Szczegóły"
 
@@ -965,7 +965,7 @@ msgstr "Ocena względem tolerancji z profilu płyty"
 msgid "No readings from the board: its {} chip was not found"
 msgstr "Brak odczytów płyty: nie znaleziono jej układu {}"
 
-#: crates/app/src/overview.rs:722 crates/app/src/preferences.rs:278
+#: crates/app/src/overview.rs:722 crates/app/src/preferences.rs:316
 msgid "No sensor readings"
 msgstr "Brak odczytów czujników"
 
@@ -1043,55 +1043,51 @@ msgstr[0] "{} napięcie poza normą"
 msgstr[1] "{} napięcia poza normą"
 msgstr[2] "{} napięć poza normą"
 
-#: crates/app/src/preferences.rs:126 crates/app/src/shortcuts-dialog.ui:11
-msgid "General"
-msgstr "Ogólne"
-
-#: crates/app/src/preferences.rs:130 crates/app/src/window.rs:57
-#: crates/app/src/window.ui:70 crates/app/src/window.ui:145
-#: crates/app/src/window.ui:153 crates/app/src/window.ui:161
-msgid "Overview"
-msgstr "Przegląd"
-
-#: crates/app/src/preferences.rs:135
-msgid "Seconds between two readings of the sensors"
-msgstr "Sekundy między dwoma odczytami czujników"
-
-#: crates/app/src/preferences.rs:161
-msgid ""
-"As the sensors command shows them, where the lm-sensors configuration has a "
-"label"
-msgstr ""
-"Takie jak w poleceniu sensors, gdy konfiguracja lm-sensors podaje etykietę"
-
-#: crates/app/src/preferences.rs:170
-msgid "The system's lm-sensors configuration is not available in Flatpak"
-msgstr "Konfiguracja lm-sensors systemu jest niedostępna w Flatpaku"
-
-#: crates/app/src/preferences.rs:202 crates/app/src/system.rs:507
-msgid "Own names"
-msgstr "Własne nazwy"
-
-#: crates/app/src/preferences.rs:207
-msgid "Open the file"
-msgstr "Otwórz plik"
-
-#: crates/app/src/preferences.rs:210
-msgid "Open the folder"
-msgstr "Otwórz katalog"
-
-#. Translators: {} is a file name, e.g. ms-7e61.toml, with the user's
-#. own names for the board's readings. Keep it to one short line.
-#: crates/app/src/preferences.rs:260
-#, rust-format
-msgid "File {}; changes apply after a restart"
-msgstr "Plik {}; zmiany działają po ponownym uruchomieniu"
-
-#: crates/app/src/preferences.rs:266 crates/app/src/system.rs:250
+#: crates/app/src/preferences.rs:143 crates/app/src/system.rs:250
 msgid "Readings"
 msgstr "Odczyty"
 
-#: crates/app/src/preferences.rs:269
+#: crates/app/src/preferences.rs:172
+msgid "Visible readings"
+msgstr "Widoczne odczyty"
+
+#: crates/app/src/preferences.rs:173
+msgid "Choose what the Overview shows"
+msgstr "Wybierz, co pokazuje Przegląd"
+
+#: crates/app/src/preferences.rs:194
+msgid "Names"
+msgstr "Nazwy"
+
+#: crates/app/src/preferences.rs:198
+msgid "As the sensors command shows them"
+msgstr "Takie jak w poleceniu sensors"
+
+#: crates/app/src/preferences.rs:206
+msgid "The system's lm-sensors configuration is not available in Flatpak"
+msgstr "Konfiguracja lm-sensors systemu jest niedostępna w Flatpaku"
+
+#: crates/app/src/preferences.rs:235 crates/app/src/system.rs:507
+msgid "Own names"
+msgstr "Własne nazwy"
+
+#: crates/app/src/preferences.rs:236
+msgid "Changes apply after a restart"
+msgstr "Zmiany działają po ponownym uruchomieniu"
+
+#: crates/app/src/preferences.rs:240
+msgid "Open the file"
+msgstr "Otwórz plik"
+
+#: crates/app/src/preferences.rs:243
+msgid "Open the folder"
+msgstr "Otwórz katalog"
+
+#: crates/app/src/preferences.rs:297
+msgid "Visible Readings"
+msgstr "Widoczne odczyty"
+
+#: crates/app/src/preferences.rs:307
 msgid ""
 "Readings that are turned off are not shown on the Overview page, for example "
 "headers without a fan. The numbered temperature sensors of drives are off "
@@ -1099,6 +1095,10 @@ msgid ""
 msgstr ""
 "Wyłączone odczyty nie są pokazywane na stronie Przegląd, np. złącza bez "
 "wentylatora. Numerowane czujniki temperatury dysków są domyślnie wyłączone."
+
+#: crates/app/src/shortcuts-dialog.ui:11
+msgid "General"
+msgstr "Ogólne"
 
 #: crates/app/src/shortcuts-dialog.ui:14
 msgid "Preferences"
@@ -1166,7 +1166,7 @@ msgstr "Sterownik nct6683 jest załadowany, ale nie znalazł układu {}"
 msgid "Other fan control programs are running"
 msgstr "Działają inne programy sterujące wentylatorami"
 
-#: crates/app/src/system.rs:389 crates/app/src/window.rs:477
+#: crates/app/src/system.rs:389 crates/app/src/window.rs:463
 #, rust-format
 msgid "{} file skipped because of errors"
 msgid_plural "{} files skipped because of errors"
@@ -1545,13 +1545,13 @@ msgid "Diagnostics"
 msgstr "Diagnostyka"
 
 #: crates/app/src/system.ui:59 crates/app/src/system.ui:103
-#: crates/app/src/window.ui:168
+#: crates/app/src/window.ui:137
 msgid "Copy the system information to the clipboard, e.g. for a bug report"
 msgstr "Kopiuje informacje o systemie do schowka, np. do zgłoszenia błędu"
 
 #: crates/app/src/system.ui:63 crates/app/src/system.ui:68
 #: crates/app/src/system.ui:107 crates/app/src/system.ui:112
-#: crates/app/src/window.ui:172 crates/app/src/window.ui:178
+#: crates/app/src/window.ui:141 crates/app/src/window.ui:147
 msgid "Copy Information"
 msgstr "Kopiuj informacje"
 
@@ -1559,21 +1559,19 @@ msgstr "Kopiuj informacje"
 msgid "Technical Details"
 msgstr "Szczegóły techniczne"
 
-#: crates/app/src/window.rs:556
+#: crates/app/src/window.rs:57 crates/app/src/window.ui:70
+#: crates/app/src/window.ui:114 crates/app/src/window.ui:122
+#: crates/app/src/window.ui:130
+msgid "Overview"
+msgstr "Przegląd"
+
+#: crates/app/src/window.rs:542
 msgid "System information copied"
 msgstr "Skopiowano informacje o systemie"
 
-#: crates/app/src/window.rs:568
+#: crates/app/src/window.rs:556
 msgid "Unknown board"
 msgstr "Nieznana płyta"
-
-#: crates/app/src/window.rs:652
-#, rust-format
-msgid "Refreshing every {} second"
-msgid_plural "Refreshing every {} seconds"
-msgstr[0] "Odświeżanie co {} s"
-msgstr[1] "Odświeżanie co {} s"
-msgstr[2] "Odświeżanie co {} s"
 
 #: crates/app/src/window.ui:9
 msgid "_Preferences"
@@ -1590,6 +1588,22 @@ msgstr "_O programie Baseboard"
 #: crates/app/src/window.ui:56
 msgid "Main Menu"
 msgstr "Menu główne"
+
+#~ msgid "Seconds between two readings of the sensors"
+#~ msgstr "Sekundy między dwoma odczytami czujników"
+
+#~ msgid ""
+#~ "As the sensors command shows them, where the lm-sensors configuration has "
+#~ "a label"
+#~ msgstr ""
+#~ "Takie jak w poleceniu sensors, gdy konfiguracja lm-sensors podaje etykietę"
+
+#, rust-format
+#~ msgid "Refreshing every {} second"
+#~ msgid_plural "Refreshing every {} seconds"
+#~ msgstr[0] "Odświeżanie co {} s"
+#~ msgstr[1] "Odświeżanie co {} s"
+#~ msgstr[2] "Odświeżanie co {} s"
 
 #, rust-format
 #~ msgid "Points {first}–{last}: {temperature}, {duty}."

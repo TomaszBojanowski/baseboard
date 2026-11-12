@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
-use baseboard_core::board::{Detection, Dmi, code_label};
+use baseboard_core::board::{Detection, Dmi};
 use gettextrs::{gettext, ngettext};
 use gtk::{gio, glib};
 
@@ -74,11 +74,7 @@ mod imp {
         #[template_child]
         pub sidebar: TemplateChild<adw::Sidebar>,
         #[template_child]
-        pub board_icon: TemplateChild<gtk::Image>,
-        #[template_child]
         pub board_model: TemplateChild<gtk::Label>,
-        #[template_child]
-        pub board_detail: TemplateChild<gtk::Label>,
         #[template_child]
         pub content_page: TemplateChild<adw::NavigationPage>,
         #[template_child]
@@ -245,7 +241,6 @@ mod imp {
                             if let Some(worker) = obj.imp().worker.borrow().as_ref() {
                                 worker.set_options(preferences::options(settings));
                             }
-                            obj.show_selected_page_title();
                         }
                         preferences::HIDDEN | preferences::SHOWN => {
                             let visibility = preferences::visibility(settings);
@@ -448,22 +443,13 @@ impl BaseboardWindow {
         self.update_reading();
     }
 
-    /// The title of the page shown, and on the Overview and Fans pages the
-    /// refresh interval from the settings.
+    /// The title of the page shown, without a subtitle (D64).
     fn show_selected_page_title(&self) {
         let imp = self.imp();
-        let page = self.page();
-        let title = page.title();
+        let title = self.page().title();
         imp.content_page.set_title(&title);
         imp.root_page.set_title(&title);
         imp.content_title.set_title(&title);
-        let subtitle = match page {
-            Page::Overview | Page::Fans => {
-                refresh_subtitle(preferences::interval_seconds(self.settings()))
-            }
-            Page::System => String::new(),
-        };
-        imp.content_title.set_subtitle(&subtitle);
     }
 
     /// A toast when files were skipped at start, with a button to the
@@ -495,17 +481,17 @@ impl BaseboardWindow {
     }
 
     /// Opens the Preferences dialog with the latest readings.
-    pub fn show_preferences(&self) -> adw::PreferencesDialog {
+    pub fn show_preferences(&self) -> preferences::Preferences {
         let imp = self.imp();
         let groups = imp.overview.groups();
-        let dialog = preferences::dialog(&DialogSetup {
+        let preferences = preferences::dialog(&DialogSetup {
             settings: self.settings(),
             groups: &groups,
             numbers: imp.overview.numbers(),
             labels_file: imp.labels_file.borrow().clone(),
         });
-        dialog.present(Some(self));
-        dialog
+        preferences.dialog.present(Some(self));
+        preferences
     }
 
     /// What the page shown needs of the fan channels: the modes on the
@@ -556,30 +542,18 @@ impl BaseboardWindow {
             .add_toast(adw::Toast::new(&gettext("System information copied")));
     }
 
-    /// Shows the detected board in the sidebar footer: the model, and the
-    /// board code, a warning about the PCB revision, a note about another
-    /// model with the same code, or the lack of a profile.
+    /// Shows the detected board in the sidebar footer: its name alone
+    /// (D64). The board code, the PCB revision and the profile are on the
+    /// System page, which also says when the revision is not verified.
     pub fn show_board(&self, dmi: &Dmi, detection: &Detection) {
         let imp = self.imp();
-        let dmi_model = || {
-            dmi.board_name
+        let model = match detection.profile() {
+            Some(profile) => profile.model.clone(),
+            None => dmi
+                .board_name
                 .clone()
                 .or_else(|| dmi.product_name.clone())
-                .unwrap_or_else(|| gettext("Unknown board"))
-        };
-        let (model, detail, warning) = match detection {
-            Detection::Supported(profile) => (
-                profile.model.clone(),
-                code_label(&profile.board_match.board_code),
-                false,
-            ),
-            Detection::UnverifiedRevision { profile, revision } => (
-                profile.model.clone(),
-                system::unverified_revision(*revision),
-                true,
-            ),
-            Detection::OtherModel { code, .. } => (dmi_model(), system::other_model(code), false),
-            Detection::Generic => (dmi_model(), system::no_profile(), false),
+                .unwrap_or_else(|| gettext("Unknown board")),
         };
         // The Fans page needs a profile; without one it says why, as the
         // System page does.
@@ -590,13 +564,6 @@ impl BaseboardWindow {
         imp.fans.set_board(detection.profile().cloned(), no_profile);
         imp.board_model.set_label(&model);
         imp.board_model.set_tooltip_text(Some(&model));
-        imp.board_detail.set_label(&detail);
-        if warning {
-            imp.board_icon
-                .set_icon_name(Some("dialog-warning-symbolic"));
-            imp.board_icon.remove_css_class("dimmed");
-            imp.board_icon.add_css_class("warning");
-        }
     }
 
     fn settings(&self) -> &gio::Settings {
@@ -642,16 +609,4 @@ fn find_scrolled(widget: &impl IsA<gtk::Widget>) -> Option<gtk::ScrolledWindow> 
         child = current.next_sibling();
     }
     None
-}
-
-/// The subtitle of the Overview page.
-fn refresh_subtitle(seconds: u32) -> String {
-    // Translators: the subtitle of the Overview page; {} is a whole
-    // number of seconds.
-    ngettext(
-        "Refreshing every {} second",
-        "Refreshing every {} seconds",
-        seconds,
-    )
-    .replace("{}", &seconds.to_string())
 }

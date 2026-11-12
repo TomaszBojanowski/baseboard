@@ -87,50 +87,19 @@
                     </child>
                   </object>
                 </property>
-                <!-- The board model, and a warning when the PCB revision is
-                     not verified (window.rs, show_board). -->
+                <!-- The board's name alone (window.rs, show_board, D64). -->
                 <child type="bottom">
-                  <object class="GtkBox">
-                    <property name="spacing">12</property>
+                  <object class="GtkLabel" id="board_model">
+                    <property name="xalign">0</property>
+                    <property name="ellipsize">end</property>
                     <property name="margin-start">18</property>
                     <property name="margin-end">12</property>
                     <property name="margin-top">12</property>
-                    <property name="margin-bottom">12</property>
-                    <child>
-                      <object class="GtkImage" id="board_icon">
-                        <property name="icon-name">baseboard-board-symbolic</property>
-                        <property name="valign">center</property>
-                        <style>
-                          <class name="dimmed"/>
-                        </style>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkBox">
-                        <property name="orientation">vertical</property>
-                        <property name="hexpand">True</property>
-                        <child>
-                          <object class="GtkLabel" id="board_model">
-                            <property name="xalign">0</property>
-                            <property name="ellipsize">end</property>
-                            <style>
-                              <class name="caption"/>
-                            </style>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkLabel" id="board_detail">
-                            <property name="xalign">0</property>
-                            <property name="wrap">True</property>
-                            <property name="wrap-mode">word-char</property>
-                            <style>
-                              <class name="caption"/>
-                              <class name="dimmed"/>
-                            </style>
-                          </object>
-                        </child>
-                      </object>
-                    </child>
+                    <property name="margin-bottom">14</property>
+                    <style>
+                      <class name="caption"/>
+                      <class name="dimmed"/>
+                    </style>
                   </object>
                 </child>
               </object>

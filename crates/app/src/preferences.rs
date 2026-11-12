@@ -110,29 +110,41 @@ pub struct DialogSetup<'a> {
     pub labels_file: Option<PathBuf>,
 }
 
-/// The Preferences dialog: a page with the general settings and a page
-/// with a switch for every reading.
-pub fn dialog(setup: &DialogSetup) -> adw::PreferencesDialog {
-    let dialog = adw::PreferencesDialog::new();
-    dialog.add(&general_page(setup));
-    dialog.add(&readings_page(setup));
-    dialog
+/// The Preferences dialog (D64): one page without tabs; the switch for
+/// every reading is one click further, on the subpage "Visible Readings".
+pub struct Preferences {
+    pub dialog: adw::PreferencesDialog,
+    readings: adw::NavigationPage,
 }
 
-fn general_page(setup: &DialogSetup) -> adw::PreferencesPage {
+impl Preferences {
+    /// Opens "Visible Readings", as its row does.
+    #[cfg(debug_assertions)]
+    pub fn show_readings(&self) {
+        self.dialog.push_subpage(&self.readings);
+    }
+}
+
+pub fn dialog(setup: &DialogSetup) -> Preferences {
+    let dialog = adw::PreferencesDialog::new();
+    let readings = readings_page(setup);
+    dialog.add(&main_page(setup, &dialog, &readings));
+    Preferences { dialog, readings }
+}
+
+fn main_page(
+    setup: &DialogSetup,
+    dialog: &adw::PreferencesDialog,
+    readings: &adw::NavigationPage,
+) -> adw::PreferencesPage {
     let settings = setup.settings;
-    let page = adw::PreferencesPage::builder()
-        .name("general")
-        .title(gettext("General"))
-        .icon_name("preferences-system-symbolic")
-        .build();
+    let page = adw::PreferencesPage::builder().name("general").build();
     let group = adw::PreferencesGroup::builder()
-        .title(gettext("Overview"))
+        .title(gettext("Readings"))
         .build();
 
     let interval = adw::SpinRow::with_range(1.0, f64::from(MAX_INTERVAL), 1.0);
     interval.set_title(&gettext("Refresh interval"));
-    interval.set_subtitle(&gettext("Seconds between two readings of the sensors"));
     // The value with its unit, "1 s"; typing "5" or "5 s" both work. A
     // numeric spin row would refuse the unit.
     interval.set_numeric(false);
@@ -155,11 +167,35 @@ fn general_page(setup: &DialogSetup) -> adw::PreferencesPage {
     ));
     group.add(&interval);
 
+    // The readings to show, one click further (D64).
+    let visible = adw::ActionRow::builder()
+        .title(gettext("Visible readings"))
+        .subtitle(gettext("Choose what the Overview shows"))
+        .activatable(true)
+        .build();
+    visible.add_suffix(
+        &gtk::Image::builder()
+            .icon_name("go-next-symbolic")
+            .accessible_role(gtk::AccessibleRole::Presentation)
+            .css_classes(["dimmed"])
+            .build(),
+    );
+    visible.connect_activated(glib::clone!(
+        #[weak]
+        dialog,
+        #[weak]
+        readings,
+        move |_| dialog.push_subpage(&readings)
+    ));
+    group.add(&visible);
+    page.add(&group);
+
+    let group = adw::PreferencesGroup::builder()
+        .title(gettext("Names"))
+        .build();
     let names = adw::SwitchRow::builder()
         .title(gettext("Names from lm-sensors"))
-        .subtitle(gettext(
-            "As the sensors command shows them, where the lm-sensors configuration has a label",
-        ))
+        .subtitle(gettext("As the sensors command shows them"))
         .build();
     settings.bind(SENSORS_LABELS, &names, "active").build();
     // A Flatpak sandbox without the host's /etc has no configuration to
@@ -190,17 +226,14 @@ fn parse_seconds(text: &str) -> Option<u32> {
     number.parse().ok()
 }
 
-/// The user's own names (D22): the file in one line, with a button that
-/// opens it in the default app, or its folder when there is no file yet.
+/// The user's own names (D22), with a button that opens their file in the
+/// default app, or its folder when there is no file yet. The path is in
+/// the tooltip (D64).
 fn own_names_row(file: &Path) -> adw::ActionRow {
-    let name = file
-        .file_name()
-        .map(|name| name.to_string_lossy().into_owned())
-        .unwrap_or_default();
     let row = adw::ActionRow::builder()
         .use_markup(false)
         .title(gettext("Own names"))
-        .subtitle(own_names(&name))
+        .subtitle(gettext("Changes apply after a restart"))
         .tooltip_text(home_relative(file))
         .build();
     let (tooltip, target) = if file.exists() {
@@ -253,18 +286,23 @@ pub fn home_relative(path: &std::path::Path) -> String {
     }
 }
 
-// No doc comment: xgettext would take it for the translators.
-fn own_names(file: &str) -> String {
-    // Translators: {} is a file name, e.g. ms-7e61.toml, with the user's
-    // own names for the board's readings. Keep it to one short line.
-    gettext("File {}; changes apply after a restart").replace("{}", file)
+/// The subpage with a switch for every reading: its name and its value
+/// when the dialog opened, without drivers and sensors (D64).
+fn readings_page(setup: &DialogSetup) -> adw::NavigationPage {
+    let page = readings_list(setup);
+    let view = adw::ToolbarView::new();
+    view.add_top_bar(&adw::HeaderBar::new());
+    view.set_content(Some(&page));
+    adw::NavigationPage::builder()
+        .title(gettext("Visible Readings"))
+        .tag("readings")
+        .child(&view)
+        .build()
 }
 
-fn readings_page(setup: &DialogSetup) -> adw::PreferencesPage {
+fn readings_list(setup: &DialogSetup) -> adw::PreferencesPage {
     let page = adw::PreferencesPage::builder()
         .name("readings")
-        .title(gettext("Readings"))
-        .icon_name("view-reveal-symbolic")
         .description(gettext(
             "Readings that are turned off are not shown on the Overview page, \
              for example headers without a fan. The numbered temperature \
@@ -287,16 +325,12 @@ fn readings_page(setup: &DialogSetup) -> adw::PreferencesPage {
         let group = adw::PreferencesGroup::builder()
             .title(glib::markup_escape_text(&overview::group_title(data.kind)))
             .build();
-        if let Some(description) = overview::device_description(data) {
-            group.set_description(Some(&glib::markup_escape_text(&description)));
-        }
         for row in data.rows.iter().chain(&data.auxiliary) {
             let id = row.id.clone();
             let title = overview::name(&row.name, setup.numbers);
             let line = adw::ActionRow::builder()
                 .use_markup(false)
                 .title(&title)
-                .subtitle(overview::subtitle(row, setup.numbers))
                 .build();
             // The value when the dialog opened, e.g. 0 rpm for a header
             // without a fan; before the switch, as on the Overview page.
