@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The Overview page (docs/PROJEKT.md §5.1): the groups and rows of the
-//! model from `core::overview`, with names, subtitles and ratings through
-//! gettext and numbers through `core::units`. A worker thread
+//! The Overview page (docs/PROJEKT.md §5.1, D64): on top a warning, three
+//! large numbers and a short list (`summary`); every reading on the page
+//! "All Sensors", which the window pushes over it: the groups and rows of
+//! the model from `core::overview`, with names, subtitles and ratings
+//! through gettext and numbers through `core::units`. A worker thread
 //! (`sampler`, started by the window) takes the samples; the page only
-//! shows them. The widgets
-//! are made again only when the rows change, otherwise their texts are set.
+//! shows them. The widgets are made again only when the rows change,
+//! otherwise their texts are set.
+
+mod summary;
 
 use std::cell::{Cell, OnceCell, RefCell};
 
@@ -20,9 +24,10 @@ use baseboard_core::sensors::Kind;
 use baseboard_core::system;
 use baseboard_core::units::Numbers;
 use gettextrs::{gettext, pgettext};
-use gtk::glib;
+use gtk::{glib, graphene};
 
 use crate::sampler::{Sample, Status};
+use summary::SummaryWidgets;
 
 /// The title of a group.
 pub fn group_title(kind: GroupKind) -> String {
@@ -258,6 +263,11 @@ impl RowWidgets {
             .text_overflow(gtk::InscriptionOverflow::EllipsizeStart)
             .css_classes(["dimmed", "numeric"])
             .build();
+        // Translators: the tooltip of the gray range next to a reading on
+        // the page "All Sensors"; the line that said it above the readings
+        // is gone (D64).
+        let tooltip = gettext("Lowest and highest value since the app started");
+        range.set_tooltip_text(Some(&tooltip));
         let value = gtk::Inscription::builder()
             .min_chars(8)
             .nat_chars(9)
@@ -512,7 +522,7 @@ mod imp {
     #[template(resource = "/me/bojanowski/Baseboard/overview.ui")]
     pub struct OverviewPage {
         #[template_child]
-        pub wide: TemplateChild<adw::Breakpoint>,
+        pub narrow: TemplateChild<adw::Breakpoint>,
         #[template_child]
         pub stack: TemplateChild<gtk::Stack>,
         #[template_child]
@@ -520,15 +530,32 @@ mod imp {
         #[template_child]
         pub banner: TemplateChild<adw::Banner>,
         #[template_child]
+        pub scrolled: TemplateChild<gtk::ScrolledWindow>,
+        #[template_child]
+        pub column: TemplateChild<gtk::Box>,
+        #[template_child]
+        pub heroes: TemplateChild<gtk::Box>,
+        #[template_child]
+        pub list: TemplateChild<gtk::ListBox>,
+        #[template_child]
+        pub all_list: TemplateChild<gtk::ListBox>,
+        #[template_child]
+        pub sensors_page: TemplateChild<adw::NavigationPage>,
+        #[template_child]
+        pub wide: TemplateChild<adw::Breakpoint>,
+        #[template_child]
+        pub sensors_scrolled: TemplateChild<gtk::ScrolledWindow>,
+        #[template_child]
         pub left: TemplateChild<gtk::Box>,
         #[template_child]
         pub right: TemplateChild<gtk::Box>,
-        #[template_child]
-        pub scrolled: TemplateChild<gtk::ScrolledWindow>,
+        pub(super) summary: OnceCell<SummaryWidgets>,
         pub(super) state: RefCell<State>,
         pub(super) numbers: OnceCell<Numbers>,
         /// The latest sample with every row; `None` before the first one.
         pub(super) last: RefCell<Option<Vec<Group>>>,
+        /// The CPU fans that stand in the latest sample (D65).
+        pub(super) stopped: RefCell<Vec<RowId>>,
         /// The rows turned off and on in the settings.
         pub(super) visibility: RefCell<Visibility>,
         /// How the latest sample was read; `None` before the first one.
@@ -556,6 +583,22 @@ mod imp {
         fn constructed(&self) {
             self.parent_constructed();
             let obj = self.obj();
+            let _ = self.summary.set(SummaryWidgets::new(
+                &self.column,
+                &self.heroes,
+                &self.list,
+                &self.all_list,
+            ));
+            self.narrow.connect_apply(glib::clone!(
+                #[weak]
+                obj,
+                move |_| obj.set_narrow(true)
+            ));
+            self.narrow.connect_unapply(glib::clone!(
+                #[weak]
+                obj,
+                move |_| obj.set_narrow(false)
+            ));
             self.wide.connect_apply(glib::clone!(
                 #[weak]
                 obj,
@@ -606,6 +649,7 @@ impl OverviewPage {
     pub fn show(&self, sample: Sample) {
         let imp = self.imp();
         imp.last.replace(Some(sample.groups));
+        imp.stopped.replace(sample.stopped);
         if imp.reading.borrow().as_ref() != Some(&sample.status) {
             self.show_status(&sample.status);
             if let Some(f) = imp.on_status.borrow().as_ref() {
@@ -674,7 +718,61 @@ impl OverviewPage {
         for (widgets, group) in imp.state.borrow().groups.iter().zip(&groups) {
             widgets.update(group, numbers);
         }
-        imp.stack.set_visible_child_name("readings");
+        if let Some(summary) = imp.summary.get() {
+            let stopped = imp.stopped.borrow();
+            summary.update(
+                &baseboard_core::summary::summary(&groups, &stopped),
+                numbers,
+            );
+        }
+        imp.stack.set_visible_child_name("summary");
+    }
+
+    /// The page "All Sensors" for the window to push, opened on the group
+    /// of `key` (`summary::group_key`), or at its top for an empty key.
+    pub fn sensors_page(&self, key: &str) -> adw::NavigationPage {
+        self.scroll_to_group(summary::group_of_key(key));
+        self.imp().sensors_page.clone()
+    }
+
+    /// Scrolls "All Sensors" so that the group of `kind` stands on top, once
+    /// it is laid out, and moves the keyboard focus into it.
+    fn scroll_to_group(&self, kind: Option<GroupKind>) {
+        let imp = self.imp();
+        let target = kind.and_then(|kind| {
+            imp.state
+                .borrow()
+                .groups
+                .iter()
+                .find(|g| g.kind == kind)
+                .map(|g| g.widget.clone())
+        });
+        imp.sensors_scrolled.add_tick_callback(move |scrolled, _| {
+            let adjustment = scrolled.vadjustment();
+            let Some(target) = &target else {
+                adjustment.set_value(0.0);
+                return glib::ControlFlow::Break;
+            };
+            // Not laid out yet: the next frame.
+            if target.height() == 0 {
+                return glib::ControlFlow::Continue;
+            }
+            // The content under the viewport, which does not scroll.
+            let content = scrolled.child().and_then(|viewport| viewport.first_child());
+            if let Some(point) =
+                content.and_then(|content| target.compute_point(&content, &graphene::Point::zero()))
+            {
+                adjustment.set_value(f64::from(point.y()));
+            }
+            target.child_focus(gtk::DirectionType::TabForward);
+            glib::ControlFlow::Break
+        });
+    }
+
+    fn set_narrow(&self, narrow: bool) {
+        if let Some(summary) = self.imp().summary.get() {
+            summary.set_narrow(narrow);
+        }
     }
 
     fn rebuild(&self, groups: &[Group], shape: Vec<Shape>) {

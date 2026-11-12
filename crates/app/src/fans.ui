@@ -69,12 +69,12 @@
                             <property name="margin-top">10</property>
                             <property name="margin-bottom">22</property>
                             <style>
-                              <class name="fan-hero"/>
+                              <class name="hero"/>
                             </style>
                             <child>
                               <object class="GtkLabel" id="hero_label">
                                 <style>
-                                  <class name="fan-hero-label"/>
+                                  <class name="hero-label"/>
                                 </style>
                               </object>
                             </child>
@@ -84,7 +84,7 @@
                                 <child>
                                   <object class="GtkLabel" id="hero_value">
                                     <style>
-                                      <class name="fan-hero-value"/>
+                                      <class name="hero-value"/>
                                       <class name="numeric"/>
                                     </style>
                                   </object>
@@ -94,7 +94,7 @@
                                     <property name="label">°C</property>
                                     <property name="valign">start</property>
                                     <style>
-                                      <class name="fan-hero-unit"/>
+                                      <class name="hero-unit"/>
                                     </style>
                                   </object>
                                 </child>
@@ -160,7 +160,9 @@
                             <property name="tightening-threshold">400</property>
                             <property name="unit">sp</property>
                             <property name="child">
-                              <object class="GtkBox">
+                              <!-- A stopped CPU fan (D65) puts a warning
+                                   above the list (fans.rs). -->
+                              <object class="GtkBox" id="list_column">
                                 <property name="orientation">vertical</property>
                                 <property name="spacing">18</property>
                                 <child>

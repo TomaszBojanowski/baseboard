@@ -55,6 +55,8 @@ pub(super) struct FanLine {
     pub unchecked: bool,
     /// No speed since the start at a duty cycle above 0.
     pub maybe_empty: bool,
+    /// A CPU fan that turned and stands now (D65).
+    pub stopped: bool,
     /// The line of the small chart, in °C and 0–255; empty without one.
     pub chart: Vec<(f64, f64)>,
     /// The point now, in °C and 0–255.
@@ -74,9 +76,14 @@ impl FanLine {
         (target.abs_diff(duty) >= VISIBLE_CHANGE).then_some(target > duty)
     }
 
-    /// The state in plain words, when there is one: an empty header, manual
-    /// mode, or a visible move to the target.
+    /// The state in plain words, when there is one: a stopped CPU fan, an
+    /// empty header, manual mode, or a visible move to the target.
     pub(super) fn state(&self) -> Option<String> {
+        if self.stopped {
+            // Translators: under the CPU fan on the Fans page when it turned
+            // before and stands now (D65).
+            return Some(pgettext("fan state", "Stopped"));
+        }
         if self.maybe_empty {
             // Translators: under a fan on the Fans page when it has not
             // turned since Baseboard started; one sentence.
@@ -119,7 +126,11 @@ impl FanLine {
     /// The description of the row for screen readers: what the list does
     /// not show, or shows shortened.
     pub(super) fn description(&self, numbers: &Numbers) -> String {
-        let mut parts = vec![self.header.clone(), numbers.value(Kind::Fan, self.rpm)];
+        let mut parts = Vec::new();
+        if self.stopped {
+            parts.push(crate::alert::cpu_fan_stopped());
+        }
+        parts.extend([self.header.clone(), numbers.value(Kind::Fan, self.rpm)]);
         if let Some(duty) = self.duty {
             parts.push(gettext("duty {duty}").replace("{duty}", &percent(duty_to_percent(duty))));
         }
@@ -450,6 +461,14 @@ impl FanRow {
             self.name.set_label(&line.name);
         }
         self.show_subtitle(line, numbers);
+        // A stopped CPU fan says so in the color of warnings, and in words.
+        if line.stopped != self.sub.has_css_class("warning") {
+            if line.stopped {
+                self.sub.add_css_class("warning");
+            } else {
+                self.sub.remove_css_class("warning");
+            }
+        }
         // As wide as four digits, so that the chart does not move when the
         // speed gets a digit; measured here, in the font of the window's
         // style, which a new row does not have yet.
@@ -527,6 +546,7 @@ mod tests {
             target: None,
             unchecked: true,
             maybe_empty: true,
+            stopped: false,
             chart: vec![(40.0, 255.0)],
             now: Some((50.0, 255.0)),
             chart_description: None,
@@ -577,6 +597,18 @@ mod tests {
             ..cpu()
         };
         assert_eq!(manual.state().as_deref(), Some("Manual"));
+        // A stopped CPU fan comes first (D65).
+        let stopped = FanLine {
+            rpm: 0.0,
+            stopped: true,
+            ..cpu()
+        };
+        assert_eq!(stopped.state().as_deref(), Some("Stopped"));
+        assert!(
+            stopped
+                .description(&Numbers::new("."))
+                .starts_with("CPU fan stopped, CPU_FAN1, 0\u{a0}rpm")
+        );
         // "Fans are speeding up" only for a fan that goes up.
         assert!(speeding_up(&[pump(), cpu()]));
         assert!(!speeding_up(&[pump(), small, down]));

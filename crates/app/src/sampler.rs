@@ -20,9 +20,10 @@ use std::time::{Duration, Instant};
 use baseboard_core::fans::driver::{Capability, Channel, FanDriver, Mode, SysfsDriver};
 use baseboard_core::fans::page::{ChannelReading, CurveRead, SourceRead};
 use baseboard_core::labels::UserLabels;
-use baseboard_core::overview::{self, Board, Context, Extremes, Group};
+use baseboard_core::overview::{self, Board, Context, Extremes, Group, RowId};
 use baseboard_core::profile::Profile;
 use baseboard_core::sensors::{self, Device, SensorSource};
+use baseboard_core::summary::FanWatch;
 use baseboard_core::udev::{NoUdev, Udev};
 use gtk::glib;
 
@@ -89,6 +90,8 @@ pub struct Sampler {
     devices: Vec<Device>,
     reader: Option<Reader>,
     extremes: Extremes,
+    /// How long the CPU fans stand (D65).
+    watch: FanWatch,
     /// What to read of the fan channels.
     reads: FanReads,
     /// How many times the reader was made, for the tests.
@@ -115,6 +118,8 @@ pub struct Sample {
     /// The fan channels of the profile, while the Fans page is shown and
     /// the board's device is there.
     pub fans: Option<Vec<ChannelReading>>,
+    /// The CPU fans that stand (D65), also when their rows are hidden.
+    pub stopped: Vec<RowId>,
 }
 
 /// How the sample was read, for the notes on the pages (§5.1, §5.4).
@@ -135,6 +140,7 @@ impl Sampler {
             devices: Vec::new(),
             reader: None,
             extremes: Extremes::default(),
+            watch: FanWatch::default(),
             made: 0,
         }
     }
@@ -207,6 +213,7 @@ impl Sampler {
         };
         let mut groups = overview::build(&chips, &context);
         self.extremes.update(&mut groups);
+        let stopped = self.watch.update(&groups, Instant::now());
         Sample {
             groups,
             status: Status {
@@ -214,6 +221,7 @@ impl Sampler {
                 missing_chip,
             },
             fans,
+            stopped,
         }
     }
 

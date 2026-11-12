@@ -20,12 +20,13 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use baseboard_core::fans::driver::{Mode, Source};
 use baseboard_core::fans::page::{self, Card, CardKind, Note, Page, SourceRow};
-use baseboard_core::overview::{Name, Row, Subtitle, Visibility};
+use baseboard_core::overview::{Name, Row, RowId, Subtitle, Visibility};
 use baseboard_core::profile::{FanRole, Profile, TempRole};
 use baseboard_core::units::{Numbers, UNIT_SPACE};
 use gettextrs::gettext;
 use gtk::{gdk, gio, glib, pango};
 
+use crate::alert::{self, Alert};
 use crate::config;
 use crate::fan_chart::swatch::Mark;
 use crate::fan_chart::{self, ChartCurve, Reading};
@@ -232,8 +233,9 @@ fn legend_items() -> [(Mark, String); 4] {
 }
 
 /// A row of the list for a card of the model. `temp` is the temperature
-/// on top, in °C, for the point of a fan in manual mode.
-fn card_line(card: &Card, context: &PageContext, temp: Option<f64>) -> FanLine {
+/// on top, in °C, for the point of a fan in manual mode; `stopped` are the
+/// CPU fans that stand (D65).
+fn card_line(card: &Card, context: &PageContext, temp: Option<f64>, stopped: &[RowId]) -> FanLine {
     let numbers = context.numbers;
     let name = overview::name(&card.row.name, numbers);
     let has_mode = matches!(card.kind, CardKind::Full { .. });
@@ -296,6 +298,7 @@ fn card_line(card: &Card, context: &PageContext, temp: Option<f64>) -> FanLine {
         // The extra header is read only with every driver; as on the
         // Overview, its row says nothing about an empty header.
         maybe_empty: card.maybe_empty() && card.role != FanRole::Aux,
+        stopped: stopped.contains(&card.row.id),
         // Also in manual mode: the curve stays in the controller.
         opens: card.curve().is_some(),
         chart,
@@ -333,6 +336,7 @@ fn read_only_line(row: &Row, numbers: &Numbers) -> FanLine {
         target: None,
         unchecked: !verified,
         maybe_empty: false,
+        stopped: false,
         chart: Vec::new(),
         now: None,
         chart_description: None,
@@ -389,9 +393,13 @@ mod imp {
         #[template_child]
         pub kernel: TemplateChild<gtk::Label>,
         #[template_child]
+        pub list_column: TemplateChild<gtk::Box>,
+        #[template_child]
         pub list: TemplateChild<gtk::ListBox>,
         #[template_child]
         pub footer: TemplateChild<gtk::Label>,
+        /// The warning about a stopped CPU fan (D65).
+        pub(super) alert: OnceCell<Alert>,
         /// The board profile; `None` in generic mode.
         pub(super) profile: RefCell<Option<Profile>>,
         /// Why there is no profile, as the System page says it.
@@ -461,6 +469,9 @@ mod imp {
                 glib::Propagation::Stop
             });
             self.footer.set_label(&footer_text());
+            let alert = Alert::new();
+            self.list_column.prepend(&alert.widget);
+            let _ = self.alert.set(alert);
             // Translators: read by screen readers for the list of fans.
             let name = gettext("Fans");
             self.list
@@ -651,20 +662,29 @@ impl FansPage {
             );
             return;
         }
-        self.render(&model);
+        self.render(&model, &sample.stopped);
         if imp.stack.visible_child_name().as_deref() != Some("fans") {
             imp.stack.set_visible_child_name("fans");
         }
         imp.model.replace(Some(model));
     }
 
-    fn render(&self, model: &Page) {
+    /// The page for `model`; `stopped` are the CPU fans that stand (D65).
+    fn render(&self, model: &Page, stopped: &[RowId]) {
         let imp = self.imp();
         let numbers = self.numbers();
         let context = PageContext {
             numbers,
             source: model.source.as_ref(),
         };
+
+        // A stopped CPU fan: the warning above the list, as on the
+        // Overview and the System page.
+        if let Some(alert) = imp.alert.get() {
+            let shown = model.cards.iter().any(|c| stopped.contains(&c.row.id));
+            let (title, why) = (alert::cpu_fan_stopped(), alert::cpu_fan_stopped_why());
+            alert.set(shown.then_some((title.as_str(), why.as_str())));
+        }
 
         // The temperature on top, in whole degrees.
         let temperature = model.temperature.as_ref();
@@ -688,7 +708,7 @@ impl FansPage {
         let mut lines: Vec<FanLine> = model
             .cards
             .iter()
-            .map(|card| card_line(card, &context, value))
+            .map(|card| card_line(card, &context, value, stopped))
             .collect();
         lines.extend(model.read_only.iter().map(|r| read_only_line(r, numbers)));
 

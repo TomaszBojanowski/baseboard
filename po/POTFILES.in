@@ -2,6 +2,7 @@
 data/me.bojanowski.Baseboard.desktop.in
 data/me.bojanowski.Baseboard.gschema.xml
 data/me.bojanowski.Baseboard.metainfo.xml.in
+crates/app/src/alert.rs
 crates/app/src/application.rs
 crates/app/src/fan_chart.rs
 crates/app/src/fans.rs
@@ -10,6 +11,7 @@ crates/app/src/fans/curve_page.rs
 crates/app/src/fans/row.rs
 crates/app/src/overview.rs
 crates/app/src/overview.ui
+crates/app/src/overview/summary.rs
 crates/app/src/preferences.rs
 crates/app/src/shortcuts-dialog.ui
 crates/app/src/system.rs

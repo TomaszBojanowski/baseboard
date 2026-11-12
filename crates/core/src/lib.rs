@@ -14,6 +14,7 @@ pub mod overview;
 pub mod profile;
 pub mod report;
 pub mod sensors;
+pub mod summary;
 pub mod system;
 pub mod udev;
 pub mod units;

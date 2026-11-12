@@ -2,6 +2,7 @@
 
 //! Baseboard: monitoring and control of mainboard hardware for GNOME.
 
+mod alert;
 mod application;
 mod board;
 mod config;

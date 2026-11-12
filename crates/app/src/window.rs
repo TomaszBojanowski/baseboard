@@ -171,7 +171,35 @@ mod imp {
             ));
             obj.add_action(&show_system);
 
-            // "Show Curve" on a fan card: the curve page of that header.
+            // A large number or a row of the Overview: "All Sensors" on a
+            // group, or at its top for an empty key.
+            let show_sensors =
+                gio::SimpleAction::new("show-sensors", Some(glib::VariantTy::STRING));
+            show_sensors.connect_activate(glib::clone!(
+                #[weak]
+                obj,
+                move |_, key| {
+                    if let Some(key) = key.and_then(|k| k.get::<String>()) {
+                        obj.show_sensors(&key);
+                    }
+                }
+            ));
+            obj.add_action(&show_sensors);
+
+            // The fans row of the Overview: the Fans page.
+            let show_fans = gio::SimpleAction::new("show-fans", None);
+            show_fans.connect_activate(glib::clone!(
+                #[weak]
+                obj,
+                move |_, _| {
+                    let imp = obj.imp();
+                    imp.sidebar.set_selected(Page::Fans.index());
+                    imp.split_view.set_show_content(true);
+                }
+            ));
+            obj.add_action(&show_fans);
+
+            // A row of the list of fans: the curve page of that header.
             let show_curve = gio::SimpleAction::new("show-curve", Some(glib::VariantTy::STRING));
             show_curve.connect_activate(glib::clone!(
                 #[weak]
@@ -291,6 +319,23 @@ impl BaseboardWindow {
     #[cfg(debug_assertions)]
     pub fn open_curve(&self, key: &str) {
         self.show_curve(key);
+    }
+
+    /// Opens "All Sensors" over the Overview on the group of `key`, or
+    /// scrolls it there when it is open.
+    fn show_sensors(&self, key: &str) {
+        let imp = self.imp();
+        let page = imp.overview.sensors_page(key);
+        if imp.content_nav.visible_page().as_ref() != Some(&page) {
+            imp.content_nav.push(&page);
+        }
+    }
+
+    /// Debug builds: opens "All Sensors" on the group of `key`, as a large
+    /// number of the Overview would.
+    #[cfg(debug_assertions)]
+    pub fn open_sensors(&self, key: &str) {
+        self.show_sensors(key);
     }
 
     /// Starts the reader of the System page, which reads when the page is

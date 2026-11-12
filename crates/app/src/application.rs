@@ -258,7 +258,7 @@ mod debug {
 
     /// After the window is shown: `BASEBOARD_DEBUG_MINIMIZED=1` minimizes
     /// it. `BASEBOARD_DEBUG_CURVE=sys1` opens the curve page of that header
-    /// a second later, when the Fans page has its cards.
+    /// a second later, when the Fans page has its rows.
     /// `BASEBOARD_DEBUG_FOCUS=N` moves the keyboard focus N times with Tab
     /// two seconds later and prints where it goes.
     pub fn presented(window: &BaseboardWindow) {
@@ -287,6 +287,19 @@ mod debug {
                     #[weak]
                     window,
                     move || window.open_curve(&key)
+                ),
+            );
+        }
+        // `BASEBOARD_DEBUG_SENSORS=gpu` opens "All Sensors" on that group a
+        // second and a half later (`all` at its top).
+        if let Some(key) = var("BASEBOARD_DEBUG_SENSORS") {
+            let key = if key == "all" { String::new() } else { key };
+            glib::timeout_add_local_once(
+                std::time::Duration::from_millis(1500),
+                glib::clone!(
+                    #[weak]
+                    window,
+                    move || window.open_sensors(&key)
                 ),
             );
         }

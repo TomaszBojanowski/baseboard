@@ -15,32 +15,52 @@ row.monospace-value .subtitle {
   opacity: 0.72;
 }
 
-/* The temperature the curves follow, large, on top of the list (D62). */
-.fan-hero-label {
+/* Large numbers without frames: the temperature the curves follow on the
+   Fans page (D62), and the processor, graphics card and board on the
+   Overview (D64). */
+.hero-label {
   font-weight: 600;
   opacity: 0.65;
 }
 
-.fan-hero-value {
+.hero-value {
   font-size: 54pt;
   font-weight: 300;
   letter-spacing: -0.02em;
 }
 
-.fan-hero-unit {
+.hero-unit {
   font-size: 21pt;
   opacity: 0.55;
   margin-top: 12px;
   margin-left: 4px;
 }
 
-.fan-hero.narrow .fan-hero-value {
+.hero.narrow .hero-value {
   font-size: 45pt;
 }
 
-.fan-hero.narrow .fan-hero-unit {
+.hero.narrow .hero-unit {
   font-size: 18pt;
   margin-top: 9px;
+}
+
+/* On the Overview each number opens its group: a flat button that only
+   shows when hovered or focused. */
+.hero-button {
+  padding: 6px 4px 2px;
+  border-radius: 12px;
+}
+
+/* A warning on top of a page in plain words (D64, D65). */
+.alert-bar {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background-color: color-mix(in srgb, var(--warning-bg-color) 18%, transparent);
+}
+
+.alert-bar > image {
+  margin-top: 1px;
 }
 
 /* The link "Kernel status" as in the mockup: bold (in the markup), in the
