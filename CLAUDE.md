@@ -43,6 +43,16 @@ Zasady lokalne właściciela (notatki na jego komputerze, uprawnienia, git, pami
 - Pliki robocze wyłącznie poza repozytorium, nigdy w drzewie projektu.
 - Build zawsze w tym samym katalogu `build/` (ignorowanym), bez dodatkowych katalogów buildu.
 
+## Wygląd: nowoczesny minimalizm (D63)
+
+Obowiązuje każdą stronę, także przyszłe (podświetlenie, wydajność):
+
+- na pierwszym planie zwykłe słowa i najważniejsze liczby;
+- oznaczenia sterowników, czujników i złączy, ścieżki plików i wartości pomocnicze o jedno kliknięcie dalej;
+- mało ramek, dużo powietrza, jeden kolor akcentu, układy libadwaita jak w Ustawieniach GNOME;
+- nic nie ginie: wszystko, co dziś widać, da się nadal znaleźć i skopiować do zgłoszenia błędu;
+- ostrzeżenia i informacje o bezpieczeństwie zostają, prostym językiem.
+
 ## Tłumaczenia
 
 - gettext od pierwszego kodu. Każdy tekst widoczny dla użytkownika przechodzi przez `gettext`/`ngettext`/`pgettext`. msgid po angielsku.
