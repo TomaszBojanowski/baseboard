@@ -1,0 +1,27 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* The "Curve Details" page of D62. */
+
+:root[data-bare="1"], :root[data-bare="1"] body { background: transparent; }
+:root[data-bare="1"] body { padding: 0; }
+:root[data-bare="1"] .window { box-shadow: none; }
+
+.d-page { display: flex; flex-direction: column; gap: 24px; }
+.d-chart { padding: 14px 14px 12px; }
+.d-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+.d-side { display: flex; flex-direction: column; gap: 24px; }
+@container (max-width: 760px) { .d-cols { grid-template-columns: 1fr; } }
+.row .v { font-variant-numeric: tabular-nums; opacity: .8; }
+.pt-n.wide { width: auto; padding: 0 8px; border-radius: 13px; }
+
+/* the legend of the chart, under it */
+.d-legend { display: flex; flex-wrap: wrap; gap: 6px 22px; padding: 10px 8px 2px; font-size: 82%; opacity: .85; }
+.d-legend .li { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.d-legend span[class^="sw-"] { flex: none; display: inline-block; }
+.sw-hatch {
+  width: 22px; height: 12px; border-top: 1px dashed color-mix(in srgb, currentColor 45%, transparent);
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, currentColor 28%, transparent) 0 1.5px, transparent 1.5px 4px);
+}
+.sw-threshold { width: 0; height: 14px; border-left: 2px dashed var(--error); margin: 0 10px; }
+.sw-now { width: 10px; height: 10px; border-radius: 50%; background: var(--live); box-shadow: 0 0 0 3px color-mix(in srgb, var(--live) 25%, transparent); margin: 0 3px; }
+.sw-ends { width: 22px; height: 0; border-top: 2.5px dashed var(--accent-bg); }

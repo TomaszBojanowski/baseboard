@@ -1,0 +1,26 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baseboard – Szczegóły krzywej (makieta)</title>
+<link rel="stylesheet" href="wspolne.css">
+<link rel="stylesheet" href="wentylatory.css">
+<link rel="stylesheet" href="wentylatory-szczegoly.css">
+</head>
+<body data-page="wentylatory" data-back="1" data-title="" data-subtitle="">
+
+<!--
+  M2, D62: the curve page of one header in 0.2.0, opened from its row.
+  ?wentylator=cpu1 (default) or pump1; ?stan=85 for the processor at 85 °C
+  (the fan moves to 100 %), otherwise 50 °C.
+-->
+
+<main id="content" class="page"></main>
+
+<script src="wykres.js"></script>
+<script src="wentylatory-szczegoly.js"></script>
+<script src="wspolne.js"></script>
+</body>
+</html>

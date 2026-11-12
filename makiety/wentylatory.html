@@ -6,119 +6,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Baseboard – Wentylatory (makieta)</title>
 <link rel="stylesheet" href="wspolne.css">
-<link rel="stylesheet" href="wentylatory.css">
+<link rel="stylesheet" href="wentylatory-lista.css">
 </head>
 <body data-page="wentylatory" data-title="Wentylatory" data-subtitle="Odświeżanie co 1 s">
 
 <!--
-  M2, layout A (D45): one card per header with a live mini chart of its
-  curve, the source of the curves in one row above. ?stan= picks the state:
-    (none)        helper installed, driver with curve writes (`curves`):
-                  BIOS curves, an own curve, manual mode, pump without
-                  tested writes and with an empty header;
-    podglad       no helper (Flatpak or native): preview only;
-    tylko-odczyt  driver without fan control (kernel of Fedora 7.3.3).
-  Data: see wentylatory.js.
+  M2, D62: the temperature of the curves' source large on top, a list of
+  the fans under it. ?stan= picks the state:
+    (none)     at rest, CPU 50 °C;
+    85         CPU 85 °C, three fans move to 100 %;
+    reczny     SYS_FAN2 in manual mode at 45 %;
+    fabryczny  driver of the Fedora kernel, without control.
+  Data: see wentylatory-lista.js. The controls of M2b (mode switch, banner,
+  manual mode with a slider) are still to be designed in this layout.
 -->
-
-<template id="banner">
-  <span>Zmiany działają także po zamknięciu aplikacji, do restartu komputera</span>
-  <span class="btn">Przywróć automat BIOS</span>
-</template>
 
 <main id="content" class="page"></main>
 
-<script src="wykres.js"></script>
-<script src="wentylatory.js"></script>
-<script>
-(function () {
-  const F = window.FANS;
-  const { CH, P, pct } = F;
-  const state = F.state;
-
-  // Helper installed, curves writable. No card names the curve with a
-  // label: the switch shows the mode ("Automat BIOS" is the BIOS curve,
-  // D11), and the pump without a switch says in its box that it is only a
-  // preview.
-  function full() {
-    const cpu = CH.cpu1, pump = CH.pump1, s1 = CH.sys1, s2 = CH.sys2, s3 = CH.sys3, s4 = CH.sys4;
-    const s1duty = Math.round(F.dutyAt(F.OLD_CURVE, F.TEMP1));
-    const bios = c => F.card([F.head(c), F.toggles(3, "bios"), F.miniChart(c), F.foot("", "Edytuj krzywą")]);
-    return [
-      bios(cpu),
-      F.card([F.head(pump, { sub: F.subtitle(pump, { untested: false }) }),
-        F.lockRow("lock", "Tylko podgląd: złącza nie sprawdzono na tej płycie.", F.EMPTY),
-        F.miniChart(pump), F.foot("", "Pokaż krzywą")], "quiet"),
-      F.card([F.head(s1, { rpm: 731, duty: s1duty }), F.toggles(3, "curve"),
-        F.miniChart(s1, { points: F.OLD_CURVE, duty: s1duty }), F.foot("", "Edytuj krzywą")]),
-      F.card([F.head(s2, { rpm: 812, dutyLine: "" }), F.toggles(3, "manual"), F.manualPanel(s2, 114), F.manualFoot(s2)]),
-      bios(s3),
-      bios(s4),
-    ];
-  }
-
-  // No helper: the cards keep their shape, the switch only shows the mode
-  // (insensitive); the pump has the same status box as with the helper.
-  function preview() {
-    return ["cpu1", "pump1", "sys1", "sys2", "sys3", "sys4"].map(k => {
-      const c = CH[k];
-      if (c.untested) {
-        return F.card([F.head(c, { sub: F.subtitle(c, { untested: false }) }),
-          F.lockRow("info", "Złącza nie sprawdzono na tej płycie.", c.rpm === 0 ? F.EMPTY : ""),
-          F.miniChart(c), F.foot("", "Pokaż krzywą")], "quiet");
-      }
-      return F.card([F.head(c), F.toggles(3, "bios", true), F.miniChart(c), F.foot("", "Pokaż krzywą")]);
-    });
-  }
-
-  // Driver of Fedora 7.3.3: speeds of all headers, duty cycles only of
-  // pwm1, pwm2 and pwm4; the row on top says that once. Nothing can be
-  // controlled, so the subtitles leave out the minimum.
-  function readOnly() {
-    return ["cpu1", "pump1", "sys1", "sys2", "sys3", "sys4", "ezconn"].map(k => {
-      const c = CH[k];
-      const body = c.role === "sys" ? "" :
-        `<div class="levelrow"><div class="levelbar" role="progressbar" aria-label="Wypełnienie: ${c.name}" aria-valuenow="${pct(c.duty)}"><span style="width:${pct(c.duty)}%"></span></div><span class="caption">wypełnienie ${P(pct(c.duty))}</span></div>`;
-      return F.card([F.head(c, { dutyLine: "", sub: F.subtitle(c, { min: false }) }), body], c.rpm === 0 ? "quiet" : "");
-    });
-  }
-
-  let top;
-  let cards;
-  let rest = "";
-  if (state === "podglad") {
-    document.getElementById("banner").remove();
-    top = F.statusRow("package", "", "Podgląd bez sterowania",
-      "Do zmiany ustawień wentylatorów potrzebny jest pomocnik systemowy baseboard-helper.",
-      `<span class="btn">Jak zainstalować<i data-ic="external"></i></span>`) + F.sourceGroup();
-    cards = preview();
-    rest = F.readOnlyGroup();
-  } else if (state === "tylko-odczyt") {
-    document.getElementById("banner").remove();
-    top = F.statusRow("warning", "warning", "Sterowanie wentylatorami niedostępne",
-      "Wymaga nowszego jądra z rozszerzonym sterownikiem nct6683. Wypełnienia wentylatorów systemowych ten sterownik nie podaje.");
-    cards = readOnly();
-  } else {
-    top = F.sourceGroup();
-    cards = full();
-    rest = F.readOnlyGroup();
-  }
-
-  document.getElementById("content").innerHTML = `<div class="clamp wide">
-    <div class="stack">
-      ${top}
-      <section class="group">
-        <div class="group-header"><div class="labels">
-          <div class="heading">Złącza</div>
-          <div class="desc">W kolejności złączy na płycie</div>
-        </div></div>
-        <div class="fan-grid">${cards.join("")}</div>
-      </section>
-      ${rest}
-    </div>
-  </div>`;
-})();
-</script>
+<script src="wentylatory-lista.js"></script>
 <script src="wspolne.js"></script>
 </body>
 </html>
