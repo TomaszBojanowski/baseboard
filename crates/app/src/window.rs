@@ -186,6 +186,21 @@ mod imp {
             ));
             obj.add_action(&show_sensors);
 
+            // The status row and "Technical details" of the System page:
+            // its views "diagnostics" and "details".
+            let show_system_view =
+                gio::SimpleAction::new("show-system-view", Some(glib::VariantTy::STRING));
+            show_system_view.connect_activate(glib::clone!(
+                #[weak]
+                obj,
+                move |_, view| {
+                    if let Some(view) = view.and_then(|v| v.get::<String>()) {
+                        obj.show_system_view(&view);
+                    }
+                }
+            ));
+            obj.add_action(&show_system_view);
+
             // The fans row of the Overview: the Fans page.
             let show_fans = gio::SimpleAction::new("show-fans", None);
             show_fans.connect_activate(glib::clone!(
@@ -304,6 +319,32 @@ impl BaseboardWindow {
         let imp = self.imp();
         imp.fans.show(&sample);
         imp.overview.show(sample);
+        // The warnings of the readings for the status row of the System
+        // page (D64, D65).
+        imp.system.set_alerts(imp.overview.alerts());
+    }
+
+    /// Opens a view of the System page over it: "diagnostics" or
+    /// "details".
+    fn show_system_view(&self, view: &str) {
+        let imp = self.imp();
+        let page = match view {
+            "diagnostics" => imp.system.diagnostics_page(),
+            "details" => imp.system.details_page(),
+            other => {
+                eprintln!("baseboard: no view {other:?} of the System page");
+                return;
+            }
+        };
+        if imp.content_nav.visible_page().as_ref() != Some(&page) {
+            imp.content_nav.push(&page);
+        }
+    }
+
+    /// Debug builds: opens a view of the System page, as its rows would.
+    #[cfg(debug_assertions)]
+    pub fn open_system_view(&self, view: &str) {
+        self.show_system_view(view);
     }
 
     /// Opens the curve page of header `key` over the Fans page.

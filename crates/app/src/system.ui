@@ -3,7 +3,9 @@
 <interface>
   <requires lib="gtk" version="4.0"/>
   <requires lib="Adw" version="1.0"/>
-  <!-- The System page (docs/PROJEKT.md §5.4). The groups are made in
+  <!-- The System page (docs/PROJEKT.md §5.4, D64): one status row on top,
+       a short list of the computer, and two pages the window pushes over
+       it, "Diagnostics" and "Technical Details". The groups are made in
        system.rs from the data read in a worker thread. -->
   <template class="BaseboardSystemPage" parent="AdwBin">
     <property name="child">
@@ -31,4 +33,94 @@
       </object>
     </property>
   </template>
+  <!-- Everything Baseboard checks at start: the driver, lm-sensors, other
+       fan programs, the board profile, skipped files, warnings of the
+       readings. -->
+  <object class="AdwNavigationPage" id="diagnostics_page">
+    <property name="title" translatable="yes">Diagnostics</property>
+    <property name="tag">diagnostics</property>
+    <property name="child">
+      <object class="AdwBreakpointBin">
+        <property name="width-request">360</property>
+        <property name="height-request">200</property>
+        <child>
+          <object class="AdwBreakpoint">
+            <condition>max-width: 500sp</condition>
+            <setter object="diagnostics_copy" property="label"></setter>
+          </object>
+        </child>
+        <property name="child">
+          <object class="AdwToolbarView">
+            <child type="top">
+              <object class="AdwHeaderBar">
+                <child type="end">
+                  <object class="GtkButton">
+                    <property name="action-name">win.copy-system-info</property>
+                    <property name="tooltip-text" translatable="yes">Copy the system information to the clipboard, e.g. for a bug report</property>
+                    <property name="child">
+                      <object class="AdwButtonContent" id="diagnostics_copy">
+                        <property name="icon-name">edit-copy-symbolic</property>
+                        <property name="label" translatable="yes">Copy Information</property>
+                        <property name="can-shrink">True</property>
+                      </object>
+                    </property>
+                    <accessibility>
+                      <property name="label" translatable="yes">Copy Information</property>
+                    </accessibility>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <property name="content">
+              <object class="AdwPreferencesPage" id="diagnostics"/>
+            </property>
+          </object>
+        </property>
+      </object>
+    </property>
+  </object>
+  <!-- Codes, versions, drivers and identifiers, for bug reports. -->
+  <object class="AdwNavigationPage" id="details_page">
+    <property name="title" translatable="yes">Technical Details</property>
+    <property name="tag">details</property>
+    <property name="child">
+      <object class="AdwBreakpointBin">
+        <property name="width-request">360</property>
+        <property name="height-request">200</property>
+        <child>
+          <object class="AdwBreakpoint">
+            <condition>max-width: 500sp</condition>
+            <setter object="details_copy" property="label"></setter>
+          </object>
+        </child>
+        <property name="child">
+          <object class="AdwToolbarView">
+            <child type="top">
+              <object class="AdwHeaderBar">
+                <child type="end">
+                  <object class="GtkButton">
+                    <property name="action-name">win.copy-system-info</property>
+                    <property name="tooltip-text" translatable="yes">Copy the system information to the clipboard, e.g. for a bug report</property>
+                    <property name="child">
+                      <object class="AdwButtonContent" id="details_copy">
+                        <property name="icon-name">edit-copy-symbolic</property>
+                        <property name="label" translatable="yes">Copy Information</property>
+                        <property name="can-shrink">True</property>
+                      </object>
+                    </property>
+                    <accessibility>
+                      <property name="label" translatable="yes">Copy Information</property>
+                    </accessibility>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <property name="content">
+              <object class="AdwPreferencesPage" id="details"/>
+            </property>
+          </object>
+        </property>
+      </object>
+    </property>
+  </object>
 </interface>

@@ -359,6 +359,22 @@ impl RowWidgets {
     }
 }
 
+/// The warnings of the top of the page in words, for the System page: a
+/// stopped CPU fan (D65) first, then each rail outside its tolerance.
+fn alerts(top: &baseboard_core::summary::Summary, numbers: &Numbers) -> Vec<String> {
+    let mut alerts = Vec::new();
+    if top.fans.is_some_and(|fans| fans.cpu_stopped) {
+        alerts.push(crate::alert::cpu_fan_stopped());
+    }
+    alerts.extend(
+        top.power
+            .iter()
+            .flatten()
+            .map(|rail| crate::alert::rail_outside(rail, numbers)),
+    );
+    alerts
+}
+
 /// The rating as an icon next to the value, never by color alone: the
 /// text is in the subtitle. Unrated rails keep the space empty, so that
 /// the values stay aligned.
@@ -556,6 +572,8 @@ mod imp {
         pub(super) last: RefCell<Option<Vec<Group>>>,
         /// The CPU fans that stand in the latest sample (D65).
         pub(super) stopped: RefCell<Vec<RowId>>,
+        /// The warnings of the latest sample in words (`alerts`).
+        pub(super) alerts: RefCell<Vec<String>>,
         /// The rows turned off and on in the settings.
         pub(super) visibility: RefCell<Visibility>,
         /// How the latest sample was read; `None` before the first one.
@@ -690,6 +708,9 @@ impl OverviewPage {
             .as_ref()
             .is_some_and(|status| status.missing_chip.is_some());
         imp.banner.set_revealed(missing && any);
+        let numbers = self.numbers();
+        let top = baseboard_core::summary::summary(&groups, &imp.stopped.borrow());
+        imp.alerts.replace(alerts(&top, numbers));
         if groups.is_empty() {
             let (title, description) = if any {
                 (
@@ -714,18 +735,19 @@ impl OverviewPage {
         if imp.state.borrow().shape != shape {
             self.rebuild(&groups, shape);
         }
-        let numbers = self.numbers();
         for (widgets, group) in imp.state.borrow().groups.iter().zip(&groups) {
             widgets.update(group, numbers);
         }
         if let Some(summary) = imp.summary.get() {
-            let stopped = imp.stopped.borrow();
-            summary.update(
-                &baseboard_core::summary::summary(&groups, &stopped),
-                numbers,
-            );
+            summary.update(&top, numbers);
         }
         imp.stack.set_visible_child_name("summary");
+    }
+
+    /// The warnings of the latest sample in words, for the System page:
+    /// a stopped CPU fan (D65) and rails outside their tolerance.
+    pub fn alerts(&self) -> Vec<String> {
+        self.imp().alerts.borrow().clone()
     }
 
     /// The page "All Sensors" for the window to push, opened on the group

@@ -290,6 +290,18 @@ mod debug {
                 ),
             );
         }
+        // `BASEBOARD_DEBUG_SYSTEM_VIEW=diagnostics` (or `details`) opens
+        // that view of the System page a second and a half later.
+        if let Some(view) = var("BASEBOARD_DEBUG_SYSTEM_VIEW") {
+            glib::timeout_add_local_once(
+                std::time::Duration::from_millis(1500),
+                glib::clone!(
+                    #[weak]
+                    window,
+                    move || window.open_system_view(&view)
+                ),
+            );
+        }
         // `BASEBOARD_DEBUG_SENSORS=gpu` opens "All Sensors" on that group a
         // second and a half later (`all` at its top).
         if let Some(key) = var("BASEBOARD_DEBUG_SENSORS") {

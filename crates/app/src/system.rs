@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The System page (docs/PROJEKT.md §5.4), read only: the board, BIOS,
-//! processor and system, memory, graphics cards, disks, network cards, and
-//! the drivers and programs around the sensors and fans. The data comes
-//! from a worker thread (`system_reader`); the text of "Copy system
-//! information" from `core::report`, always in English.
+//! The System page (docs/PROJEKT.md §5.4, D64), read only. On top one
+//! status row ("Everything works", or what needs attention), then a short
+//! list of the computer in plain words. Two pages the window pushes over
+//! it hold the rest: "Diagnostics" (the drivers and programs around the
+//! sensors and fans, the board profile, skipped files, warnings of the
+//! readings) and "Technical Details" (the board, BIOS, processor and
+//! system, memory, graphics cards, disks and network cards with their
+//! codes and versions). The data comes from a worker thread
+//! (`system_reader`); the text of "Copy system information" from
+//! `core::report`, always in English, the same as before.
 
 use std::cell::{OnceCell, RefCell};
 use std::path::PathBuf;
@@ -20,7 +25,7 @@ use baseboard_core::system::{
     self, Bios, Disk, GraphicsCard, Manufacturer, MemoryModule, MemorySlot, ModuleOrigin,
     NetworkCard, PciId, SystemInfo, short_cpu_name,
 };
-use gettextrs::{gettext, pgettext};
+use gettextrs::{gettext, ngettext, pgettext};
 use gtk::{gio, glib};
 
 use crate::config;
@@ -108,6 +113,9 @@ pub struct Line {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Style {
+    /// A name and its value next to it, as in "About" of GNOME Settings:
+    /// the short list of the computer.
+    Value,
     /// A field and its value; the value stands out.
     Property,
     /// A thing and its details, e.g. a disk.
@@ -138,6 +146,13 @@ impl Line {
         Self {
             style: Style::Item,
             ..Self::property(title, Some(value))
+        }
+    }
+
+    fn value(title: String, value: Option<String>) -> Self {
+        Self {
+            style: Style::Value,
+            ..Self::property(title, value)
         }
     }
 
@@ -178,27 +193,308 @@ fn section(title: String, description: Option<String>, mut lines: Vec<Line>) -> 
     }
 }
 
-/// The groups of the page, in the order of the mockup.
-pub fn sections(
+/// The groups of the three views of the page (D64), in the order of the
+/// mockup. Every line of the page before D64 is in "Diagnostics" or
+/// "Technical Details"; the short list repeats the main ones in plain
+/// words.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Views {
+    pub summary: Vec<Section>,
+    pub diagnostics: Vec<Section>,
+    pub details: Vec<Section>,
+}
+
+/// `alerts` are warnings of the readings from the Overview (a rail outside
+/// its tolerance, a stopped CPU fan), already in words.
+pub fn views(
     dmi: &Dmi,
     detection: &Detection,
     info: &SystemInfo,
     extras: Extras,
-) -> Vec<Section> {
-    let mut sections = vec![
-        board(dmi, detection),
+    alerts: &[String],
+) -> Views {
+    let mut details = vec![
+        board(dmi),
         bios(&info.bios),
         processor_and_system(info),
         memory(info.memory.as_deref()),
     ];
-    sections.extend(graphics(&info.graphics));
-    sections.push(disks(&info.disks));
-    sections.push(network(&info.network));
-    sections.push(sensors_and_fans(detection, info, extras.source));
-    if !extras.skipped.is_empty() {
-        sections.push(skipped_files(extras.skipped));
+    details.extend(graphics(&info.graphics));
+    details.push(disks(&info.disks));
+    details.push(network(&info.network));
+
+    let mut diagnostics = Vec::new();
+    if !alerts.is_empty() {
+        diagnostics.push(readings(alerts));
     }
-    sections
+    diagnostics.push(sensors_and_fans(detection, info, extras.source));
+    diagnostics.push(section(
+        gettext("Board profile"),
+        None,
+        vec![profile_line(detection)],
+    ));
+    if !extras.skipped.is_empty() {
+        diagnostics.push(skipped_files(extras.skipped));
+    }
+
+    Views {
+        summary: summary(dmi, info),
+        diagnostics,
+        details,
+    }
+}
+
+/// The warnings of the readings, as the Overview gives them.
+fn readings(alerts: &[String]) -> Section {
+    section(
+        gettext("Readings"),
+        None,
+        alerts
+            .iter()
+            .map(|alert| Line::item(alert.clone(), String::new()).status(Some(Status::Warning)))
+            .collect(),
+    )
+}
+
+/// The short list on top of the page: the computer in plain words, its
+/// disks and network cards, and the system (D64).
+fn summary(dmi: &Dmi, info: &SystemInfo) -> Vec<Section> {
+    let mut computer = vec![
+        Line::value(
+            gettext("Mainboard"),
+            dmi.board_name.clone().or_else(|| dmi.product_name.clone()),
+        ),
+        Line::value(gettext("BIOS"), bios_version(&info.bios)),
+        Line::value(
+            gettext("Processor"),
+            info.cpu
+                .as_deref()
+                .map(|cpu| short_cpu_name(cpu).to_owned()),
+        ),
+        Line::value(
+            pgettext("system memory", "Memory"),
+            memory_total(info.memory.as_deref()),
+        ),
+    ];
+    if info.graphics.is_empty() {
+        computer.push(Line::value(gettext("Graphics card"), None));
+    }
+    computer.extend(info.graphics.iter().map(|card| {
+        Line::value(
+            gettext("Graphics card"),
+            card.name
+                .as_deref()
+                .map(|name| marketing_name(name).to_owned()),
+        )
+    }));
+    let disks = info
+        .disks
+        .iter()
+        .map(|disk| {
+            let mut size = glib::format_size(disk.size_bytes).to_string();
+            if disk.removable {
+                size = format!("{size} · {}", gettext("removable medium"));
+            }
+            Line::value(
+                disk.model.clone().unwrap_or_else(|| disk.name.clone()),
+                Some(size),
+            )
+        })
+        .collect();
+    let network = info
+        .network
+        .iter()
+        .map(|card| {
+            let name = card.name.as_deref().map_or_else(
+                || gettext("Unknown network card"),
+                |name| marketing_name(name).to_owned(),
+            );
+            Line::value(name, Some(String::new()))
+        })
+        .collect();
+    vec![
+        // Translators: the group of the board, processor, memory and
+        // graphics on the System page.
+        section(gettext("This computer"), None, computer),
+        section(gettext("Disks"), None, disks),
+        // Translators: the group of the network cards on the System page.
+        section(gettext("Network"), None, network),
+        section(
+            String::new(),
+            None,
+            vec![Line::value(gettext("System"), info.os.clone())],
+        ),
+    ]
+}
+
+/// All memory in one line: the size, the type and the speed where all
+/// modules share them, e.g. "32,0 GiB DDR5 · 6000 MT/s".
+fn memory_total(slots: Option<&[MemorySlot]>) -> Option<String> {
+    let modules: Vec<&MemoryModule> = slots?.iter().filter_map(|s| s.module.as_ref()).collect();
+    let first = modules.first()?;
+    let total = modules.iter().map(|m| m.size_bytes).sum();
+    let size = glib::format_size_full(total, glib::FormatSizeFlags::IEC_UNITS).to_string();
+    let shared = |value: fn(&MemoryModule) -> Option<String>| {
+        value(first).filter(|v| modules.iter().all(|m| value(m).as_ref() == Some(v)))
+    };
+    let mut parts = vec![match shared(|m| m.kind.clone()) {
+        Some(kind) => format!("{size} {kind}"),
+        None => size,
+    }];
+    parts.extend(shared(|m| {
+        m.configured_speed_mts
+            .map(|speed| format!("{speed}\u{a0}MT/s"))
+    }));
+    Some(parts.join(" · "))
+}
+
+/// The state of the page in one row (D64): what needs attention, or that
+/// all works; a system that only reads the fans, or a board without a
+/// profile, is information, not a problem (D60).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Health {
+    Fine,
+    Limited(String),
+    Attention(Vec<String>),
+}
+
+pub fn health(
+    detection: &Detection,
+    info: &SystemInfo,
+    extras: Extras,
+    alerts: &[String],
+) -> Health {
+    let mut problems = alerts.to_vec();
+    let driver = info.fan_driver;
+    if let Some(profile) = detection.profile() {
+        if !driver.loaded {
+            problems.push(gettext("The nct6683 driver is not loaded"));
+        } else if !driver.device {
+            problems.push(
+                gettext("The nct6683 driver is loaded but found no {} chip")
+                    .replace("{}", &profile.hwmon.name),
+            );
+        }
+    }
+    if let Detection::UnverifiedRevision { revision, .. } = detection {
+        problems.push(unverified_revision(*revision));
+    }
+    if info.fan_programs.as_deref().is_some_and(|p| !p.is_empty()) {
+        problems.push(gettext("Other fan control programs are running"));
+    }
+    if !extras.skipped.is_empty() {
+        let count = u32::try_from(extras.skipped.len()).unwrap_or(u32::MAX);
+        problems.push(
+            ngettext(
+                "{} file skipped because of errors",
+                "{} files skipped because of errors",
+                count,
+            )
+            .replace("{}", &count.to_string()),
+        );
+    }
+    if !problems.is_empty() {
+        return Health::Attention(problems);
+    }
+    match (detection.profile(), driver.level) {
+        (None, _) => Health::Limited(no_profile()),
+        (Some(_), Some(DriverLevel::ReadOnly)) => Health::Limited(gettext(
+            // Translators: under "Sensors work" on the System page when the
+            // kernel driver can only read the fans.
+            "This system can only read the fans for now",
+        )),
+        _ => Health::Fine,
+    }
+}
+
+/// The status row: icon, title and the line under it.
+fn status_texts(health: &Health) -> (&'static str, &'static str, String, String) {
+    match health {
+        Health::Fine => (
+            "object-select-symbolic",
+            "success",
+            gettext("Everything works"),
+            gettext("Sensors, driver and configuration are in order"),
+        ),
+        Health::Limited(why) => (
+            "help-about-symbolic",
+            "dimmed",
+            gettext("Sensors work"),
+            why.clone(),
+        ),
+        Health::Attention(problems) => {
+            let first = problems.first().cloned().unwrap_or_default();
+            let more = u32::try_from(problems.len().saturating_sub(1)).unwrap_or(u32::MAX);
+            let line = if more == 0 {
+                first
+            } else {
+                ngettext(
+                    // Translators: under "Needs attention" on the System page:
+                    // the first thing, e.g. "CPU fan stopped", and how many
+                    // more there are.
+                    "{problem}, and {count} more",
+                    "{problem}, and {count} more",
+                    more,
+                )
+                .replace("{problem}", &first)
+                .replace("{count}", &more.to_string())
+            };
+            (
+                "dialog-warning-symbolic",
+                "warning",
+                gettext("Needs attention"),
+                line,
+            )
+        }
+    }
+}
+
+/// The row on top of the page, which opens "Diagnostics".
+fn status_row(health: &Health) -> adw::ActionRow {
+    let (icon, class, title, subtitle) = status_texts(health);
+    let row = adw::ActionRow::builder()
+        .use_markup(false)
+        .title(&title)
+        .subtitle(&subtitle)
+        .activatable(true)
+        .action_name("win.show-system-view")
+        .action_target(&"diagnostics".to_variant())
+        .css_classes(["system-status"])
+        .build();
+    let image = gtk::Image::builder()
+        .icon_name(icon)
+        .css_classes([class])
+        .valign(gtk::Align::Center)
+        .accessible_role(gtk::AccessibleRole::Presentation)
+        .build();
+    row.add_prefix(&image);
+    row.add_suffix(&chevron());
+    row
+}
+
+/// The row that opens "Technical Details".
+fn details_row() -> adw::ActionRow {
+    let row = adw::ActionRow::builder()
+        .use_markup(false)
+        .title(gettext("Technical details"))
+        .subtitle(gettext(
+            "Codes, versions, drivers and identifiers for bug reports",
+        ))
+        .activatable(true)
+        .action_name("win.show-system-view")
+        .action_target(&"details".to_variant())
+        .build();
+    row.add_suffix(&chevron());
+    row
+}
+
+fn chevron() -> gtk::Image {
+    gtk::Image::builder()
+        .icon_name("go-next-symbolic")
+        .valign(gtk::Align::Center)
+        .accessible_role(gtk::AccessibleRole::Presentation)
+        .css_classes(["dimmed"])
+        .build()
 }
 
 /// The files left out at start, which the page names with the reason.
@@ -272,7 +568,7 @@ pub fn no_control(sys_without_duty: bool) -> String {
     }
 }
 
-fn board(dmi: &Dmi, detection: &Detection) -> Section {
+fn board(dmi: &Dmi) -> Section {
     let code = dmi.board_code().map(|code| code_label(&code));
     let code = match (code, dmi.pcb_revision()) {
         (Some(code), Some(revision)) => Some(
@@ -294,7 +590,6 @@ fn board(dmi: &Dmi, detection: &Detection) -> Section {
             ),
             Line::property(gettext("Manufacturer"), dmi.board_vendor.clone()),
             Line::property(gettext("Board code and PCB revision"), code),
-            profile_line(detection),
         ],
     )
 }
@@ -337,8 +632,9 @@ fn profile_line(detection: &Detection) -> Line {
     }
 }
 
-fn bios(bios: &Bios) -> Section {
-    let version = bios.version.as_ref().map(|version| match bios_date(bios) {
+/// The BIOS version with its date.
+fn bios_version(bios: &Bios) -> Option<String> {
+    bios.version.as_ref().map(|version| match bios_date(bios) {
         // Translators: the BIOS version and its date, e.g.
         // "1.A68 of 09/07/2026"; the date is written as the locale writes
         // dates.
@@ -346,12 +642,15 @@ fn bios(bios: &Bios) -> Section {
             .replace("{version}", version)
             .replace("{date}", &date),
         None => version.clone(),
-    });
+    })
+}
+
+fn bios(bios: &Bios) -> Section {
     section(
         gettext("BIOS"),
         None,
         vec![
-            Line::property(gettext("Version"), version),
+            Line::property(gettext("Version"), bios_version(bios)),
             Line::property(gettext("Manufacturer"), bios.vendor.clone()),
         ],
     )
@@ -740,17 +1039,37 @@ fn group_widget(section: &Section) -> adw::PreferencesGroup {
     group
 }
 
+/// A row of the page; a line without a value, e.g. a network card in the
+/// short list, has its name alone.
 fn row(line: &Line) -> adw::ActionRow {
     let row = adw::ActionRow::builder()
         .use_markup(false)
         .title(&line.title)
         .build();
     match line.style {
+        Style::Value => {
+            // The value next to the name; it wraps in a narrow window and
+            // can be selected and copied.
+            if !line.value.is_empty() {
+                // In one line while there is room: it only wraps when the
+                // row is narrower than the name and the value.
+                let value = gtk::Label::builder()
+                    .label(&line.value)
+                    .wrap(true)
+                    .natural_wrap_mode(gtk::NaturalWrapMode::None)
+                    .xalign(1.0)
+                    .justify(gtk::Justification::Right)
+                    .selectable(true)
+                    .css_classes(["dimmed"])
+                    .build();
+                row.add_suffix(&value);
+            }
+        }
         Style::Property => row.add_css_class("property"),
         Style::Item => {}
         Style::NoData => row.add_css_class("dimmed"),
     }
-    if !line.value.is_empty() {
+    if !line.value.is_empty() && line.style != Style::Value {
         row.set_subtitle(&line.value);
     }
     if line.monospace {
@@ -788,7 +1107,19 @@ mod imp {
         pub stack: TemplateChild<gtk::Stack>,
         #[template_child]
         pub page: TemplateChild<adw::PreferencesPage>,
-        pub(super) groups: RefCell<Vec<adw::PreferencesGroup>>,
+        #[template_child]
+        pub diagnostics_page: TemplateChild<adw::NavigationPage>,
+        #[template_child]
+        pub diagnostics: TemplateChild<adw::PreferencesPage>,
+        #[template_child]
+        pub details_page: TemplateChild<adw::NavigationPage>,
+        #[template_child]
+        pub details: TemplateChild<adw::PreferencesPage>,
+        /// The groups on the page and on its two views, to take them off
+        /// again.
+        pub(super) groups: RefCell<Vec<(adw::PreferencesPage, adw::PreferencesGroup)>>,
+        /// Warnings of the readings from the Overview, in words.
+        pub(super) alerts: RefCell<Vec<String>>,
         pub(super) board: OnceCell<(Dmi, Detection)>,
         pub(super) info: RefCell<Option<SystemInfo>>,
         pub(super) worker: RefCell<Option<Worker>>,
@@ -898,6 +1229,27 @@ impl SystemPage {
         self.render();
     }
 
+    /// Warnings of the readings from the Overview, in words (D64, D65); the
+    /// status row and "Diagnostics" change only when they do.
+    pub fn set_alerts(&self, alerts: Vec<String>) {
+        let imp = self.imp();
+        if *imp.alerts.borrow() == alerts {
+            return;
+        }
+        imp.alerts.replace(alerts);
+        self.render();
+    }
+
+    /// The view "Diagnostics" for the window to push.
+    pub fn diagnostics_page(&self) -> adw::NavigationPage {
+        self.imp().diagnostics_page.clone()
+    }
+
+    /// The view "Technical Details" for the window to push.
+    pub fn details_page(&self) -> adw::NavigationPage {
+        self.imp().details_page.clone()
+    }
+
     fn show(&self, info: SystemInfo) {
         let imp = self.imp();
         // The same data: the widgets, and where the page is scrolled, stay.
@@ -908,8 +1260,8 @@ impl SystemPage {
         self.render();
     }
 
-    /// Makes the groups again from the data and the extras, once there is
-    /// data.
+    /// Makes the groups of the page and of its two views again from the
+    /// data and the extras, once there is data.
     fn render(&self) {
         let imp = self.imp();
         let Some((dmi, detection)) = imp.board.get() else {
@@ -924,14 +1276,30 @@ impl SystemPage {
             source: source.as_ref(),
             skipped: imp.skipped.get().map_or(&[], Vec::as_slice),
         };
+        let alerts = imp.alerts.borrow();
+        let views = views(dmi, detection, info, extras, &alerts);
         let mut groups = imp.groups.borrow_mut();
-        for group in groups.drain(..) {
-            imp.page.remove(&group);
+        for (page, group) in groups.drain(..) {
+            page.remove(&group);
         }
-        for section in sections(dmi, detection, info, extras) {
-            let group = group_widget(&section);
-            imp.page.add(&group);
-            groups.push(group);
+        let mut add = |page: &adw::PreferencesPage, group: adw::PreferencesGroup| {
+            page.add(&group);
+            groups.push((page.clone(), group));
+        };
+        let status = adw::PreferencesGroup::new();
+        status.add(&status_row(&health(detection, info, extras, &alerts)));
+        add(&imp.page, status);
+        for section in &views.summary {
+            add(&imp.page, group_widget(section));
+        }
+        let details = adw::PreferencesGroup::new();
+        details.add(&details_row());
+        add(&imp.page, details);
+        for section in &views.diagnostics {
+            add(&imp.diagnostics, group_widget(section));
+        }
+        for section in &views.details {
+            add(&imp.details, group_widget(section));
         }
         imp.stack.set_visible_child_name("info");
         if let Some(copy) = imp.copy.get() {
@@ -947,6 +1315,18 @@ mod tests {
     use baseboard_core::system::FanDriver;
 
     use super::*;
+
+    /// The groups of both views, "Technical Details" then "Diagnostics":
+    /// every line the page had before D64.
+    fn sections(
+        dmi: &Dmi,
+        detection: &Detection,
+        info: &SystemInfo,
+        extras: Extras,
+    ) -> Vec<Section> {
+        let views = views(dmi, detection, info, extras, &[]);
+        views.details.into_iter().chain(views.diagnostics).collect()
+    }
 
     fn titles(sections: &[Section]) -> Vec<&str> {
         sections.iter().map(|s| s.title.as_str()).collect()
@@ -977,6 +1357,7 @@ mod tests {
                 "Disks",
                 "Network cards",
                 "Sensors and fans",
+                "Board profile",
             ]
         );
         for title in ["Memory", "Graphics card", "Disks", "Network cards"] {
@@ -994,7 +1375,7 @@ mod tests {
         let board = section(&sections, "Mainboard");
         assert_eq!(board.lines[0].value, "No data");
         assert_eq!(
-            board.lines[3].title,
+            section(&sections, "Board profile").lines[0].title,
             "No profile for this board: generic mode"
         );
         // Without a profile the driver is information, not a warning.
@@ -1083,7 +1464,7 @@ mod tests {
                 &SystemInfo::default(),
                 Extras::default(),
             );
-            let line = section(&sections, "Mainboard").lines[3].clone();
+            let line = section(&sections, "Board profile").lines[0].clone();
             assert_eq!(line.style, Style::Item);
             (line.title, line.value, line.status)
         };
@@ -1184,7 +1565,7 @@ mod tests {
             board_version: None,
             ..dmi
         };
-        let sections = super::sections(&no_revision, &Detection::Generic, &info, Extras::default());
+        let sections = self::sections(&no_revision, &Detection::Generic, &info, Extras::default());
         assert_eq!(
             titled(
                 section(&sections, "Mainboard"),
@@ -1395,7 +1776,7 @@ mod tests {
             },
             ..SystemInfo::default()
         };
-        let sections = super::sections(&Dmi::default(), &supported, &in_tree, Extras::default());
+        let sections = self::sections(&Dmi::default(), &supported, &in_tree, Extras::default());
         assert_eq!(
             section(&sections, "Sensors and fans").lines[0].value,
             "The nct6683 driver is loaded · in-tree module"
@@ -1485,5 +1866,155 @@ mod tests {
                 .value
                 .ends_with("sda · removable medium")
         );
+    }
+
+    /// The short list (D64): the computer in plain words, names and values
+    /// side by side; all memory in one line; a disk with its size.
+    #[test]
+    fn short_list_of_the_computer() {
+        let module = |kind: &str, speed| MemoryModule {
+            size_bytes: 16 << 30,
+            kind: Some(kind.into()),
+            max_speed_mts: Some(6000),
+            configured_speed_mts: Some(speed),
+            part_number: None,
+            manufacturer: None,
+        };
+        let slots = |modules: Vec<MemoryModule>| {
+            modules
+                .into_iter()
+                .enumerate()
+                .map(|(index, module)| MemorySlot {
+                    index: u8::try_from(index).unwrap(),
+                    locator: None,
+                    module: Some(module),
+                })
+                .collect::<Vec<_>>()
+        };
+        let same = slots(vec![module("DDR5", 6000), module("DDR5", 6000)]);
+        assert_eq!(
+            memory_total(Some(&same)).as_deref(),
+            Some("32.0\u{a0}GiB DDR5 · 6000\u{a0}MT/s")
+        );
+        let mixed = slots(vec![module("DDR5", 6000), module("DDR4", 3200)]);
+        assert_eq!(memory_total(Some(&mixed)).as_deref(), Some("32.0\u{a0}GiB"));
+        assert_eq!(memory_total(Some(&[])), None);
+
+        let info = SystemInfo {
+            os: Some("Fedora Linux 45".into()),
+            cpu: Some("AMD Ryzen 7 9700X 8-Core Processor".into()),
+            memory: Some(same),
+            disks: vec![Disk {
+                name: "nvme0n1".into(),
+                model: Some("WD_BLACK SN7100 2TB".into()),
+                firmware: Some("7615M0WD".into()),
+                size_bytes: 2_000_398_934_016,
+                removable: false,
+            }],
+            ..SystemInfo::default()
+        };
+        let dmi = Dmi {
+            board_name: Some("MAG B850M MORTAR WIFI (MS-7E61)".into()),
+            ..Dmi::default()
+        };
+        let views = views(&dmi, &Detection::Generic, &info, Extras::default(), &[]);
+        assert_eq!(
+            titles(&views.summary),
+            ["This computer", "Disks", "Network", ""]
+        );
+        let computer = &views.summary[0].lines;
+        assert!(computer.iter().all(|l| l.style == Style::Value));
+        assert_eq!(computer[0].value, "MAG B850M MORTAR WIFI (MS-7E61)");
+        assert_eq!(computer[2].value, "AMD Ryzen 7 9700X");
+        assert_eq!(computer[4].title, "Graphics card");
+        assert_eq!(computer[4].value, "No data");
+        let disk = &views.summary[1].lines[0];
+        assert_eq!(
+            (disk.title.as_str(), disk.value.as_str()),
+            ("WD_BLACK SN7100 2TB", "2.0\u{a0}TB")
+        );
+        assert_eq!(views.summary[3].lines[0].value, "Fedora Linux 45");
+        // The firmware stays in "Technical Details".
+        assert!(
+            section(&views.details, "Disks").lines[0]
+                .value
+                .contains("firmware 7615M0WD")
+        );
+    }
+
+    /// The status row (D64): what needs attention first, with how many more;
+    /// a system that only reads the fans and a board without a profile are
+    /// information; warnings of the readings go to "Diagnostics" too.
+    #[test]
+    fn status_of_the_page() {
+        let fine = SystemInfo {
+            fan_driver: FanDriver {
+                loaded: true,
+                origin: Some(ModuleOrigin::OutOfTree),
+                device: true,
+                level: Some(DriverLevel::Curves),
+            },
+            fan_programs: Some(Vec::new()),
+            ..SystemInfo::default()
+        };
+        let supported = Detection::Supported(ms7e61());
+        let health_of = |info: &SystemInfo, alerts: &[String]| {
+            health(&supported, info, Extras::default(), alerts)
+        };
+        assert_eq!(health_of(&fine, &[]), Health::Fine);
+        let (_, _, title, line) = status_texts(&health_of(&fine, &[]));
+        assert_eq!(
+            (title.as_str(), line.as_str()),
+            (
+                "Everything works",
+                "Sensors, driver and configuration are in order"
+            )
+        );
+
+        let read_only = SystemInfo {
+            fan_driver: FanDriver {
+                level: Some(DriverLevel::ReadOnly),
+                ..fine.fan_driver
+            },
+            ..fine.clone()
+        };
+        assert_eq!(
+            health_of(&read_only, &[]),
+            Health::Limited("This system can only read the fans for now".into())
+        );
+        assert_eq!(
+            health(&Detection::Generic, &fine, Extras::default(), &[]),
+            Health::Limited("No profile for this board".into())
+        );
+
+        let alerts = ["CPU fan stopped".to_owned()];
+        let unloaded = SystemInfo {
+            fan_driver: FanDriver::default(),
+            ..fine.clone()
+        };
+        let health = health_of(&unloaded, &alerts);
+        assert_eq!(
+            health,
+            Health::Attention(vec![
+                "CPU fan stopped".into(),
+                "The nct6683 driver is not loaded".into()
+            ])
+        );
+        let (_, class, title, line) = status_texts(&health);
+        assert_eq!(class, "warning");
+        assert_eq!(title, "Needs attention");
+        assert_eq!(line, "CPU fan stopped, and 1 more");
+
+        let views = views(
+            &Dmi::default(),
+            &supported,
+            &fine,
+            Extras::default(),
+            &alerts,
+        );
+        let readings = &views.diagnostics[0];
+        assert_eq!(readings.title, "Readings");
+        assert_eq!(readings.lines[0].title, "CPU fan stopped");
+        assert_eq!(readings.lines[0].status, Some(Status::Warning));
     }
 }
