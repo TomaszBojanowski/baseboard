@@ -1,24 +1,28 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The curve of one header as a subpage of the Fans page, in the preview
-//! of version 0.2.0 (docs/PROJEKT.md §7 M2, M2.4, makiety
-//! `wentylatory-krzywa.html?stan=podglad`): the large chart, a legend
-//! for what the chart could not label, the points as read from the
-//! board's controller, the temperature source and how a curve works.
+//! of version 0.2.0 (docs/PROJEKT.md §7 M2, M2.4, D62, makiety
+//! `wentylatory-szczegoly.html`): the large chart with the legend of its
+//! marks, and a legend for what the chart could not label; the points as
+//! read from the board's controller; what the list of fans does not show
+//! about the header (its mode, minimum, and whether it was checked and
+//! turns); the temperature source and how a curve works.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use adw::prelude::*;
 use baseboard_core::fans::curve;
-use baseboard_core::fans::driver::{CurvePoint, Source};
-use baseboard_core::fans::page::{Card, SourceRow};
+use baseboard_core::fans::driver::{CurvePoint, Mode, Source};
+use baseboard_core::fans::page::{Card, CardKind, Control, SourceRow};
+use baseboard_core::overview::Subtitle;
 use baseboard_core::sensors::Kind;
 use baseboard_core::units::{UNIT_SPACE, duty_to_percent};
 use gettextrs::{gettext, ngettext};
 use gtk::{glib, pango};
 
-use super::{Layout, PageContext, percent, source_name};
+use super::{Layout, PageContext, legend_items, percent, source_name};
+use crate::fan_chart::swatch::Swatch;
 use crate::fan_chart::{ChartCurve, FanChart, Reading, Size};
 use crate::overview;
 
@@ -34,11 +38,20 @@ struct Columns {
     grid: gtk::Grid,
     points_header: gtk::Widget,
     points: gtk::Widget,
-    source_header: gtk::Widget,
-    /// The source list and how a curve works.
+    header_header: gtk::Widget,
+    /// The header, the source and how a curve works.
     side: gtk::Widget,
     /// Two columns, once laid out.
     wide: Cell<Option<bool>>,
+}
+
+/// What the list of fans does not show about the header (D62).
+struct HeaderRows {
+    mode: gtk::Label,
+    minimum_row: adw::ActionRow,
+    minimum: gtk::Label,
+    unchecked: adw::ActionRow,
+    empty: adw::ActionRow,
 }
 
 pub(super) struct CurvePage {
@@ -56,6 +69,7 @@ pub(super) struct CurvePage {
     rows: RefCell<Vec<PointRow>>,
     shown: RefCell<Vec<CurvePoint>>,
     repeats: gtk::Label,
+    header: HeaderRows,
     source_row: adw::ActionRow,
     /// The chart labels the operating point itself: no legend.
     labelled: Rc<Cell<bool>>,
@@ -124,6 +138,83 @@ fn info_row(icon: &str, title: &str, subtitle: &str) -> adw::ActionRow {
     row
 }
 
+fn set_label(label: &gtk::Label, text: &str) {
+    if label.label() != text {
+        label.set_label(text);
+    }
+}
+
+/// The mode of a header: from its switch, or as the Overview read it.
+pub(super) fn card_mode(card: &Card) -> Option<Mode> {
+    match (&card.kind, &card.row.subtitle) {
+        (
+            CardKind::Full {
+                control: Control::Switch { mode, .. },
+                ..
+            },
+            _,
+        ) => *mode,
+        (_, Subtitle::Header { mode, .. }) => *mode,
+        _ => None,
+    }
+}
+
+/// The name of a mode, as the mode switch of the editor will name it, or
+/// why there is none.
+pub(super) fn mode_text(mode: Option<Mode>) -> String {
+    match mode {
+        Some(Mode::Auto) => gettext("Automatic BIOS"),
+        Some(Mode::Manual) => gettext("Manual"),
+        // Translators: the mode of a fan when the kernel driver gives none.
+        None => gettext("The mode could not be read"),
+    }
+}
+
+/// A row with a value on the right, e.g. "Mode  Automatic BIOS".
+fn value_row(title: &str, subtitle: Option<&str>) -> (adw::ActionRow, gtk::Label) {
+    let row = adw::ActionRow::builder()
+        .use_markup(false)
+        .title(title)
+        .build();
+    if let Some(subtitle) = subtitle {
+        row.set_subtitle(subtitle);
+    }
+    let value = gtk::Label::builder()
+        .css_classes(["numeric", "fan-soft"])
+        .build();
+    row.add_suffix(&value);
+    (row, value)
+}
+
+/// The legend of the marks of the large chart (D60, D62): whole items
+/// wrap, never a text.
+fn chart_legend() -> adw::WrapBox {
+    let legend = adw::WrapBox::builder()
+        .child_spacing(22)
+        .line_spacing(6)
+        .accessible_role(gtk::AccessibleRole::Group)
+        .css_classes(["fan-chart-legend"])
+        .build();
+    for (mark, text) in legend_items() {
+        let item = gtk::Box::builder().spacing(7).build();
+        item.append(&Swatch::new(mark));
+        item.append(
+            &gtk::Label::builder()
+                .label(text)
+                .css_classes(["caption", "fan-soft"])
+                .build(),
+        );
+        legend.append(&item);
+    }
+    // Translators: read by screen readers for the legend under the large
+    // chart of a fan curve.
+    let name = gettext("Legend of the chart");
+    legend
+        .upcast_ref::<gtk::Widget>()
+        .update_property(&[gtk::accessible::Property::Label(&name)]);
+    legend
+}
+
 /// A swatch of the legend: a dot like the operating point, or a ring like
 /// the target.
 fn swatch(css: &str) -> gtk::Box {
@@ -172,6 +263,11 @@ impl CurvePage {
             .build();
         let chart = FanChart::new(Size::Large, false);
         chart_card.append(&chart);
+        let marks = chart_legend();
+        marks.set_margin_top(10);
+        marks.set_margin_start(8);
+        marks.set_margin_end(8);
+        chart_card.append(&marks);
         let legend = gtk::Box::builder()
             .spacing(18)
             .visible(false)
@@ -225,14 +321,46 @@ impl CurvePage {
             .spacing(24)
             .valign(gtk::Align::Start)
             .build();
-        let source_list = boxed_list();
-        let source_header = list_header(
-            &source_list,
-            &gettext("Temperature source"),
-            // Translators: under "Temperature source" on the curve page;
-            // "it" is the temperature. One line in two columns.
-            Some(&gettext("The controller computes the duty from it.")),
+
+        // What the list of fans does not show (D62).
+        let header_list = boxed_list();
+        let header_header = list_header(
+            &header_list,
+            // Translators: on the curve page, the group about the fan
+            // header of the board: its mode, minimum and notes.
+            &gettext("Header"),
+            None,
         );
+        let (mode_row, mode) = value_row(&gettext("Mode"), None);
+        let (minimum_row, minimum) = value_row(
+            // Translators: on the curve page, the lowest duty cycle of a
+            // header (B5).
+            &gettext("Minimum"),
+            Some(&gettext("The lowest duty cycle Baseboard allows")),
+        );
+        let unchecked = info_row(
+            "help-about-symbolic",
+            // Translators: on the curve page of a fan header whose channel
+            // nobody has checked on this board.
+            &gettext("This header was not checked on this board"),
+            &gettext("Nobody has confirmed yet that this reading belongs to this header."),
+        );
+        let empty = info_row(
+            "help-about-symbolic",
+            // Translators: on the curve page of a fan that has not turned
+            // since Baseboard started.
+            &gettext("No speed since the app started"),
+            &gettext("The header may be empty."),
+        );
+        for row in [&mode_row, &minimum_row, &unchecked, &empty] {
+            header_list.append(row);
+        }
+        side.append(&header_list);
+
+        let source_group = group(&gettext("Temperature source"));
+        // Translators: under "Temperature source" on the curve page; "it"
+        // is the temperature.
+        source_group.set_description(Some(&gettext("The controller computes the duty from it.")));
         let source_row = adw::ActionRow::builder().use_markup(false).build();
         let thermometer = gtk::Image::from_icon_name("baseboard-temperature-symbolic");
         thermometer.set_accessible_role(gtk::AccessibleRole::Presentation);
@@ -247,8 +375,8 @@ impl CurvePage {
             "Cannot be changed",
         ))]);
         source_row.add_suffix(&lock);
-        source_list.append(&source_row);
-        side.append(&source_list);
+        source_group.add(&source_row);
+        side.append(&source_group);
         let how = group(&gettext("How the curve works"));
         how.add(&info_row(
             "baseboard-curve-symbolic",
@@ -306,7 +434,7 @@ impl CurvePage {
                 grid: columns,
                 points_header: points_header.upcast(),
                 points: points_body.upcast(),
-                source_header: source_header.upcast(),
+                header_header: header_header.upcast(),
                 side: side.upcast(),
                 wide: Cell::new(None),
             },
@@ -314,6 +442,13 @@ impl CurvePage {
             rows: RefCell::new(Vec::new()),
             shown: RefCell::new(Vec::new()),
             repeats,
+            header: HeaderRows {
+                mode,
+                minimum_row,
+                minimum,
+                unchecked,
+                empty,
+            },
             source_row,
             labelled,
         }
@@ -328,7 +463,7 @@ impl CurvePage {
         let parts = [
             &columns.points_header,
             &columns.points,
-            &columns.source_header,
+            &columns.header_header,
             &columns.side,
         ];
         for part in parts {
@@ -347,7 +482,7 @@ impl CurvePage {
             columns.grid.attach(part, column, row, 1, 1);
         }
         columns
-            .source_header
+            .header_header
             .set_margin_top(if wide { 0 } else { 24 });
     }
 
@@ -412,7 +547,21 @@ impl CurvePage {
             .set_visible(reading.is_some() && !self.labelled.get());
 
         self.show_points(&data.points);
+        self.show_header(card);
         self.show_source(source, &source_name);
+    }
+
+    /// The mode, the minimum and the notes of the header (D62).
+    fn show_header(&self, card: &Card) {
+        let rows = &self.header;
+        set_label(&rows.mode, &mode_text(card_mode(card)));
+        let minimum = card.min_percent > 0;
+        rows.minimum_row.set_visible(minimum);
+        if minimum {
+            set_label(&rows.minimum, &percent(card.min_percent));
+        }
+        rows.unchecked.set_visible(!card.verified);
+        rows.empty.set_visible(card.maybe_empty());
     }
 
     fn show_points(&self, points: &[CurvePoint]) {
@@ -516,5 +665,109 @@ impl CurvePage {
         if self.source_row.subtitle().as_deref() != Some(subtitle.as_str()) {
             self.source_row.set_subtitle(&subtitle);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use baseboard_core::fans::page::{Body, Chart};
+    use baseboard_core::overview::{Name, Row, RowId};
+    use baseboard_core::profile::FanRole;
+    use baseboard_core::units::Numbers;
+
+    use super::*;
+
+    /// A header with a curve: verified with its mode on the switch, or not
+    /// checked, with the mode only in its row of the Overview.
+    fn card(verified: bool, rpm: f64, min_percent: u8) -> Card {
+        let mode = Some(Mode::Auto);
+        Card {
+            key: "pump1".into(),
+            role: FanRole::Pump,
+            pwm: Some(2),
+            row: Row {
+                id: RowId {
+                    chip: "nct6687".into(),
+                    device: None,
+                    channel: "fan2".into(),
+                },
+                name: Name::Fan {
+                    role: FanRole::Pump,
+                    number: 1,
+                },
+                subtitle: Subtitle::Header {
+                    header: "PUMP_SYS1".into(),
+                    duty: Some(255.0),
+                    verified,
+                    mode,
+                },
+                kind: Kind::Fan,
+                value: rpm,
+                rating: None,
+                range: Some((rpm, rpm)),
+            },
+            header: "PUMP_SYS1".into(),
+            verified,
+            min_percent,
+            duty: Some(255),
+            kind: CardKind::Full {
+                control: if verified {
+                    Control::Switch { mode, positions: 2 }
+                } else {
+                    Control::Unchecked
+                },
+                body: Body::Chart(Box::new(Chart {
+                    points: vec![
+                        CurvePoint {
+                            temp: 40,
+                            duty: 255
+                        };
+                        7
+                    ],
+                    own_source: None,
+                    millidegrees: Some(50_000),
+                    threshold: Some(95),
+                    target: Some(255),
+                    needs_full: true,
+                })),
+            },
+        }
+    }
+
+    #[test]
+    fn mode_of_a_header() {
+        assert_eq!(mode_text(Some(Mode::Auto)), "Automatic BIOS");
+        assert_eq!(mode_text(Some(Mode::Manual)), "Manual");
+        assert_eq!(mode_text(None), "The mode could not be read");
+        // Without a switch, the mode as the Overview read it.
+        assert_eq!(card_mode(&card(false, 0.0, 50)), Some(Mode::Auto));
+        assert_eq!(card_mode(&card(true, 900.0, 30)), Some(Mode::Auto));
+    }
+
+    /// The group "Header" says what the list of fans no longer shows
+    /// (D62): the minimum where there is one, and the notes of a header
+    /// nobody checked and of one that does not turn. Needs a display.
+    #[test]
+    fn header_group_of_the_curve_page() {
+        crate::gtk_test::run("header_group_of_the_curve_page", || {
+            let numbers = Numbers::new(".");
+            let context = PageContext {
+                numbers: &numbers,
+                source: None,
+            };
+            let page = CurvePage::new("pump1");
+            page.update(&card(false, 0.0, 50), &context, "");
+            let rows = &page.header;
+            assert_eq!(rows.mode.label(), "Automatic BIOS");
+            assert!(rows.minimum_row.is_visible());
+            assert_eq!(rows.minimum.label(), "50\u{a0}%");
+            assert!(rows.unchecked.is_visible());
+            assert!(rows.empty.is_visible());
+
+            page.update(&card(true, 900.0, 0), &context, "");
+            assert!(!rows.minimum_row.is_visible());
+            assert!(!rows.unchecked.is_visible());
+            assert!(!rows.empty.is_visible());
+        });
     }
 }
