@@ -296,6 +296,8 @@ fn rpm_markup(numbers: &Numbers, rpm: f64) -> String {
 pub(super) struct FanRow {
     pub(super) row: gtk::ListBoxRow,
     grid: gtk::Grid,
+    /// The name over the state, in the middle of a wide row.
+    texts: gtk::Box,
     name: gtk::Label,
     sub: FitLine,
     spark: Spark,
@@ -327,6 +329,12 @@ impl FanRow {
             .css_classes(["fan-row-name"])
             .build();
         let sub = FitLine::new(&["fan-row-sub"]);
+        let texts = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(2)
+            .hexpand(true)
+            .valign(gtk::Align::Center)
+            .build();
         let spark = Spark::new(SPARK_WIDE.0, SPARK_WIDE.1);
         spark.set_valign(gtk::Align::Center);
         let rpm = gtk::Inscription::builder()
@@ -358,6 +366,7 @@ impl FanRow {
         let widgets = Self {
             row,
             grid,
+            texts,
             name,
             sub,
             spark,
@@ -385,9 +394,9 @@ impl FanRow {
         self.chevron.set_opacity(if line.opens { 1.0 } else { 0.0 });
     }
 
-    /// Wide: name and state | chart | speed over percent | arrow.
-    /// Narrow: name | chart | arrow, and the subtitle under the name and
-    /// the chart, with the numbers in it.
+    /// Wide: name over state | chart | speed over percent | arrow, all in
+    /// the middle of the row. Narrow: name | chart | arrow, and the
+    /// subtitle under the name and the chart, with the numbers in it.
     pub(super) fn set_narrow(&self, narrow: bool, numbers: &Numbers) {
         if self.narrow.replace(Some(narrow)) == Some(narrow) {
             return;
@@ -395,12 +404,17 @@ impl FanRow {
         for widget in [
             self.name.upcast_ref::<gtk::Widget>(),
             self.sub.upcast_ref(),
+            self.texts.upcast_ref(),
             self.spark.upcast_ref(),
             self.values.upcast_ref(),
             self.chevron.upcast_ref(),
         ] {
-            if widget.parent().is_some() {
-                self.grid.remove(widget);
+            if let Some(parent) = widget.parent() {
+                if parent == *self.texts.upcast_ref::<gtk::Widget>() {
+                    self.texts.remove(widget);
+                } else {
+                    self.grid.remove(widget);
+                }
             }
         }
         let (width, height) = if narrow { SPARK_NARROW } else { SPARK_WIDE };
@@ -411,11 +425,12 @@ impl FanRow {
             self.grid.attach(&self.sub, 0, 1, 2, 1);
             self.grid.attach(&self.chevron, 2, 0, 1, 2);
         } else {
-            self.grid.attach(&self.name, 0, 0, 1, 1);
-            self.grid.attach(&self.sub, 0, 1, 1, 1);
-            self.grid.attach(&self.spark, 1, 0, 1, 2);
-            self.grid.attach(&self.values, 2, 0, 1, 2);
-            self.grid.attach(&self.chevron, 3, 0, 1, 2);
+            self.texts.append(&self.name);
+            self.texts.append(&self.sub);
+            self.grid.attach(&self.texts, 0, 0, 1, 1);
+            self.grid.attach(&self.spark, 1, 0, 1, 1);
+            self.grid.attach(&self.values, 2, 0, 1, 1);
+            self.grid.attach(&self.chevron, 3, 0, 1, 1);
         }
         let line = self.line.borrow().clone();
         self.show_subtitle(&line, numbers);
@@ -424,13 +439,9 @@ impl FanRow {
     fn show_subtitle(&self, line: &FanLine, numbers: &Numbers) {
         let narrow = self.narrow.get().unwrap_or(false);
         let texts = line.subtitles(narrow, numbers);
+        // Without a subtitle the name stands alone in the middle of the
+        // row; a narrow row always has one, with the numbers.
         self.sub.set_visible(!texts.is_empty());
-        // Without a subtitle the name stands in the middle of the row.
-        self.name.set_valign(if texts.is_empty() {
-            gtk::Align::Center
-        } else {
-            gtk::Align::End
-        });
         self.sub.set_texts(texts);
     }
 
