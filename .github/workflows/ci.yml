@@ -1,0 +1,91 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The checks of docs/PROJEKT.md §8 on every push and pull request on main
+# (D68, Z15): formatting, clippy on the debug and the release build, and
+# `meson test` with the tour on an invisible X server, in Fedora 45 (GTK
+# 4.24 and libadwaita 1.10, as the app is made on). `meson test` allows no
+# skipped test (BASEBOARD_TESTS_STRICT=1). The runner has no motherboard of
+# the app: the tests that read the real /sys run once more with their
+# output, which says what does not apply there. Actions are pinned to
+# commits.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    container: fedora:45
+    timeout-minutes: 60
+    env:
+      CARGO_TERM_COLOR: always
+      # As on the owner's computer under Xvfb, without a session of GNOME:
+      # X11, no portals, no accessibility bus, settings in memory.
+      GDK_BACKEND: x11
+      ADW_DISABLE_PORTAL: "1"
+      GDK_DEBUG: no-portals
+      GTK_A11Y: none
+      NO_AT_BRIDGE: "1"
+      GSETTINGS_BACKEND: memory
+      # No GPU on the runner.
+      GSK_RENDERER: cairo
+    steps:
+      - name: Install the tools and libraries
+        run: >
+          dnf install -y --setopt=install_weak_deps=False
+          git tar zstd gzip which util-linux findutils
+          gcc pkgconf-pkg-config meson python3
+          rust cargo clippy rustfmt
+          gtk4-devel libadwaita-devel glib2-devel gettext
+          lm_sensors-libs systemd-libs
+          desktop-file-utils appstream gsettings-desktop-schemas
+          xorg-x11-server-Xvfb xorg-x11-xauth dbus-daemon
+          glibc-langpack-pl
+          adwaita-sans-fonts google-noto-sans-vf-fonts google-noto-sans-mono-vf-fonts
+          mesa-dri-drivers
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The dependencies, built once for each Cargo.lock.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            build/cargo
+          key: fedora-45-cargo-${{ hashFiles('Cargo.lock') }}
+
+      - name: Formatting
+        run: cargo fmt --all --check
+
+      - name: Clippy, debug
+        run: cargo clippy --target-dir build/cargo --all-targets -- -D warnings
+
+      - name: Clippy, release
+        run: cargo clippy --target-dir build/cargo --release --all-targets -- -D warnings
+
+      - name: Configure
+        run: meson setup build
+
+      - name: Tests, with the tour
+        run: xvfb-run -a -s "-screen 0 1920x1200x24" meson test -C build --print-errorlogs
+
+      - name: Tests on the real /sys, with what does not apply here
+        env:
+          BASEBOARD_TESTS_STRICT: "1"
+        run: cargo test --target-dir build/cargo -p baseboard -- libsensors libudev --show-output
+
+      - name: Test log
+        if: failure()
+        run: cat build/meson-logs/testlog.txt
