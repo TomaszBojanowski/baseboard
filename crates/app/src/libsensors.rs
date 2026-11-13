@@ -521,6 +521,16 @@ mod tests {
         }
     }
 
+    /// The `chip` statement for the chip `name`, by its prefix: libsensors
+    /// 3.6 prints names it cannot parse back. A PCI address of 0x80000000
+    /// or more (PCI domain 0x8000 or more, as virtual machines have) gives
+    /// e.g. "nvme-pci-c0d80100", too large for its parser, and the
+    /// statements under it then belong to no chip.
+    fn chip_statement(name: &str) -> String {
+        let prefix = name.split('-').next().unwrap_or(name);
+        format!("chip \"{prefix}-*\"")
+    }
+
     fn sysfs() -> Vec<Chip> {
         SysfsSource::new(Path::new("/sys")).chips()
     }
@@ -588,8 +598,8 @@ mod tests {
         let bad = config(
             "syntax",
             &format!(
-                "chip \"{}\"\n    compute {ignored} @*, @\n    ignore {ignored}\n",
-                chip.name
+                "{}\n    compute {ignored} @*, @\n    ignore {ignored}\n",
+                chip_statement(&chip.name)
             ),
         );
         let lib = load(&bad).unwrap();
@@ -598,7 +608,11 @@ mod tests {
             .into_iter()
             .find(|c| c.name == chip.name)
             .unwrap();
-        assert!(reloaded.features.iter().all(|f| &f.name != ignored));
+        assert!(
+            reloaded.features.iter().all(|f| &f.name != ignored),
+            "{ignored} of {} still there",
+            chip.name
+        );
         drop(lib);
         std::fs::remove_file(empty).unwrap();
         std::fs::remove_file(bad).unwrap();
@@ -751,8 +765,8 @@ mod tests {
         let statements = config(
             "statements",
             &format!(
-                "chip \"{}\"\n    compute {computed} 0*@+123.25, @\n    ignore {ignored}\n    label {labelled} \"Baseboard test\"\n",
-                chip.name
+                "{}\n    compute {computed} 0*@+123.25, @\n    ignore {ignored}\n    label {labelled} \"Baseboard test\"\n",
+                chip_statement(&chip.name)
             ),
         );
         let lib = load(&statements).unwrap();
