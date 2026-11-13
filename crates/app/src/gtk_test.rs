@@ -83,6 +83,26 @@ pub fn resources() {
     });
 }
 
+/// Runs `f` with the styles of the app and the font of a GNOME session
+/// (Adwaita Sans 11), as its window has them, then takes them off again:
+/// for tests that measure text.
+pub fn in_app_style(f: impl FnOnce()) {
+    let display = gtk::gdk::Display::default().expect("the tests of GTK have a display");
+    let css = gtk::CssProvider::new();
+    css.load_from_string(include_str!("style.css"));
+    gtk::style_context_add_provider_for_display(
+        &display,
+        &css,
+        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
+    let settings = gtk::Settings::for_display(&display);
+    let font = settings.gtk_font_name();
+    settings.set_gtk_font_name(Some("Adwaita Sans 11"));
+    f();
+    settings.set_gtk_font_name(font.as_deref());
+    gtk::style_context_remove_provider_for_display(&display, &css);
+}
+
 /// Runs `test` on the thread of GTK; a failure there fails the test.
 /// Without a display the test is skipped.
 pub fn run(name: &str, test: impl FnOnce() + Send + 'static) {

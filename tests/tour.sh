@@ -89,17 +89,21 @@ tour() {
     fi
 }
 
-# Wide and narrow (the narrowest of 360 px; on X11 the window has 10 px
-# more for its shadow), on the three drivers (§5.5.2); the warning in the
-# widest window.
+# Every width of the pages (D67: one card a row at 1024 px, denser at
+# 1200 px, the narrowest of 360 px; on X11 the window has 10 px more for
+# its shadow) in both languages, on the three drivers (§5.5.2); the
+# warning in the widest window.
 tour v1 en C.UTF-8 1200x800 6
+tour v1 en C.UTF-8 1034x800 6
 tour v1 en C.UTF-8 370x720 6
 tour hot en C.UTF-8 1850x1100 6
 tour hwmon-next en C.UTF-8 1200x800 6
 tour fedora-7.3.3 en C.UTF-8 1200x800 0
 if locale -a | grep -qx 'pl_PL.utf8'; then
     tour v1 pl pl_PL.UTF-8 1200x800 6
+    tour v1 pl pl_PL.UTF-8 1034x800 6
     tour v1 pl pl_PL.UTF-8 370x720 6
+    tour hot pl pl_PL.UTF-8 1850x1100 6
 else
     echo "== no Polish locale (pl_PL.UTF-8): the tour runs in English only"
     [ "${BASEBOARD_TESTS_STRICT:-}" = 1 ] && failed=1

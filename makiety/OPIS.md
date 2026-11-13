@@ -31,7 +31,7 @@ Stan na 2026-11-06, po pierwszym przeglądzie (decyzja D6 w `docs/PROJEKT.md`). 
 - **Wszystkie czujniki:** 90 odczytów `sensors -j`, co sekundę. „Teraz” to ostatni odczyt, a szary zakres to minimum i maksimum z tych 90 s. Wypełnienie wentylatora procesora, pompy i wentylatora dodatkowego pochodzi z `pwm1`, `pwm2` i `pwm4`.
 - **Nazwy:** domyślne, czyli bez opcji etykiet z lm-sensors (§5.1). Kolejność źródeł: role z profilu płyty, potem nazwy wbudowane dla znanych sterowników, potem etykieta sterownika. Podtytuł pokazuje złącze (np. `CPU_FAN1`) albo źródło odczytu (np. `amdgpu · edge`).
 - **Wydajność:** stan z D-Bus (`tuned-ppd`, profil „balanced”, brak blokad) i cpufreq.
-- **System:** to, co pokazuje aplikacja na tej maszynie z modułem `nct6683` serii v1 (stąd „Krzywe w EC”; ze sterownikiem Fedory wiersz brzmi „Sterowanie wentylatorami niedostępne” z ostrzeżeniem): DMI bez numerów seryjnych, pamięć z bazy udev, sysfs, `/proc` i `/etc/sensors.d`. Data BIOS-u jest zapisana jak w `LC_TIME`, bez nazwy miesiąca.
+- **System:** to, co pokazuje aplikacja na tej maszynie z modułem `nct6683` serii v1 (stąd „Krzywe w kontrolerze płyty”; ze sterownikiem Fedory wiersz brzmi „Sterowanie wentylatorami niedostępne” z ikoną informacji): DMI bez numerów seryjnych, pamięć z bazy udev, sysfs, `/proc` i `/etc/sensors.d`. Data BIOS-u ma miesiąc słownie („7 września 2026”, D67).
 - **Wygląd:** kolory, promienie i odstępy pochodzą z arkusza stylów zainstalowanego libadwaita 1.10, czcionka to Adwaita Sans. Okno ma 1200 px szerokości i jest tak wysokie, żeby cała treść mieściła się bez przewijania.
 
 ## Układ
@@ -57,4 +57,4 @@ Stan na 2026-11-06, po pierwszym przeglądzie (decyzja D6 w `docs/PROJEKT.md`). 
 - **Dyski** nazywają się tak jak model z sysfs, np. `CT2000P3PSSD8`. Przyjazne nazwy z `/etc/sensors.d` pojawiają się po włączeniu opcji etykiet z lm-sensors.
 - **Strefy RGB są przykładowe.** Które złącza RGB są na płycie i jak odpowiadają strefom, pozostaje otwarte (O1).
 - **Złącze pompy** pokazuje 0 rpm przy wypełnieniu 100 %, bo nic do niego nie jest podłączone. Aplikacja nie odróżni pustego złącza od zatrzymanej pompy, więc Przegląd o tym nie ostrzega. B11 reaguje tylko wtedy, gdy kanał wcześniej miał obroty. Tak samo ostrzeżenie „Wentylator procesora stoi” (D65): tylko dla sprawdzonego złącza wentylatora procesora, który kręcił się wcześniej, przy wypełnieniu powyżej zera i 0 obrotach przez co najmniej 10 s.
-- **Ikony** są narysowane na potrzeby makiety. Aplikacja ma własne ikony symboliczne płyty, wentylatora, procesora, karty graficznej, pamięci, dysku i znaczka „w normie” w kółku (Adwaita ich nie ma); BIOS i lista czujników to ikony Adwaity.
+- **Ikony** są narysowane na potrzeby makiety. Aplikacja ma własne ikony symboliczne płyty, wentylatora, procesora, karty graficznej, pamięci, dysku, BIOS-u (sześcian, bo paczka z Adwaity wyglądała jak płyta) i znaczka „w normie” w kółku; lista czujników to ikona Adwaity.

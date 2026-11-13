@@ -290,7 +290,7 @@ fn summary(dmi: &Dmi, profile: Option<&Profile>, info: &SystemInfo) -> Vec<Secti
     let mut computer = vec![
         Line::value(gettext("Motherboard"), board_name(dmi, profile))
             .icon("baseboard-board-symbolic"),
-        Line::value(gettext("BIOS"), bios_version(&info.bios)).icon("package-x-generic-symbolic"),
+        Line::value(gettext("BIOS"), bios_version(&info.bios)).icon("baseboard-firmware-symbolic"),
         Line::value(
             gettext("Processor"),
             info.cpu
@@ -633,8 +633,7 @@ fn profile_line(detection: &Detection) -> Line {
 fn bios_version(bios: &Bios) -> Option<String> {
     bios.version.as_ref().map(|version| match bios_date(bios) {
         // Translators: the BIOS version and its date, e.g.
-        // "1.A68 of 09/07/2026"; the date is written as the locale writes
-        // dates.
+        // "1.A68 of 7 September 2026".
         Some(date) => gettext("{version} of {date}")
             .replace("{version}", version)
             .replace("{date}", &date),
@@ -653,10 +652,10 @@ fn bios(bios: &Bios) -> Section {
     )
 }
 
-/// The BIOS date as `LC_TIME` writes dates (`%x`, e.g. "07.09.2026" in
-/// Polish), like numbers follow `LC_NUMERIC`: a format with month names
-/// from the translation would mix two languages when `LANGUAGE` and
-/// `LC_TIME` differ.
+/// The BIOS date with the month in words, which no order of day and month
+/// makes ambiguous (D67): "7 September 2026", "7 września 2026". The order
+/// comes from the translation, the name of the month from `LC_TIME`, like
+/// numbers follow `LC_NUMERIC`.
 fn bios_date(bios: &Bios) -> Option<String> {
     let (year, month, day) = bios.ymd()?;
     let date = glib::DateTime::new(
@@ -669,7 +668,12 @@ fn bios_date(bios: &Bios) -> Option<String> {
         0.0,
     )
     .ok()?;
-    date.format("%x").ok().map(String::from)
+    // Translators: the BIOS date as GLib's g_date_time_format writes it:
+    // %-d the day without a leading zero, %B the month in words (of
+    // LC_TIME, in the form that goes with a day), %Y the year, e.g.
+    // "7 September 2026"; change only the order and the punctuation.
+    let format = gettext("%-d %B %Y");
+    date.format(&format).ok().map(String::from)
 }
 
 fn processor_and_system(info: &SystemInfo) -> Section {
@@ -1152,6 +1156,8 @@ mod imp {
         #[template_child]
         pub details_copy: TemplateChild<adw::ButtonContent>,
         #[template_child]
+        pub details_title: TemplateChild<adw::WindowTitle>,
+        #[template_child]
         pub details: TemplateChild<gtk::Box>,
         /// The status row on top of the page, to take it off again.
         pub(super) status: RefCell<Option<adw::PreferencesGroup>>,
@@ -1190,28 +1196,43 @@ mod imp {
             self.page.append(&self.columns.widget);
             self.diagnostics.append(&self.diagnostics_columns.widget);
             self.details.append(&self.details_columns.widget);
+            // In a narrow window the title of "Technical Details" does not
+            // fit beside the buttons: a shorter one there, never a cut one.
+            let short = gettext(
+                // Translators: the title of the page "Technical Details" in
+                // a narrow window, where the whole one does not fit.
+                "Details",
+            );
             let views = [
-                (&self.bin, &self.clamp, None),
+                (&self.bin, &self.clamp, None, None),
                 (
                     &self.diagnostics_bin,
                     &self.diagnostics_clamp,
                     Some(&self.diagnostics_copy),
+                    None,
                 ),
                 (
                     &self.details_bin,
                     &self.details_clamp,
                     Some(&self.details_copy),
+                    Some((&self.details_title, short)),
                 ),
             ];
-            for (index, (bin, clamp, copy)) in views.into_iter().enumerate() {
+            for (index, (bin, clamp, copy, title)) in views.into_iter().enumerate() {
                 layout::limit(clamp);
                 let page = self.obj().downgrade();
                 // The copy button of a narrow view shows only its icon, as
                 // the one of the window does.
                 let copy = copy.map(|copy| ((**copy).clone(), copy.label()));
+                let title =
+                    title.map(|(widget, short)| ((**widget).clone(), widget.title(), short));
                 layout::watch(bin, move |width| {
+                    let narrow = width == Width::Narrow;
                     if let Some((copy, label)) = &copy {
-                        copy.set_label(if width == Width::Narrow { "" } else { label });
+                        copy.set_label(if narrow { "" } else { label });
+                    }
+                    if let Some((widget, full, short)) = &title {
+                        widget.set_title(if narrow { short } else { full });
                     }
                     if let Some(page) = page.upgrade() {
                         let imp = page.imp();
@@ -1990,6 +2011,11 @@ mod tests {
         let info = SystemInfo {
             os: Some("Fedora Linux 45".into()),
             cpu: Some("AMD Ryzen 7 9700X 8-Core Processor".into()),
+            bios: Bios {
+                version: Some("1.A68".into()),
+                date: Some("09/07/2026".into()),
+                ..Bios::default()
+            },
             memory: Some(same),
             disks: vec![Disk {
                 name: "nvme0n1".into(),
@@ -2019,6 +2045,13 @@ mod tests {
         let computer = &views.summary[0].lines;
         assert!(computer.iter().all(|l| l.style == Style::Value));
         assert!(computer.iter().all(|l| l.icon.is_some()), "{computer:?}");
+        // Each part its own icon: the BIOS is no board.
+        let mut icons: Vec<_> = computer.iter().map(|l| l.icon).collect();
+        icons.sort_unstable();
+        icons.dedup();
+        assert_eq!(icons.len(), computer.len(), "{computer:?}");
+        // The date with the month in words, never "09/07/26" (D67).
+        assert_eq!(computer[1].value, "1.A68 of 7 September 2026");
         assert!(views.summary[3].lines[0].icon.is_none());
         assert!(matches!(views.details[0].place, Place::Balanced(4)));
         assert_eq!(computer[0].title, "Motherboard");
@@ -2124,5 +2157,25 @@ mod tests {
         assert_eq!(readings.title, "Readings");
         assert_eq!(readings.lines[0].title, "CPU fan stopped");
         assert_eq!(readings.lines[0].status, Some(Status::Warning));
+    }
+
+    /// The title of "Technical Details" is whole: shorter in a window of
+    /// 360 px, where it does not fit beside the buttons, the whole one
+    /// wider; the page keeps its name for screen readers. Needs a display.
+    #[test]
+    fn title_of_the_details_fits() {
+        crate::gtk_test::run("title_of_the_details_fits", || {
+            crate::gtk_test::resources();
+            let page = glib::Object::new::<SystemPage>();
+            let imp = page.imp();
+            let title_at = |width: i32| {
+                let (_, height, _, _) = imp.details_bin.measure(gtk::Orientation::Vertical, width);
+                imp.details_bin.allocate(width, height.max(400), -1, None);
+                imp.details_title.title().to_string()
+            };
+            assert_eq!(title_at(360), "Details");
+            assert_eq!(title_at(1200), "Technical Details");
+            assert_eq!(imp.details_page.title(), "Technical Details");
+        });
     }
 }

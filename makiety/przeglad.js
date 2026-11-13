@@ -41,6 +41,8 @@
     bezgpu: { hasGpu: false },
   };
   const S = { ...base, ...STATES[stateName] };
+  // "30,0" of the test tree as a whole number.
+  const wholeOf = text => whole(parseFloat(String(text).replace(",", ".")));
   const quantize = (v, step) => Math.round(v / step) * step;
   const SERIES = {
     cpu: processor(S.cpu, S),
@@ -60,7 +62,9 @@
     }
     if (S.hot) {
       return { kind: "warn", icon: "warning", t: `Procesor jest bardzo gorący: ${whole(S.cpu)}${NB}°C`,
-        s: `Przy 95${NB}°C zaczyna zwalniać, żeby się nie przegrzać. Wentylatory pracują na pełnych obrotach.` };
+        // The fans still speed up here; "na pełnych obrotach" only once
+        // none does any more, at the full duty cycle of the CPU fan (D67).
+        s: `Przy 95${NB}°C zaczyna zwalniać, żeby się nie przegrzać. Wentylatory przyspieszają.` };
     }
     if (S.rail) {
       return { kind: "warn", icon: "warning", t: `Napięcie ${S.rail.name} poniżej normy: ${S.rail.value}`,
@@ -98,9 +102,11 @@
     `<span class="${rpm === 0 ? (i === 0 && S.stopped ? "warn" : "off") : ""}" style="height:${Math.max(10, rpm / 1600 * 100).toFixed(0)}%"></span>`).join("")}</div>`;
   const tiles = [
     S.profile && { icon: "fan", t: "Wentylatory", v: `${spinning}${NB}${spinning > 1 && spinning < 5 ? "kręcą się" : "kręci się"}`,
-      s: S.stopped ? "Wentylator procesora stoi" : S.load ? "Przyspieszają" : `Od 750 do 1010${NB}rpm`, warn: S.stopped, extra: bars },
-    { icon: "memory", t: "Pamięć", v: `${S.mem}${NB}°C`, s: "Najcieplejszy z 2 modułów" },
-    { icon: "drive", t: "Dyski", v: `${S.disk}${NB}°C`, s: "Najcieplejszy z 2 dysków" },
+      // The line breaks only before the higher speed, which keeps its unit.
+      s: S.stopped ? "Wentylator procesora stoi" : S.load ? "Przyspieszają" : `Od${NB}750${NB}do 1010${NB}rpm`, warn: S.stopped, extra: bars },
+    // Whole degrees on the tiles, as on the cards (D67).
+    { icon: "memory", t: "Pamięć", v: `${wholeOf(S.mem)}${NB}°C`, s: "Najcieplejszy z 2 modułów" },
+    { icon: "drive", t: "Dyski", v: `${wholeOf(S.disk)}${NB}°C`, s: "Najcieplejszy z 2 dysków" },
   ].filter(Boolean);
 
   document.getElementById("content").innerHTML = `<div class="o-page">

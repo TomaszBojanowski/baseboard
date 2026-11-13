@@ -74,7 +74,7 @@
     return `${status}${columns([
       at("left", group("Ten komputer", [
         row("Płyta", "MAG B850M MORTAR WIFI", { badge: "board" }),
-        row("BIOS", `1.A68 z${NB}07.09.2026`, { badge: "package" }),
+        row("BIOS", `1.A68 z${NB}7 września 2026`, { badge: "package" }),
         row("Procesor", "AMD Ryzen 7 9700X", { badge: "cpu" }),
         row("Pamięć", `32,0${NB}GiB DDR5 · 6000${NB}MT/s`, { badge: "memory" }),
         row("Karta graficzna", "Radeon RX 9050 / 9060 XT", { badge: "gpu" }),
@@ -126,7 +126,7 @@
         row("Kod płyty i rewizja PCB", "MS-7E61, rewizja 1"),
       ]),
       group("BIOS", [
-        row("Wersja", "1.A68 z 07.09.2026"),
+        row("Wersja", "1.A68 z 7 września 2026"),
         row("Producent", "American Megatrends International, LLC."),
       ]),
       group("Procesor i system", [

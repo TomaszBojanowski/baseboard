@@ -15,7 +15,6 @@ use std::cell::{Cell, RefCell};
 
 use adw::prelude::*;
 use gettextrs::gettext;
-use gtk::pango;
 
 use crate::history_chart::{self, HistoryChart, Points};
 use crate::layout::Width;
@@ -64,7 +63,6 @@ pub struct PartCard {
     history: gtk::Box,
     range: gtk::Label,
     facts: gtk::Box,
-    facts_clamp: adw::Clamp,
     rows: RefCell<Vec<FactRow>>,
     note: gtk::Label,
     /// The note keeps its place while it is not shown, so that what is
@@ -74,7 +72,7 @@ pub struct PartCard {
     shown: RefCell<Option<CardView>>,
 }
 
-/// The width of the temperature and the facts beside the line.
+/// The narrowest column of the temperature and the facts beside the line.
 const SIDE: i32 = 210;
 
 /// The numbers and the line by the width of the page.
@@ -105,7 +103,8 @@ impl PartCard {
             .label(name)
             .xalign(0.0)
             .hexpand(true)
-            .ellipsize(pango::EllipsizeMode::End)
+            .wrap(true)
+            .natural_wrap_mode(gtk::NaturalWrapMode::Word)
             .css_classes(["part-name"])
             .build();
         let head = gtk::Box::builder().spacing(12).build();
@@ -156,14 +155,11 @@ impl PartCard {
         history.append(&chart);
         history.append(&caption);
 
+        // Beside the line the facts take the width of their titles on one
+        // line and the line has the rest: the box does not take the
+        // expanding of the titles from them.
         let facts = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
-            .build();
-        // Beside the line the facts get no more than their column, so that
-        // their titles wrap there and the line has the rest: the clamp does
-        // not take the expanding of the titles from them.
-        let facts_clamp = adw::Clamp::builder()
-            .child(&facts)
             .hexpand(false)
             .valign(gtk::Align::End)
             .build();
@@ -209,7 +205,6 @@ impl PartCard {
             history,
             range,
             facts,
-            facts_clamp,
             rows: RefCell::new(Vec::new()),
             note,
             note_reserved: Cell::new(false),
@@ -238,7 +233,7 @@ impl PartCard {
             self.head.upcast_ref::<gtk::Widget>(),
             self.number.upcast_ref(),
             self.history.upcast_ref(),
-            self.facts_clamp.upcast_ref(),
+            self.facts.upcast_ref(),
             self.note.upcast_ref(),
         ] {
             if part.parent().is_some() {
@@ -248,23 +243,19 @@ impl PartCard {
         self.grid.attach(&self.head, 0, 0, 2, 1);
         if width == Width::Medium {
             // The temperature and the facts beside the line, in a column
-            // of 210 px.
+            // of at least 210 px and as wide as the facts on one line.
             self.number.set_size_request(SIDE, -1);
-            self.facts_clamp.set_size_request(SIDE, -1);
-            self.facts_clamp.set_maximum_size(SIDE);
-            self.facts_clamp.set_tightening_threshold(SIDE);
+            self.facts.set_size_request(SIDE, -1);
             self.grid.attach(&self.number, 0, 1, 1, 1);
-            self.grid.attach(&self.facts_clamp, 0, 2, 1, 1);
+            self.grid.attach(&self.facts, 0, 2, 1, 1);
             self.grid.attach(&self.history, 1, 1, 1, 2);
             self.grid.attach(&self.note, 0, 3, 2, 1);
         } else {
             self.number.set_size_request(-1, -1);
-            self.facts_clamp.set_size_request(-1, -1);
-            self.facts_clamp.set_maximum_size(i32::MAX);
-            self.facts_clamp.set_tightening_threshold(i32::MAX);
+            self.facts.set_size_request(-1, -1);
             self.grid.attach(&self.number, 0, 1, 2, 1);
             self.grid.attach(&self.history, 0, 2, 2, 1);
-            self.grid.attach(&self.facts_clamp, 0, 3, 2, 1);
+            self.grid.attach(&self.facts, 0, 3, 2, 1);
             self.grid.attach(&self.note, 0, 4, 2, 1);
         }
         let (size, height) = sizes(width);
@@ -465,12 +456,6 @@ mod tests {
             assert!(!card.side_by_side());
             card.set_width(Width::Medium);
             assert!(card.side_by_side());
-            // As on the render of about 1024 px: the temperature and the
-            // facts in 210 px, their titles wrapped, the rest for the line.
-            let (_, height, _, _) = card.widget.measure(gtk::Orientation::Vertical, 700);
-            card.widget.allocate(700, height, -1, None);
-            assert_eq!(card.facts_clamp.width(), SIDE);
-            assert!(card.history.width() > 400, "{}", card.history.width());
 
             card.update(&view(true));
             assert!(card.widget.has_css_class("hot"));
@@ -480,6 +465,40 @@ mod tests {
             );
             let button = card.widget.downcast_ref::<gtk::Button>().unwrap();
             assert_eq!(button.action_name().as_deref(), Some("win.show-sensors"));
+        });
+    }
+
+    /// In a window of about 1024 px the temperature and the facts stand
+    /// beside the line, each fact on one line in English and in Polish, in
+    /// the narrowest card of that width (a page of 600 sp without its
+    /// margins); the line keeps the rest. Needs a display.
+    #[test]
+    fn facts_on_one_line() {
+        crate::gtk_test::run("facts_on_one_line", || {
+            crate::gtk_test::in_app_style(|| {
+                for titles in [
+                    ["CPU fan", "Highest since the app started"],
+                    ["Wentylator procesora", "Najwyższa od uruchomienia"],
+                ] {
+                    let card =
+                        PartCard::new("baseboard-processor-symbolic", "Processor", Some("cpu"));
+                    card.set_width(Width::Medium);
+                    let mut view = view(false);
+                    for (fact, title) in view.facts.iter_mut().zip(titles) {
+                        fact.title = title.into();
+                    }
+                    card.update(&view);
+                    let width = 576;
+                    let (_, height, _, _) = card.widget.measure(gtk::Orientation::Vertical, width);
+                    card.widget.allocate(width, height, -1, None);
+                    for row in card.rows.borrow().iter() {
+                        let lines = row.title.layout().line_count();
+                        assert_eq!(lines, 1, "{:?} on {lines} lines", row.title.label());
+                    }
+                    assert!(card.facts.width() >= SIDE);
+                    assert!(card.history.width() >= 200, "{}", card.history.width());
+                }
+            });
         });
     }
 

@@ -190,6 +190,22 @@ impl Numbers {
     }
 }
 
+/// A reading in whole units, as the cards and tiles of the Overview and
+/// the processor's card of the Fans page show it (D67): "68 °C", "12 W",
+/// "1013 rpm". "All Sensors" has the exact values. No decimals, so no
+/// separator of the locale; a half rounds away from zero, as people round
+/// (92.5 °C is 93 °C), not to the even number as formatting does.
+pub fn whole(kind: Kind, value: f64) -> String {
+    if !value.is_finite() {
+        return UNREADABLE.to_owned();
+    }
+    let (_, unit) = spec(kind, value);
+    format!(
+        "{}{UNIT_SPACE}{unit}",
+        Numbers::new(".").number(kind, value.round(), 0)
+    )
+}
+
 /// A duty cycle reading as 0–255.
 fn duty(value: f64) -> u8 {
     // Clamped first, so the cast cannot overflow.
@@ -216,6 +232,20 @@ mod tests {
         assert_eq!(duty_from_percent(CPU_MIN_DUTY_FLOOR), 51);
         assert_eq!(duty_from_percent(PUMP_MIN_DUTY_FLOOR), 102);
         // The other way: tests/units.rs, as the pages show it.
+    }
+
+    /// Whole units for the cards (D67): rounded, with the unit after a
+    /// non-breaking space, the minus sign, no "−0", a dash when unreadable.
+    #[test]
+    fn whole_units() {
+        assert_eq!(whole(Kind::Power, 12.04), "12\u{a0}W");
+        assert_eq!(whole(Kind::Power, 11.6), "12\u{a0}W");
+        assert_eq!(whole(Kind::Temp, 68.2), "68\u{a0}°C");
+        assert_eq!(whole(Kind::Temp, 92.5), "93\u{a0}°C");
+        assert_eq!(whole(Kind::Temp, -4.6), "\u{2212}5\u{a0}°C");
+        assert_eq!(whole(Kind::Temp, -0.3), "0\u{a0}°C");
+        assert_eq!(whole(Kind::Fan, 1013.4), "1013\u{a0}rpm");
+        assert_eq!(whole(Kind::Temp, f64::NAN), UNREADABLE);
     }
 
     #[test]

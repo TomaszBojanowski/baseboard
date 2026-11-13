@@ -16,7 +16,8 @@ use std::cell::{Cell, RefCell};
 use adw::prelude::*;
 use adw::subclass::prelude::*;
 use baseboard_core::history::{History, SPAN, Trend};
-use baseboard_core::units::{RANGE_DASH, UNIT_SPACE, UNREADABLE};
+use baseboard_core::sensors::Kind;
+use baseboard_core::units::{self, RANGE_DASH, UNIT_SPACE};
 use gettextrs::gettext;
 use gtk::{gdk, glib, graphene, gsk};
 
@@ -46,11 +47,7 @@ pub fn points(history: &History) -> Points {
 /// A temperature in whole degrees with its unit, "68 °C", as the cards
 /// show it; "–" when it could not be read.
 pub fn degrees(value: f64) -> String {
-    if value.is_finite() {
-        format!("{}{UNIT_SPACE}°C", value.round() as i64)
-    } else {
-        UNREADABLE.to_owned()
-    }
+    units::whole(Kind::Temp, value)
 }
 
 /// The lowest and highest value, as the caption shows them: "63–70 °C",
@@ -296,7 +293,7 @@ mod tests {
         let quiet = super::points(&history(&[(0, 30.2), (1, 30.4)]));
         assert_eq!(range_text(&quiet), "30\u{a0}°C");
         assert_eq!(describe(&Vec::new(), Trend::Steady), "No readings yet");
-        assert_eq!(degrees(f64::NAN), UNREADABLE);
+        assert_eq!(degrees(f64::NAN), units::UNREADABLE);
     }
 
     /// Time runs from the left to the right end; a gap in the samples

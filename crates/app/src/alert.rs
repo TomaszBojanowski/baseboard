@@ -6,7 +6,7 @@
 
 use adw::prelude::*;
 use baseboard_core::sensors::Kind;
-use baseboard_core::summary::{HotPart, OutsideRail, Problem};
+use baseboard_core::summary::{FansNow, HotPart, OutsideRail, Problem};
 use baseboard_core::units::Numbers;
 use gettextrs::{gettext, ngettext};
 
@@ -54,23 +54,32 @@ pub fn rail_warning(rail: &OutsideRail, numbers: &Numbers) -> (String, String) {
 }
 
 /// A temperature close to its limit, as the status sentence says it (D67):
-/// the processor in its own words (it slows down at its limit, and the
-/// fans may already run at full speed), any other part by its name.
-pub fn hot_warning(part: &HotPart, fans_at_full: bool, numbers: &Numbers) -> (String, String) {
+/// the processor in its own words (it slows down at its limit, and what
+/// the fans do, when that is known), any other part by its name.
+pub fn hot_warning(part: &HotPart, fans: FansNow, numbers: &Numbers) -> (String, String) {
     let value = crate::history_chart::degrees(part.value);
     let limit = crate::history_chart::degrees(part.limit);
     if part.processor {
         // Translators: the status sentence on top of the Overview; {value}
         // is e.g. "93 °C".
         let title = gettext("Processor is very hot: {value}").replace("{value}", &value);
-        let text = if fans_at_full {
-            // Translators: under "Processor is very hot"; {limit} is the
-            // threshold of the board profile, e.g. "95 °C".
-            gettext(
-                "At {limit} it starts to slow down so as not to overheat. The fans run at full speed.",
-            )
-        } else {
-            gettext("At {limit} it starts to slow down so as not to overheat.")
+        let text = match fans {
+            FansNow::AtFull => gettext(
+                // Translators: under "Processor is very hot" when the CPU
+                // fan runs at its full duty cycle; {limit} is the threshold
+                // of the board profile, e.g. "95 °C".
+                "At {limit} it slows down to avoid overheating. The fans run at full speed.",
+            ),
+            FansNow::SpeedingUp => gettext(
+                // Translators: under "Processor is very hot" while the duty
+                // cycle of a fan still rises; {limit} is e.g. "95 °C".
+                "At {limit} it slows down to avoid overheating. Fans are speeding up.",
+            ),
+            FansNow::Unsaid => gettext(
+                // Translators: under "Processor is very hot"; {limit} is
+                // e.g. "95 °C".
+                "At {limit} it slows down to avoid overheating.",
+            ),
         };
         (title, text.replace("{limit}", &limit))
     } else {
@@ -109,10 +118,10 @@ pub fn more_problems(more: u32) -> String {
 }
 
 /// A problem of the status sentence: its title and text.
-pub fn problem(problem: &Problem, fans_at_full: bool, numbers: &Numbers) -> (String, String) {
+pub fn problem(problem: &Problem, fans: FansNow, numbers: &Numbers) -> (String, String) {
     match problem {
         Problem::CpuFanStopped => (cpu_fan_stopped(), cpu_fan_stopped_why()),
-        Problem::Hot(part) => hot_warning(part, fans_at_full, numbers),
+        Problem::Hot(part) => hot_warning(part, fans, numbers),
         Problem::Rail(rail) => rail_warning(rail, numbers),
     }
 }

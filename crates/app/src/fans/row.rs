@@ -208,12 +208,32 @@ mod fit_imp {
     }
 
     impl WidgetImpl for FitLine {
+        // Its height depends on the width it gets.
+        fn request_mode(&self) -> gtk::SizeRequestMode {
+            gtk::SizeRequestMode::HeightForWidth
+        }
+
         fn measure(&self, orientation: gtk::Orientation, for_size: i32) -> (i32, i32, i32, i32) {
-            match (orientation, self.child.get()) {
+            let Some(child) = self.child.get() else {
+                return (0, 0, -1, -1);
+            };
+            if orientation == gtk::Orientation::Horizontal {
                 // It takes the width it is given and fits its text into it.
-                (gtk::Orientation::Horizontal, _) | (_, None) => (0, 0, -1, -1),
-                (_, Some(child)) => child.measure(orientation, for_size),
+                return (0, 0, -1, -1);
             }
+            // One line of the font, or as many as the last text needs at
+            // this width when none fits on one.
+            let (line, _, _, _) = child.measure(gtk::Orientation::Vertical, -1);
+            let Some(text) = self.obj().choice(for_size) else {
+                return (line, line, -1, -1);
+            };
+            let layout = child.create_pango_layout(Some(&text));
+            if for_size > 0 {
+                layout.set_width(for_size * pango::SCALE);
+                layout.set_wrap(pango::WrapMode::Word);
+            }
+            let height = line * layout.line_count().max(1);
+            (height, height, -1, -1)
         }
 
         fn size_allocate(&self, width: i32, height: i32, baseline: i32) {
@@ -228,9 +248,10 @@ mod fit_imp {
 
 glib::wrapper! {
     /// One line of text that shows the first of its texts that fits its
-    /// width, never a broken one; with none fitting, the last one with an
-    /// ellipsis. A new choice only redraws: the line is as high as one
-    /// line of its font whatever the text.
+    /// width; with none fitting, the last one on as many lines as it needs,
+    /// broken between words, never cut off. Its height depends on the
+    /// texts and the width only, not on the text shown, so a new choice at
+    /// the same width only redraws.
     pub struct FitLine(ObjectSubclass<fit_imp::FitLine>)
         @extends gtk::Widget,
         @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
@@ -243,7 +264,8 @@ impl FitLine {
             .xalign(0.0)
             .min_chars(0)
             .nat_chars(0)
-            .text_overflow(gtk::InscriptionOverflow::EllipsizeEnd)
+            .wrap_mode(pango::WrapMode::Word)
+            .text_overflow(gtk::InscriptionOverflow::Clip)
             .css_classes(css)
             .build();
         child.set_parent(&line);
@@ -258,6 +280,8 @@ impl FitLine {
         }
         self.imp().texts.replace(texts);
         self.pick(self.width());
+        // The last text may need more lines than the one before.
+        self.queue_resize();
     }
 
     /// The text shown now.
@@ -270,18 +294,24 @@ impl FitLine {
             .unwrap_or_default()
     }
 
-    fn pick(&self, width: i32) {
-        let Some(child) = self.imp().child.get() else {
-            return;
-        };
+    /// The text for `width`: the first that fits on one line, or the last.
+    fn choice(&self, width: i32) -> Option<String> {
+        let child = self.imp().child.get()?;
         let texts = self.imp().texts.borrow();
         let widths: Vec<i32> = texts
             .iter()
             .map(|text| child.create_pango_layout(Some(text)).pixel_size().0)
             .collect();
-        let text = texts.get(first_fitting(&widths, width)).map(String::as_str);
-        if child.text().as_deref() != text {
-            child.set_text(text);
+        texts.get(first_fitting(&widths, width)).cloned()
+    }
+
+    fn pick(&self, width: i32) {
+        let Some(child) = self.imp().child.get() else {
+            return;
+        };
+        let text = self.choice(width);
+        if child.text().as_deref() != text.as_deref() {
+            child.set_text(text.as_deref());
         }
     }
 }
@@ -337,12 +367,13 @@ impl FanRow {
             .margin_start(12)
             .margin_end(12)
             .build();
+        // Whole, on a second line when it does not fit on one.
         let name = gtk::Label::builder()
             .label(&line.name)
             .xalign(0.0)
             .hexpand(true)
-            .single_line_mode(true)
-            .ellipsize(pango::EllipsizeMode::End)
+            .wrap(true)
+            .natural_wrap_mode(gtk::NaturalWrapMode::Word)
             .css_classes(["fan-row-name"])
             .build();
         let sub = FitLine::new(&["fan-row-sub"]);
@@ -753,9 +784,38 @@ mod tests {
     fn first_text_that_fits() {
         assert_eq!(first_fitting(&[300, 200], 320), 0);
         assert_eq!(first_fitting(&[300, 200], 250), 1);
-        // None fits: the last one, with an ellipsis.
+        // None fits: the last one, broken into lines.
         assert_eq!(first_fitting(&[300, 200], 150), 1);
         assert_eq!(first_fitting(&[], 150), 0);
+    }
+
+    /// The sentence of the pump in a wide row of the list of 600 px beside
+    /// the card, in the font of GNOME: whole, on a second line when it
+    /// does not fit on one, never cut off. Needs a display.
+    #[test]
+    fn pump_sentence_is_never_cut() {
+        crate::gtk_test::run("pump_sentence_is_never_cut", || {
+            crate::gtk_test::in_app_style(|| {
+                let numbers = Numbers::new(".");
+                let row = FanRow::new(&pump(), &numbers, false);
+                for width in [600, 420] {
+                    let (_, height, _, _) = row.row.measure(gtk::Orientation::Vertical, width);
+                    row.row.allocate(width, height, -1, None);
+                    let line = row.sub.imp().child.get().unwrap();
+                    let text = line.text().unwrap_or_default();
+                    assert_eq!(text, "Not spinning – the header may be empty.");
+                    let layout = line.create_pango_layout(Some(&text));
+                    layout.set_width(line.width() * pango::SCALE);
+                    layout.set_wrap(pango::WrapMode::Word);
+                    let (_, needed) = layout.pixel_size();
+                    assert!(
+                        needed <= line.height(),
+                        "{width} px: {needed} > {}",
+                        line.height()
+                    );
+                }
+            });
+        });
     }
 
     /// A narrow row of the pump at the width of a 400 px window: the

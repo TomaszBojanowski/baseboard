@@ -123,6 +123,13 @@
           <object class="AdwToolbarView">
             <child type="top">
               <object class="AdwHeaderBar">
+                <!-- The title of the page, shorter in a narrow window
+                     (system.rs). -->
+                <property name="title-widget">
+                  <object class="AdwWindowTitle" id="details_title">
+                    <property name="title" translatable="yes">Technical Details</property>
+                  </object>
+                </property>
                 <child type="end">
                   <object class="GtkButton">
                     <property name="action-name">win.copy-system-info</property>

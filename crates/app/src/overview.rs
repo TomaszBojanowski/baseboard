@@ -261,14 +261,15 @@ pub(crate) struct RowWidgets {
 impl RowWidgets {
     pub(crate) fn new(rated: bool) -> Self {
         let row = adw::ActionRow::builder().use_markup(false).build();
-        // Wide enough for "1020–1022 rpm" and "12,10–12,10 V", so that a
-        // narrow window wraps the name rather than cutting the range.
+        // Wide enough for the widest range, e.g. "−12,10–−11,90 V" or
+        // "999,9–1000,0 W", so that a narrow window wraps the name rather
+        // than cutting the range.
         let range = gtk::Inscription::builder()
-            .min_chars(13)
-            .nat_chars(14)
+            .min_chars(15)
+            .nat_chars(15)
             .xalign(1.0)
             .valign(gtk::Align::Center)
-            .text_overflow(gtk::InscriptionOverflow::EllipsizeStart)
+            .text_overflow(gtk::InscriptionOverflow::Clip)
             .css_classes(["dimmed", "numeric"])
             .build();
         // Translators: the tooltip of the gray range next to a reading on
@@ -372,10 +373,9 @@ fn alerts(state: &top::State, summary: &Summary, numbers: &Numbers) -> Vec<Strin
     let top::State::Problems(problems) = state else {
         return Vec::new();
     };
-    let at_full = summary.cpu_fan.is_some_and(|fan| fan.at_full());
     problems
         .iter()
-        .map(|problem| crate::alert::problem(problem, at_full, numbers).0)
+        .map(|problem| crate::alert::problem(problem, summary.fans_now(), numbers).0)
         .collect()
 }
 

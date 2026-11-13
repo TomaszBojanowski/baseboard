@@ -62,11 +62,18 @@ pub struct CpuFan {
     pub stopped: bool,
 }
 
-impl CpuFan {
-    /// It runs at full duty cycle.
-    pub fn at_full(&self) -> bool {
-        self.duty.is_some_and(|duty| duty >= 254.5)
-    }
+/// What the fans do now, as the sentence about a hot processor says it
+/// (D67).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FansNow {
+    /// The CPU fan runs at its full duty cycle and no fan speeds up any
+    /// more.
+    AtFull,
+    /// The duty cycle of a fan still rises ([`SpeedWatch`]).
+    SpeedingUp,
+    /// Neither, or the duty cycle of the CPU fan is not known: nothing to
+    /// say.
+    Unsaid,
 }
 
 /// A rated rail outside its tolerance (§5.1).
@@ -128,6 +135,24 @@ pub struct Summary {
     pub fans: Option<Fans>,
     pub memory: Option<Warmest>,
     pub disks: Option<Warmest>,
+}
+
+impl Summary {
+    /// At full speed only when the CPU fan has its full duty cycle and no
+    /// fan still speeds up; before that the fans speed up; without the
+    /// duty cycle of the CPU fan nothing is said.
+    pub fn fans_now(&self) -> FansNow {
+        let Some(duty) = self.cpu_fan.and_then(|fan| fan.duty) else {
+            return FansNow::Unsaid;
+        };
+        if self.fans.as_ref().is_some_and(|fans| fans.speeding) {
+            FansNow::SpeedingUp
+        } else if duty >= 254.5 {
+            FansNow::AtFull
+        } else {
+            FansNow::Unsaid
+        }
+    }
 }
 
 /// The page from the groups it shows; `stopped` are the CPU fans that
@@ -714,7 +739,6 @@ mod tests {
                 stopped: false
             })
         );
-        assert!(!summary.cpu_fan.unwrap().at_full());
         assert_eq!(summary.gpu_power, Some(12.0));
         let stopped = super::summary(&groups, &[id("fan1")], false);
         assert!(stopped.cpu_fan.unwrap().stopped);
@@ -780,6 +804,27 @@ mod tests {
         assert!(stopped.fans.unwrap().cpu_stopped);
         let speeding = super::summary(&page(), &[], true);
         assert!(speeding.fans.unwrap().speeding);
+    }
+
+    /// The sentence about a hot processor (D67): at full speed only at the
+    /// full duty cycle of the CPU fan with no fan speeding up; speeding up
+    /// before that, also at the full duty cycle; nothing without the duty
+    /// cycle, nor at a steady one under full.
+    #[test]
+    fn what_the_fans_do_now() {
+        let with = |duty: Option<f64>, speeding: bool| {
+            let mut groups = page();
+            if let Subtitle::Header { duty: d, .. } = &mut groups[2].rows[0].subtitle {
+                *d = duty;
+            }
+            summary(&groups, &[], speeding).fans_now()
+        };
+        assert_eq!(with(Some(255.0), false), FansNow::AtFull);
+        assert_eq!(with(Some(255.0), true), FansNow::SpeedingUp);
+        assert_eq!(with(Some(200.0), true), FansNow::SpeedingUp);
+        assert_eq!(with(Some(200.0), false), FansNow::Unsaid);
+        assert_eq!(with(None, true), FansNow::Unsaid);
+        assert_eq!(with(None, false), FansNow::Unsaid);
     }
 
     /// The fans speed up while a duty cycle is 5 points of percent or more

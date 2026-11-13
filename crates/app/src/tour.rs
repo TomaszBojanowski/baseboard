@@ -4,8 +4,9 @@
 //! a user would (docs/PROJEKT.md §8, Z10). It clicks every row of the
 //! sidebar; on the Overview, Fans and System pages it clicks every card,
 //! tile and row that can be clicked, and checks that each one opens what
-//! its text names, that the status sentence says what the tree shows, and
-//! that nothing expected is missing; from the main menu it opens
+//! its text names, that the status sentence says what the tree shows,
+//! that nothing expected is missing, and that no text of a page or subpage
+//! is cut off; from the main menu it opens
 //! Preferences (a switch, "Visible Readings" and a switch there), the
 //! keyboard shortcuts and About; it copies the system information, checks
 //! the clipboard and quits. It prints a line for each check and
@@ -21,7 +22,7 @@ use std::time::Duration;
 use adw::prelude::*;
 use baseboard_core::overview::GroupKind;
 use gettextrs::{gettext, pgettext};
-use gtk::{gio, glib};
+use gtk::{gio, glib, pango};
 
 use crate::config;
 use crate::fans::FansPage;
@@ -239,6 +240,15 @@ impl Tour {
         }
     }
 
+    /// Every text of the window shows whole, in `place`.
+    fn whole_texts(&self, place: &str) {
+        let cut = cut_texts(self.window.upcast_ref());
+        self.check(
+            cut.is_empty(),
+            &format!("no text is cut on {place}: {cut:?}"),
+        );
+    }
+
     /// The row of the status sentence of the page shown.
     fn status_row(&self) -> Option<gtk::Widget> {
         let page = self.window.shown().0?;
@@ -263,6 +273,7 @@ impl Tour {
             status.as_deref().is_some_and(status_says),
             &format!("the Overview says what the tree shows: {status:?}"),
         );
+        self.whole_texts("the Overview");
         let expected = overview_expected();
         let mut found = Vec::new();
         let mut warned = false;
@@ -290,6 +301,7 @@ impl Tour {
                 ok,
                 &format!("{what} opens {opens:?} (seen: {})", self.seen()),
             );
+            self.whole_texts(&self.seen());
             self.window.close_subpages();
             self.window.select_page(Page::Overview);
             pause(200).await;
@@ -312,6 +324,7 @@ impl Tour {
     /// (`BASEBOARD_TOUR_CURVES`; none with the driver of the kernel).
     async fn fans(&self) {
         let clickables = self.open(Page::Fans).await;
+        self.whole_texts("the Fans page");
         let mut opened = 0;
         for widget in clickables {
             let texts = texts(&widget);
@@ -324,6 +337,7 @@ impl Tour {
                 ok,
                 &format!("{what} opens its curve page (seen: {})", self.seen()),
             );
+            self.whole_texts(&self.seen());
             opened += usize::from(ok);
             self.window.close_subpages();
             pause(200).await;
@@ -352,6 +366,7 @@ impl Tour {
             says,
             &format!("the System page says what the tree shows: {status:?}"),
         );
+        self.whole_texts("the System page");
         let mut opened = Vec::new();
         for widget in clickables {
             let texts = texts(&widget);
@@ -372,6 +387,7 @@ impl Tour {
                 ok,
                 &format!("{what} opens {page:?} (seen: {})", self.seen()),
             );
+            self.whole_texts(&self.seen());
             opened.extend(self.subpage());
             self.window.close_subpages();
             pause(200).await;
@@ -425,6 +441,7 @@ impl Tour {
         let settings = gio::Settings::new(config::APP_ID);
         let row = |title: &str| row_titled(preferences, &gettext(title));
         let click = |title: &str| row(title).is_some_and(|row| WidgetExt::activate(&row));
+        self.whole_texts("Preferences");
 
         let names = settings.boolean(SENSORS_LABELS);
         let clicked = click("Names from lm-sensors");
@@ -453,6 +470,7 @@ impl Tour {
             clicked && !rows.is_empty(),
             "Preferences \"Visible readings\" opens its subpage with switches",
         );
+        self.whole_texts("Visible readings");
         if let Some(row) = rows.first() {
             let hidden = || settings.strv(HIDDEN).len();
             let before = hidden();
@@ -555,6 +573,37 @@ fn clickables(root: &gtk::Widget) -> Vec<gtk::Widget> {
         child = widget.next_sibling();
     }
     found
+}
+
+/// The texts on screen under `root` that do not show whole: a label cut
+/// with an ellipsis, or an inscription whose text needs more lines than it
+/// has room for (D67: no text ends in an ellipsis). A few pixels of the
+/// metrics of the font are no missing line.
+fn cut_texts(root: &gtk::Widget) -> Vec<String> {
+    let mut cut = Vec::new();
+    let mut child = root.first_child();
+    while let Some(widget) = child {
+        if widget.is_mapped() && widget.width() > 0 {
+            if let Some(label) = widget.downcast_ref::<gtk::Label>()
+                && label.layout().is_ellipsized()
+            {
+                cut.push(label.label().to_string());
+            }
+            if let Some(line) = widget.downcast_ref::<gtk::Inscription>()
+                && let Some(text) = line.text()
+            {
+                let layout = line.create_pango_layout(Some(&text));
+                layout.set_width(line.width() * pango::SCALE);
+                layout.set_wrap(pango::WrapMode::Word);
+                if layout.pixel_size().1 > line.height() + 4 {
+                    cut.push(text.to_string());
+                }
+            }
+            cut.extend(cut_texts(&widget));
+        }
+        child = widget.next_sibling();
+    }
+    cut
 }
 
 /// The texts of the labels in `widget`, in order.

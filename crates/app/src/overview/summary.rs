@@ -15,7 +15,7 @@ use baseboard_core::history::{Histories, Trend};
 use baseboard_core::overview::GroupKind;
 use baseboard_core::sensors::Kind;
 use baseboard_core::summary::{Hero, HeroKind, OutsideRail, Problem, State, Summary, Warmest};
-use baseboard_core::units::Numbers;
+use baseboard_core::units::{self, Numbers, UNIT_SPACE};
 use gettextrs::{gettext, ngettext, pgettext};
 
 use crate::alert;
@@ -78,7 +78,9 @@ fn is_hot(kind: HeroKind, state: &State) -> bool {
 }
 
 /// What the card of `hero` shows: its temperature and history, one number
-/// of the part, and the highest temperature since the app started.
+/// of the part, and the highest temperature since the app started, all in
+/// whole units (D67); a rail outside its tolerance keeps its decimals, as
+/// "11 V" would not say how far it is off.
 pub fn card_view(
     hero: &Hero,
     summary: &Summary,
@@ -95,15 +97,15 @@ pub fn card_view(
             value: if fan.stopped {
                 pgettext("fan state", "Stopped")
             } else {
-                numbers.value(Kind::Fan, fan.value)
+                units::whole(Kind::Fan, fan.value)
             },
             warn: fan.stopped,
         })),
         HeroKind::Gpu => facts.extend(summary.gpu_power.map(|watts| Fact {
             // Translators: a fact on the graphics card's card, followed by
-            // the power it draws, e.g. "12.0 W".
+            // the power it draws, e.g. "12 W".
             title: gettext("Power draw"),
-            value: numbers.value(Kind::Power, watts),
+            value: units::whole(Kind::Power, watts),
             warn: false,
         })),
         HeroKind::Board => {
@@ -193,7 +195,7 @@ pub fn status_text(state: &State, summary: &Summary, numbers: &Numbers) -> Statu
                     // while the duty cycle of a fan rises.
                     gettext("Fans are speeding up.")
                 } else {
-                    gettext("Temperatures, fans and power are fine.")
+                    gettext("Temperatures, fans and power are normal.")
                 },
                 opens: None,
             };
@@ -214,8 +216,7 @@ pub fn status_text(state: &State, summary: &Summary, numbers: &Numbers) -> Statu
     let Some(first) = problems.first() else {
         return status_text(&State::Fine, summary, numbers);
     };
-    let at_full = summary.cpu_fan.is_some_and(|fan| fan.at_full());
-    let (title, mut text) = alert::problem(first, at_full, numbers);
+    let (title, mut text) = alert::problem(first, summary.fans_now(), numbers);
     let more = u32::try_from(problems.len() - 1).unwrap_or(u32::MAX);
     if more > 0 {
         text.push('\n');
@@ -636,11 +637,11 @@ impl SummaryWidgets {
             }
             None => self.fans.button.set_visible(false),
         }
-        show_warmest(&self.memory, summary.memory, numbers, |count| {
+        show_warmest(&self.memory, summary.memory, |count| {
             // Translators: under the warmest memory module on the Overview.
             ngettext("Warmest of {} module", "Warmest of {} modules", count)
         });
-        show_warmest(&self.disks, summary.disks, numbers, |count| {
+        show_warmest(&self.disks, summary.disks, |count| {
             // Translators: under the warmest disk on the Overview.
             ngettext("Warmest of {} disk", "Warmest of {} disks", count)
         });
@@ -713,27 +714,31 @@ impl SummaryWidgets {
     }
 }
 
-/// "From 750 to 1010 rpm", or one speed.
+/// "From 750 to 1010 rpm", or one speed. The line breaks only before the
+/// higher speed, and never between a number and its unit: the other spaces
+/// are non-breaking.
 fn speeds((low, high): (f64, f64)) -> String {
-    let (low, high) = (low.round() as i64, high.round() as i64);
+    let high = units::whole(Kind::Fan, high);
+    let low = units::whole(Kind::Fan, low);
     if low == high {
-        // Translators: the speed of the only fan that spins, e.g. "890 rpm".
-        gettext("{} rpm").replace("{}", &high.to_string())
-    } else {
-        // Translators: under the number of fans that spin on the Overview,
-        // e.g. "From 750 to 1010 rpm".
-        gettext("From {low} to {high} rpm")
-            .replace("{low}", &low.to_string())
-            .replace("{high}", &high.to_string())
+        return high;
+    }
+    let (low_number, _) = low.split_once(UNIT_SPACE).unwrap_or((&low, ""));
+    // Translators: under the number of fans that spin on the Overview;
+    // {high} has its unit, e.g. "From 750 to 1010 rpm". The line may break
+    // only before {high}.
+    let text = gettext("From {low} to {high}").replace("{low}", low_number);
+    let hold = |text: &str| text.replace(' ', &UNIT_SPACE.to_string());
+    match text.split_once("{high}") {
+        Some((before, after)) => {
+            let gap = if before.ends_with(' ') { " " } else { "" };
+            format!("{}{gap}{high}{}", hold(before.trim_end()), hold(after))
+        }
+        None => hold(&text),
     }
 }
 
-fn show_warmest(
-    tile: &Tile,
-    warmest: Option<Warmest>,
-    numbers: &Numbers,
-    of: impl Fn(u32) -> String,
-) {
+fn show_warmest(tile: &Tile, warmest: Option<Warmest>, of: impl Fn(u32) -> String) {
     let Some(warmest) = warmest else {
         tile.button.set_visible(false);
         return;
@@ -744,7 +749,7 @@ fn show_warmest(
     } else {
         String::new()
     };
-    tile.show(&numbers.value(Kind::Temp, warmest.value), &sub, false);
+    tile.show(&degrees(warmest.value), &sub, false);
 }
 
 #[cfg(test)]
@@ -761,8 +766,13 @@ mod tests {
             assert_eq!(group_of_key(group_key(kind)), Some(kind));
         }
         assert_eq!(group_of_key(""), None);
-        assert_eq!(speeds((750.4, 1013.0)), "From 750 to 1013 rpm");
-        assert_eq!(speeds((890.0, 890.2)), "890 rpm");
+        // The line breaks only before the higher speed, which keeps its
+        // unit.
+        assert_eq!(
+            speeds((750.4, 1013.0)),
+            "From\u{a0}750\u{a0}to 1013\u{a0}rpm"
+        );
+        assert_eq!(speeds((890.0, 890.2)), "890\u{a0}rpm");
         // Six bars of 10 px as on the render, eight narrower in the same room.
         assert_eq!(bar_width(6), 10);
         assert_eq!(bar_width(8), 6);
@@ -852,12 +862,28 @@ mod tests {
         assert_eq!(status.title, "Processor is very hot: 93\u{a0}°C");
         assert_eq!(
             status.text,
-            "At 95\u{a0}°C it starts to slow down so as not to overheat. The fans run at full \
-             speed.\nAnd 1 more problem"
+            "At 95\u{a0}°C it slows down to avoid overheating. The fans run at full speed.\nAnd \
+             1 more problem"
         );
         assert_eq!(
             status.opens,
             Some(("win.show-sensors", Some("cpu".to_owned())))
+        );
+        // The sentence about the fans is true: still speeding up at the
+        // full duty cycle, nothing without a known duty cycle.
+        let alone = State::Problems(vec![hot_cpu()]);
+        let mut changed = summary.clone();
+        if let Some(fans) = &mut changed.fans {
+            fans.speeding = true;
+        }
+        assert_eq!(
+            status_text(&alone, &changed, &numbers).text,
+            "At 95\u{a0}°C it slows down to avoid overheating. Fans are speeding up."
+        );
+        changed.cpu_fan = changed.cpu_fan.map(|fan| CpuFan { duty: None, ..fan });
+        assert_eq!(
+            status_text(&alone, &changed, &numbers).text,
+            "At 95\u{a0}°C it slows down to avoid overheating."
         );
         let stopped = status_text(
             &State::Problems(vec![Problem::CpuFanStopped]),
@@ -872,7 +898,7 @@ mod tests {
         );
         let fine = status_text(&State::Fine, &summary, &numbers);
         assert_eq!(fine.title, "Everything is fine");
-        assert_eq!(fine.text, "Temperatures, fans and power are fine.");
+        assert_eq!(fine.text, "Temperatures, fans and power are normal.");
         assert_eq!(fine.opens, None);
         // Under load, as on the render of 85 °C.
         let mut speeding = summary.clone();
@@ -937,8 +963,25 @@ mod tests {
                 .emit_clicked();
             assert_eq!(*opened.borrow(), ["cpu"]);
             assert_eq!(widgets.fans.value.label(), "5 spinning");
-            assert_eq!(widgets.fans.sub.label(), "From 750 to 1880 rpm");
+            assert_eq!(
+                widgets.fans.sub.label(),
+                "From\u{a0}750\u{a0}to 1880\u{a0}rpm"
+            );
             assert!(!widgets.disks.button.get_visible());
+            // Whole units on the cards and tiles (D67), also for a
+            // graphics card that draws 11.6 W.
+            assert_eq!(widgets.memory.value.label(), "30\u{a0}°C");
+            let mut gpu = summary.clone();
+            gpu.gpu_power = Some(11.6);
+            gpu.heroes.push(Hero {
+                kind: HeroKind::Gpu,
+                ..gpu.heroes[0].clone()
+            });
+            widgets.update(&gpu, &state, &Histories::default(), &numbers);
+            assert_eq!(
+                widgets.cards[1].1.facts()[0],
+                ("Power draw".to_owned(), "12\u{a0}W".to_owned())
+            );
 
             // The fans tile while they speed up, and with a stopped CPU fan
             // in the color of warnings, as on the renders.
@@ -975,57 +1018,50 @@ mod tests {
     #[test]
     fn fits_every_width() {
         crate::gtk_test::run("fits_every_width", || {
-            let css = gtk::CssProvider::new();
-            css.load_from_string(include_str!("../style.css"));
-            let display = gtk::gdk::Display::default().unwrap();
-            gtk::style_context_add_provider_for_display(
-                &display,
-                &css,
-                gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-            );
-            let numbers = Numbers::new(",");
-            let column = gtk::Box::new(gtk::Orientation::Vertical, 0);
-            let widgets = SummaryWidgets::new(&column);
-            let mut summary = summary();
-            let hero = summary.heroes[0].clone();
-            for kind in [HeroKind::Gpu, HeroKind::Board] {
-                summary.heroes.push(Hero {
-                    kind,
-                    ..hero.clone()
-                });
-            }
-            summary.gpu_power = Some(120.0);
-            summary.disks = summary.memory;
-            if let Some(fans) = &mut summary.fans {
-                fans.spinning = 8;
-                fans.bars = vec![(1880.0, false); 8];
-            }
-            let state = State::Problems(vec![hot_cpu(), Problem::Rail(rail())]);
-            widgets.update(&summary, &state, &Histories::default(), &numbers);
-            let margins = 24;
-            for (width, page) in [
-                (Width::Wide, 1100),
-                (Width::Compact, 880),
-                (Width::Medium, 600),
-                (Width::Narrow, 360),
-            ] {
-                widgets.set_width(width);
-                let (cards, tiles) = (
-                    widgets
-                        .cards_grid
-                        .measure(gtk::Orientation::Horizontal, -1)
-                        .0,
-                    widgets
-                        .tiles_grid
-                        .measure(gtk::Orientation::Horizontal, -1)
-                        .0,
-                );
-                assert!(
-                    cards.max(tiles) + margins <= page,
-                    "{width:?}: cards {cards} px, tiles {tiles} px, page {page} px"
-                );
-            }
-            gtk::style_context_remove_provider_for_display(&display, &css);
+            crate::gtk_test::in_app_style(|| {
+                let numbers = Numbers::new(",");
+                let column = gtk::Box::new(gtk::Orientation::Vertical, 0);
+                let widgets = SummaryWidgets::new(&column);
+                let mut summary = summary();
+                let hero = summary.heroes[0].clone();
+                for kind in [HeroKind::Gpu, HeroKind::Board] {
+                    summary.heroes.push(Hero {
+                        kind,
+                        ..hero.clone()
+                    });
+                }
+                summary.gpu_power = Some(120.0);
+                summary.disks = summary.memory;
+                if let Some(fans) = &mut summary.fans {
+                    fans.spinning = 8;
+                    fans.bars = vec![(1880.0, false); 8];
+                }
+                let state = State::Problems(vec![hot_cpu(), Problem::Rail(rail())]);
+                widgets.update(&summary, &state, &Histories::default(), &numbers);
+                let margins = 24;
+                for (width, page) in [
+                    (Width::Wide, 1100),
+                    (Width::Compact, 880),
+                    (Width::Medium, 600),
+                    (Width::Narrow, 360),
+                ] {
+                    widgets.set_width(width);
+                    let (cards, tiles) = (
+                        widgets
+                            .cards_grid
+                            .measure(gtk::Orientation::Horizontal, -1)
+                            .0,
+                        widgets
+                            .tiles_grid
+                            .measure(gtk::Orientation::Horizontal, -1)
+                            .0,
+                    );
+                    assert!(
+                        cards.max(tiles) + margins <= page,
+                        "{width:?}: cards {cards} px, tiles {tiles} px, page {page} px"
+                    );
+                }
+            })
         });
     }
 }
