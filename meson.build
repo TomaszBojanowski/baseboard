@@ -43,10 +43,10 @@ subdir('po')
 subdir('crates/app')
 
 # Checks of the source tree (docs/PROJEKT.md §8): every public item of
-# core is used or planned (Z3), and resources and styles have no orphans
-# (Z6).
+# core is used or planned (Z3), resources and styles have no orphans (Z6),
+# and "Stan prac" stays short (Z13).
 python = find_program('python3')
-foreach check : ['core_api', 'resources']
+foreach check : ['core_api', 'resources', 'work_status']
   test(check.replace('_', '-'), python,
     args: [meson.project_source_root() / 'tests' / check + '.py', meson.project_source_root()],
   )

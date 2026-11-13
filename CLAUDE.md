@@ -34,8 +34,9 @@ Zasady lokalne właściciela (notatki na jego komputerze, uprawnienia, git, pami
 
 ## Stan prac i decyzje
 
-- Po każdym zakończonym kroku zaktualizuj stan w `docs/PROJEKT.md` (§7, „Stan prac”) w tym samym commicie co zmiana.
-- Decyzje zapisuj tylko w tabeli decyzji `docs/PROJEKT.md` (§12), z datą.
+- `docs/PROJEKT.md` to specyfikacja: jak aplikacja działa dziś i plan. Bez historii prac (jest w gicie).
+- Po każdym zakończonym kroku zastąp „Stan prac” w `docs/PROJEKT.md` (§7; lista: wydane, w toku, otwarte przed następnym wydaniem, później; do 250 słów) w tym samym commicie co zmiana.
+- Decyzje zapisuj tylko w tabeli `docs/DECYZJE.md`, z datą; decyzję zastąpioną oznacz „zastąpione przez Dxx”.
 
 ## Struktura katalogów i build
 
@@ -79,6 +80,6 @@ Na każde odpowiedź „tak”; inaczej commit nie jest gotowy.
 5. Każde nowe pole, parametr, opcja albo abstrakcja ma dziś co najmniej dwie wartości albo dwa użycia (wyjątek: krok planu na liście wyjątków `tests/core-api-exceptions.txt`)?
 6. Teksty idą przez gettext, `POTFILES.in` jest aktualny, `pl.po` nie ma fuzzy ani `#~`, a żadne pojęcie nie dostało drugiego słowa (D66)?
 7. Komentarze mówią, co jest dziś i dlaczego: bez historii zmian, a komentarze dla tłumaczy bez numerów decyzji?
-8. Specyfikacja w `docs/PROJEKT.md` zgadza się z kodem, „Stan prac” jest zastąpiony, nie dopisany, a decyzja jest w tabeli decyzji (zastąpiona oznaczona)?
+8. Specyfikacja w `docs/PROJEKT.md` zgadza się z kodem, „Stan prac” jest zastąpiony, nie dopisany, a decyzja jest w `docs/DECYZJE.md` (zastąpiona oznaczona)?
 9. To, co zmieniłem, kliknąłem w prawdziwej aplikacji (albo sprawdza to `tour`), a w jej wyjściu nie ma ostrzeżeń?
 10. `git status` jest czysty poza zmianami kroku, commit jest mały, po angielsku, a temat ma do 72 znaków?
