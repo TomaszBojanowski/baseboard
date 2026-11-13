@@ -1377,7 +1377,7 @@ mod tests {
         section.lines.iter().find(|l| l.title == title).unwrap()
     }
 
-    fn ms7e61() -> baseboard_core::profile::Profile {
+    fn ms7e61() -> Profile {
         baseboard_core::profile::load(std::path::Path::new(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../data/boards/ms-7e61.toml"

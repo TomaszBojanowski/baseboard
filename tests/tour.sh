@@ -3,9 +3,10 @@
 #
 # The tour of the app (crates/app/src/tour.rs, debug builds) from the fake
 # sysfs trees in tests/fixtures, on an invisible X server: every page and
-# subpage, every large number and clickable row, the dialogs. Fails when a
-# check of the tour fails, when the app does not finish it, or when GTK or
-# GLib print any warning or error.
+# subpage, every large number and clickable row, the main menu and its
+# dialogs, the clipboard. Fails when a check of the tour fails (also when
+# something expected is missing), when the app does not finish it, or when
+# GTK or GLib print any warning or error.
 #
 # The app runs on a private session bus on which nothing can be activated
 # (no second document portal), with its own runtime, configuration and
@@ -18,9 +19,12 @@ set -eu
 binary=$1
 fixtures=$(cd "$(dirname "$0")" && pwd)/fixtures
 
+# Without a tool the tour is skipped (77), but never under
+# BASEBOARD_TESTS_STRICT=1, which `meson test` sets (docs/PROJEKT.md §8).
 for tool in xvfb-run dbus-run-session timeout; do
     if ! command -v "$tool" > /dev/null; then
         echo "$tool not found: the tour cannot run"
+        [ "${BASEBOARD_TESTS_STRICT:-}" = 1 ] && exit 1
         exit 77
     fi
 done
@@ -41,7 +45,8 @@ printf '%s\n' \
 
 failed=0
 
-# tour TREE LANGUAGE LOCALE SIZE
+# tour TREE LANGUAGE LOCALE SIZE CURVES; CURVES is how many fans of the
+# tree open their curve.
 tour() {
     name=$1-$2-$4
     home=$work/$name
@@ -57,7 +62,7 @@ tour() {
         LC_ALL="$3" LANGUAGE="$2" \
         BASEBOARD_SYSFS_ROOT="$fixtures/sysfs-ms7e61-$1" \
         BASEBOARD_DEBUG_SIZE="$4" BASEBOARD_DEBUG_SHOW_CONTENT=1 \
-        BASEBOARD_DEBUG_TOUR=1 \
+        BASEBOARD_DEBUG_TOUR=1 BASEBOARD_TOUR_CURVES="$5" \
         xvfb-run -a -s "-screen 0 1600x1000x24" \
         dbus-run-session --config-file="$work/bus.conf" -- \
         timeout 120 "$binary" > "$home/log" 2>&1 || status=$?
@@ -69,9 +74,6 @@ tour() {
         problems="$problems warnings of GTK or GLib;"
     grep -q '^baseboard: tour done$' "$home/log" ||
         problems="$problems the tour did not pass;"
-    if [ "$1" = v1 ] && ! grep -q '^baseboard: tour: ok: Fans ' "$home/log"; then
-        problems="$problems no fan row opened its curve;"
-    fi
     if [ -n "$problems" ]; then
         echo "== $name FAILED:$problems"
         failed=1
@@ -80,14 +82,15 @@ tour() {
 
 # Wide and narrow (the narrowest of 360 px; on X11 the window has 10 px
 # more for its shadow), on the three drivers (§5.5.2).
-tour v1 en C.UTF-8 1200x800
-tour v1 en C.UTF-8 370x720
-tour hwmon-next en C.UTF-8 1200x800
-tour fedora-7.3.3 en C.UTF-8 1200x800
+tour v1 en C.UTF-8 1200x800 6
+tour v1 en C.UTF-8 370x720 6
+tour hwmon-next en C.UTF-8 1200x800 6
+tour fedora-7.3.3 en C.UTF-8 1200x800 0
 if locale -a | grep -qx 'pl_PL.utf8'; then
-    tour v1 pl pl_PL.UTF-8 1200x800
-    tour v1 pl pl_PL.UTF-8 370x720
+    tour v1 pl pl_PL.UTF-8 1200x800 6
+    tour v1 pl pl_PL.UTF-8 370x720 6
 else
     echo "== no Polish locale (pl_PL.UTF-8): the tour runs in English only"
+    [ "${BASEBOARD_TESTS_STRICT:-}" = 1 ] && failed=1
 fi
 exit $failed

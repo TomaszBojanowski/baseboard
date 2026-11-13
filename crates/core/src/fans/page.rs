@@ -392,12 +392,12 @@ fn duty_of(row: &Row) -> Option<u8> {
 mod tests {
     use super::*;
     use crate::fans::driver::Capability;
-    use crate::fans::driver::model::{ModelChannel, ModelDriver};
+    use crate::fans::driver::model::{Attribute, ModelChannel, ModelDriver};
     use crate::overview::{GroupKind, Name, RowId};
     use crate::sensors::Kind;
 
     fn profile() -> Profile {
-        crate::profile::parse(include_str!("../../../../data/boards/ms-7e61.toml")).unwrap()
+        profile::parse(include_str!("../../../../data/boards/ms-7e61.toml")).unwrap()
     }
 
     fn points(points: &[(u8, u8)]) -> Vec<CurvePoint> {
@@ -523,7 +523,7 @@ mod tests {
             .collect();
         let temps = vec![row(
             "temp1",
-            Name::Temp(crate::profile::TempRole::Cpu),
+            Name::Temp(TempRole::Cpu),
             Subtitle::Source {
                 driver: "nct6687".into(),
                 channel: "temp1".into(),
@@ -754,12 +754,12 @@ mod tests {
             .channel_mut(15)
             .unwrap()
             .failing
-            .push((crate::fans::driver::model::Attribute::Curve, 5));
+            .push((Attribute::Curve, 5));
         driver
             .channel_mut(14)
             .unwrap()
             .failing
-            .push((crate::fans::driver::model::Attribute::Mode, 5));
+            .push((Attribute::Mode, 5));
         let mut visibility = Visibility::default();
         visibility.hidden.insert("nct6687/fan13".into());
         let page = page_of(&driver, &visibility);

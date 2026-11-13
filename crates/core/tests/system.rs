@@ -70,8 +70,16 @@ impl System {
         std::os::unix::fs::symlink(self.0.join(target), path).unwrap();
     }
 
+    /// Everything under the fake system: `<root>/sys`, `<root>/proc`, …
     fn paths(&self) -> Paths {
-        Paths::under(&self.0)
+        let root = &self.0;
+        Paths {
+            sys: root.join("sys"),
+            proc: root.join("proc"),
+            etc: Some(root.join("etc")),
+            os_release: vec![root.join("etc/os-release"), root.join("usr/lib/os-release")],
+            host_processes: true,
+        }
     }
 
     /// MS-7E61 as read on 2026-11-11, with fake serial numbers and a fake
@@ -553,22 +561,24 @@ fn memory_fields() {
     struct Slots;
     impl Udev for Slots {
         fn property(&self, _: &Path, name: &str) -> Option<String> {
-            let value = match name {
-                "MEMORY_DEVICE_0_LOCATOR" => "DIMM 0",
-                "MEMORY_DEVICE_0_SIZE" => "8589934592",
-                "MEMORY_DEVICE_0_MANUFACTURER" => "Kingston",
-                "MEMORY_DEVICE_0_PART_NUMBER" => "  KF560C30-16  ",
-                "MEMORY_DEVICE_1_LOCATOR" => "DIMM 1",
-                "MEMORY_DEVICE_1_SIZE" => "8589934592",
-                "MEMORY_DEVICE_1_MANUFACTURER" => "Unknown",
-                "MEMORY_DEVICE_1_TYPE" => "Unknown",
-                "MEMORY_DEVICE_2_LOCATOR" => "DIMM 2",
-                "MEMORY_DEVICE_2_SIZE" => "0",
-                "MEMORY_DEVICE_3_LOCATOR" => "Not Specified",
-                "MEMORY_DEVICE_3_PRESENT" => "0",
-                _ => return None,
-            };
-            Some(value.to_owned())
+            const PROPERTIES: [(&str, &str); 12] = [
+                ("MEMORY_DEVICE_0_LOCATOR", "DIMM 0"),
+                ("MEMORY_DEVICE_0_SIZE", "8589934592"),
+                ("MEMORY_DEVICE_0_MANUFACTURER", "Kingston"),
+                ("MEMORY_DEVICE_0_PART_NUMBER", "  KF560C30-16  "),
+                ("MEMORY_DEVICE_1_LOCATOR", "DIMM 1"),
+                ("MEMORY_DEVICE_1_SIZE", "8589934592"),
+                ("MEMORY_DEVICE_1_MANUFACTURER", "Unknown"),
+                ("MEMORY_DEVICE_1_TYPE", "Unknown"),
+                ("MEMORY_DEVICE_2_LOCATOR", "DIMM 2"),
+                ("MEMORY_DEVICE_2_SIZE", "0"),
+                ("MEMORY_DEVICE_3_LOCATOR", "Not Specified"),
+                ("MEMORY_DEVICE_3_PRESENT", "0"),
+            ];
+            PROPERTIES
+                .iter()
+                .find(|(key, _)| *key == name)
+                .map(|(_, value)| (*value).to_owned())
         }
     }
     let slots = system::memory(&Slots).unwrap();

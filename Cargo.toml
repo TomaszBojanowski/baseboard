@@ -25,11 +25,25 @@ toml = "1.2.1"
 
 [workspace.lints.rust]
 # Unsafe code is allowed only in FFI modules, each of which opts in with
-# `#![allow(unsafe_code)]` and documents every block with `// SAFETY:`.
+# `#![allow(unsafe_code, reason = "…")]` and documents every block with
+# `// SAFETY:`.
 unsafe_code = "deny"
+unused_qualifications = "warn"
 
+# Lints aimed at code nobody needs, not at style (docs/PROJEKT.md §8, Z1);
+# clippy runs with `-D warnings`. A deliberate exception is an
+# `#[expect(…, reason = "…")]` next to the code.
 [workspace.lints.clippy]
 undocumented_unsafe_blocks = "warn"
+too_many_lines = "warn"
+allow_attributes_without_reason = "warn"
+match_same_arms = "warn"
+option_option = "warn"
+ref_option = "warn"
+needless_pass_by_value = "warn"
+unnecessary_wraps = "warn"
+unused_self = "warn"
+redundant_else = "warn"
 
 [profile.release]
 lto = "thin"

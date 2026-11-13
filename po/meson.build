@@ -7,11 +7,10 @@ i18n.gettext(
   args: ['--from-code=UTF-8', '--add-comments=Translators:'],
 )
 
-msgfmt = find_program('msgfmt', required: false)
-if msgfmt.found()
-  foreach lang : ['pl']
-    test('validate-po-' + lang, msgfmt,
-      args: ['--check', '--output-file=/dev/null', meson.current_source_dir() / lang + '.po'],
-    )
-  endforeach
-endif
+# Every language of LINGUAS valid and complete, without fuzzy or obsolete
+# entries (docs/PROJEKT.md §8, Z7).
+find_program('msgattrib')
+test('translations',
+  find_program(meson.project_source_root() / 'tests' / 'translations.sh'),
+  args: [meson.current_source_dir()],
+)

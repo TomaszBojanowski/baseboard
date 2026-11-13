@@ -311,6 +311,251 @@ fn draw_dot(snapshot: &gtk::Snapshot, palette: &Palette, marker: &geometry::Mark
     snapshot.append_stroke(&dot, &stroke(2.5, &[], false), &palette.surface);
 }
 
+/// The size of the chart's texts, relative to the widget's font.
+const TEXT_SCALE: f64 = 0.82;
+
+/// The grid and the axes.
+fn draw_grid(snapshot: &gtk::Snapshot, plot: &Plot, palette: &Palette) {
+    let area = plot.area;
+    let grid = stroke(1.0, &[], false);
+    let grid_color = alpha(&palette.fg, palette.grid);
+    let axis_color = alpha(&palette.fg, 0.3);
+    for temp in geometry::GRID_TEMPS {
+        let x = plot.x(f64::from(temp));
+        line(
+            snapshot,
+            (x, area.y),
+            (x, area.bottom()),
+            &grid_color,
+            &grid,
+        );
+    }
+    for percent in geometry::PERCENTS {
+        let y = plot.y_percent(f64::from(percent));
+        let color = if percent == 0 {
+            &axis_color
+        } else {
+            &grid_color
+        };
+        line(snapshot, (area.x, y), (area.right(), y), color, &grid);
+    }
+    line(
+        snapshot,
+        (area.x, area.y),
+        (area.x, area.bottom()),
+        &axis_color,
+        &grid,
+    );
+}
+
+/// The labels of the axes with their units, and the titles of the axes;
+/// `source` is the temperature the curve follows.
+fn draw_axis_labels(
+    widget: &gtk::Widget,
+    snapshot: &gtk::Snapshot,
+    plot: &Plot,
+    palette: &Palette,
+    source: &str,
+) {
+    let area = plot.area;
+    let tick = alpha(&palette.fg, palette.text);
+    for percent in geometry::PERCENTS {
+        let text = layout(widget, &percent_text(percent), TEXT_SCALE, false);
+        let (w, _) = size_of(&text);
+        let y = plot.y_percent(f64::from(percent));
+        draw_text(snapshot, &text, area.x - 7.0 - w, y + 4.0, &tick);
+    }
+    for temp in geometry::LABEL_TEMPS {
+        let text = layout(widget, &temp_text(temp), TEXT_SCALE, false);
+        let (w, _) = size_of(&text);
+        draw_text(
+            snapshot,
+            &text,
+            plot.x(f64::from(temp)) - w / 2.0,
+            area.bottom() + 20.0,
+            &tick,
+        );
+    }
+    // Translators: the title of the vertical axis of a fan curve.
+    let title = layout(widget, &gettext("Duty cycle"), TEXT_SCALE, false);
+    let (w, _) = size_of(&title);
+    snapshot.save();
+    snapshot.translate(&point(16.0, area.y + area.height / 2.0));
+    snapshot.rotate(-90.0);
+    draw_text(snapshot, &title, -w / 2.0, 0.0, &tick);
+    snapshot.restore();
+    // Translators: the title of the horizontal axis of a fan curve;
+    // {source} is a temperature, e.g. "Processor (board sensor)".
+    let text = gettext("Temperature: {source}").replace("{source}", source);
+    let title = layout(widget, &text, TEXT_SCALE, false);
+    let (w, _) = size_of(&title);
+    draw_text(
+        snapshot,
+        &title,
+        area.x + area.width / 2.0 - w / 2.0,
+        area.bottom() + 48.0,
+        &tick,
+    );
+}
+
+/// The emergency band and the hatched zone below the minimum.
+fn draw_zones(snapshot: &gtk::Snapshot, plot: &Plot, palette: &Palette, curve: &ChartCurve) {
+    let band = curve
+        .threshold
+        .and_then(|t| geometry::threshold_band(plot, t));
+    if let Some(band) = band {
+        snapshot.append_color(&alpha(&palette.error_band, 0.1), &rect(&band));
+    }
+    let Some(zone) = geometry::minimum_zone(plot, curve.min_percent) else {
+        return;
+    };
+    // Diagonal lines 6 px apart and 1 px wide, one path.
+    snapshot.push_clip(&rect(&zone));
+    let builder = gsk::PathBuilder::new();
+    let step = 6.0 * std::f64::consts::SQRT_2;
+    let mut x = zone.x - zone.height;
+    while x < zone.right() {
+        builder.move_to(x as f32, zone.bottom() as f32);
+        builder.line_to((x + zone.height) as f32, zone.y as f32);
+        x += step;
+    }
+    snapshot.append_stroke(
+        &builder.to_path(),
+        &stroke(1.0, &[], false),
+        &alpha(&palette.fg, 0.2),
+    );
+    snapshot.pop();
+    line(
+        snapshot,
+        (zone.x, zone.y),
+        (zone.right(), zone.y),
+        &alpha(&palette.fg, 0.4),
+        &stroke(1.0, &[3.0, 3.0], false),
+    );
+}
+
+/// The area below the curve: the accent color fading downwards.
+fn draw_area_below(
+    snapshot: &gtk::Snapshot,
+    plot: &Plot,
+    palette: &Palette,
+    shape: &geometry::CurveShape,
+) {
+    let area = plot.area;
+    snapshot.push_fill(&polyline(&shape.area), gsk::FillRule::Winding);
+    snapshot.append_linear_gradient(
+        &rect(&area),
+        &point(0.0, area.y),
+        &point(0.0, area.bottom()),
+        &[
+            gsk::ColorStop::new(0.0, alpha(&palette.accent, 0.30)),
+            gsk::ColorStop::new(1.0, alpha(&palette.accent, 0.04)),
+        ],
+    );
+    snapshot.pop();
+}
+
+/// The text of the zone below the minimum and the emergency threshold with
+/// its text. Returns where the text of the zone stands.
+fn draw_zone_texts(
+    widget: &gtk::Widget,
+    snapshot: &gtk::Snapshot,
+    plot: &Plot,
+    palette: &Palette,
+    curve: &ChartCurve,
+) -> Vec<Rect> {
+    let area = plot.area;
+    let mut obstacles = Vec::new();
+    if curve.min_percent > 0 {
+        // Translators: the zone of a fan curve below the lowest duty
+        // cycle allowed; {duty} is e.g. "30 %".
+        let text = gettext("Below the minimum of {duty}")
+            .replace("{duty}", &percent_text(curve.min_percent));
+        let label = layout(widget, &text, TEXT_SCALE, false);
+        let (w, _) = size_of(&label);
+        let baseline = area.bottom() - 9.0;
+        let r = Rect {
+            x: area.x + 4.0,
+            y: baseline - 12.0,
+            width: w + 8.0,
+            height: 18.0,
+        };
+        snapshot.append_fill(
+            &rounded(&r, 4.0),
+            gsk::FillRule::Winding,
+            &alpha(&palette.surface, 0.9),
+        );
+        draw_text(
+            snapshot,
+            &label,
+            r.x + 4.0,
+            baseline,
+            &alpha(&palette.fg, palette.text),
+        );
+        obstacles.push(r);
+    }
+    if let Some(threshold) = curve
+        .threshold
+        .filter(|t| f64::from(*t) < geometry::TEMP_MAX)
+    {
+        let x = plot.x(f64::from(threshold));
+        line(
+            snapshot,
+            (x, area.y - 10.0),
+            (x, area.bottom()),
+            &palette.error,
+            &stroke(1.5, &[5.0, 3.0], false),
+        );
+        let temperature = temp_text(threshold);
+        let text = if curve.needs_full {
+            // Translators: the emergency temperature of the source on a
+            // fan curve that must reach full duty by then; e.g.
+            // "Emergency threshold 95 °C: 100 % from there".
+            gettext("Emergency threshold {temperature}: {duty} from there")
+                .replace("{temperature}", &temperature)
+                .replace("{duty}", &percent_text(100))
+        } else {
+            // Translators: the emergency temperature of the source on a
+            // fan curve, e.g. "Emergency threshold 95 °C".
+            gettext("Emergency threshold {temperature}").replace("{temperature}", &temperature)
+        };
+        let label = layout(widget, &text, TEXT_SCALE, true);
+        let (w, _) = size_of(&label);
+        draw_text(snapshot, &label, x + 4.0 - w, area.y - 16.0, &palette.error);
+    }
+    obstacles
+}
+
+/// The curve: straight segments, dashed outside the end points.
+fn draw_curve_line(snapshot: &gtk::Snapshot, palette: &Palette, shape: &geometry::CurveShape) {
+    let width = 2.75;
+    let ends = stroke(width, &[5.0, 5.0], false);
+    let ends_color = alpha(&palette.accent, 0.75);
+    for part in [shape.lead, shape.tail].into_iter().flatten() {
+        line(snapshot, part[0], part[1], &ends_color, &ends);
+    }
+    snapshot.append_stroke(
+        &polyline(&shape.line),
+        &stroke(width, &[], true),
+        &palette.accent,
+    );
+}
+
+/// Where the curve must reach 100 % (B14): a ring at the threshold.
+fn draw_full_at(snapshot: &gtk::Snapshot, plot: &Plot, palette: &Palette, curve: &ChartCurve) {
+    let full_at = curve
+        .threshold
+        .filter(|t| curve.needs_full && f64::from(*t) < geometry::TEMP_MAX);
+    if let Some(threshold) = full_at {
+        let ring = circle(
+            (plot.x(f64::from(threshold)), plot.y(geometry::DUTY_MAX)),
+            5.0,
+        );
+        snapshot.append_fill(&ring, gsk::FillRule::Winding, &palette.surface);
+        snapshot.append_stroke(&ring, &stroke(2.0, &[], false), &palette.error);
+    }
+}
+
 /// The description for the screen reader: whole sentences, each translated
 /// on its own (§9).
 pub fn describe(curve: &ChartCurve, reading: Option<Reading>, numbers: &Numbers) -> String {
@@ -677,8 +922,7 @@ impl FanChart {
     }
 
     /// Grid, axes, zones, the curve and its points. Returns the places of
-    /// the handles and texts, which the label of the operating point keeps
-    /// clear of.
+    /// the texts, which the label of the operating point keeps clear of.
     fn draw_static(
         &self,
         snapshot: &gtk::Snapshot,
@@ -691,214 +935,20 @@ impl FanChart {
         let Some(curve) = curve.as_ref() else {
             return Vec::new();
         };
-        let text_scale = 0.82;
-        let area = plot.area;
-        let mut obstacles = Vec::new();
-
-        // Grid and axes.
-        let grid = stroke(1.0, &[], false);
-        let grid_color = alpha(&palette.fg, palette.grid);
-        let axis_color = alpha(&palette.fg, 0.3);
-        for temp in plot.grid_temps() {
-            let x = plot.x(f64::from(temp));
-            line(
-                snapshot,
-                (x, area.y),
-                (x, area.bottom()),
-                &grid_color,
-                &grid,
-            );
-        }
-        for &percent in plot.percents() {
-            let y = plot.y_percent(f64::from(percent));
-            let color = if percent == 0 {
-                &axis_color
-            } else {
-                &grid_color
-            };
-            line(snapshot, (area.x, y), (area.right(), y), color, &grid);
-        }
-        line(
-            snapshot,
-            (area.x, area.y),
-            (area.x, area.bottom()),
-            &axis_color,
-            &grid,
-        );
-
-        // Labels of the axes, with units.
-        let tick = alpha(&palette.fg, palette.text);
-        for &percent in plot.percents() {
-            let text = layout(widget, &percent_text(percent), text_scale, false);
-            let (w, _) = size_of(&text);
-            let y = plot.y_percent(f64::from(percent));
-            draw_text(snapshot, &text, area.x - 7.0 - w, y + 4.0, &tick);
-        }
-        let below = 20.0;
-        for temp in plot.label_temps() {
-            let text = layout(widget, &temp_text(temp), text_scale, false);
-            let (w, _) = size_of(&text);
-            draw_text(
-                snapshot,
-                &text,
-                plot.x(f64::from(temp)) - w / 2.0,
-                area.bottom() + below,
-                &tick,
-            );
-        }
-        // Translators: the title of the vertical axis of a fan curve.
-        let title = layout(widget, &gettext("Duty cycle"), text_scale, false);
-        let (w, _) = size_of(&title);
-        snapshot.save();
-        snapshot.translate(&point(16.0, area.y + area.height / 2.0));
-        snapshot.rotate(-90.0);
-        draw_text(snapshot, &title, -w / 2.0, 0.0, &tick);
-        snapshot.restore();
-        // Translators: the title of the horizontal axis of a fan curve;
-        // {source} is a temperature, e.g. "Processor (board sensor)".
-        let text = gettext("Temperature: {source}").replace("{source}", &curve.source);
-        let title = layout(widget, &text, text_scale, false);
-        let (w, _) = size_of(&title);
-        draw_text(
-            snapshot,
-            &title,
-            area.x + area.width / 2.0 - w / 2.0,
-            area.bottom() + 48.0,
-            &tick,
-        );
-
-        // The emergency band and the zone below the minimum.
-        let band = curve
-            .threshold
-            .and_then(|t| geometry::threshold_band(plot, t));
-        if let Some(band) = band {
-            snapshot.append_color(&alpha(&palette.error_band, 0.1), &rect(&band));
-        }
-        if let Some(zone) = geometry::minimum_zone(plot, curve.min_percent) {
-            // Diagonal lines 6 px apart and 1 px wide, one path.
-            snapshot.push_clip(&rect(&zone));
-            let builder = gsk::PathBuilder::new();
-            let step = 6.0 * std::f64::consts::SQRT_2;
-            let mut x = zone.x - zone.height;
-            while x < zone.right() {
-                builder.move_to(x as f32, zone.bottom() as f32);
-                builder.line_to((x + zone.height) as f32, zone.y as f32);
-                x += step;
-            }
-            snapshot.append_stroke(
-                &builder.to_path(),
-                &stroke(1.0, &[], false),
-                &alpha(&palette.fg, 0.2),
-            );
-            snapshot.pop();
-            line(
-                snapshot,
-                (zone.x, zone.y),
-                (zone.right(), zone.y),
-                &alpha(&palette.fg, 0.4),
-                &stroke(1.0, &[3.0, 3.0], false),
-            );
-        }
-
-        // The area below the curve: the accent color fading downwards.
+        draw_grid(snapshot, plot, palette);
+        draw_axis_labels(widget, snapshot, plot, palette, &curve.source);
+        draw_zones(snapshot, plot, palette, curve);
         let shape = geometry::curve_shape(plot, &curve.points);
         if let Some(shape) = &shape {
-            let area_path = polyline(&shape.area);
-            snapshot.push_fill(&area_path, gsk::FillRule::Winding);
-            snapshot.append_linear_gradient(
-                &rect(&area),
-                &point(0.0, area.y),
-                &point(0.0, area.bottom()),
-                &[
-                    gsk::ColorStop::new(0.0, alpha(&palette.accent, 0.30)),
-                    gsk::ColorStop::new(1.0, alpha(&palette.accent, 0.04)),
-                ],
-            );
-            snapshot.pop();
+            draw_area_below(snapshot, plot, palette, shape);
         }
-
         // Texts of the zones, below the curve line so that they never hide
         // it.
-        if curve.min_percent > 0 {
-            // Translators: the zone of a fan curve below the lowest duty
-            // cycle allowed; {duty} is e.g. "30 %".
-            let text = gettext("Below the minimum of {duty}")
-                .replace("{duty}", &percent_text(curve.min_percent));
-            let label = layout(widget, &text, text_scale, false);
-            let (w, _) = size_of(&label);
-            let baseline = area.bottom() - 9.0;
-            let r = Rect {
-                x: area.x + 4.0,
-                y: baseline - 12.0,
-                width: w + 8.0,
-                height: 18.0,
-            };
-            snapshot.append_fill(
-                &rounded(&r, 4.0),
-                gsk::FillRule::Winding,
-                &alpha(&palette.surface, 0.9),
-            );
-            draw_text(snapshot, &label, r.x + 4.0, baseline, &tick);
-            obstacles.push(r);
-        }
-        if let Some(threshold) = curve
-            .threshold
-            .filter(|t| f64::from(*t) < geometry::TEMP_MAX)
-        {
-            let x = plot.x(f64::from(threshold));
-            let top = area.y - 10.0;
-            line(
-                snapshot,
-                (x, top),
-                (x, area.bottom()),
-                &palette.error,
-                &stroke(1.5, &[5.0, 3.0], false),
-            );
-            let temperature = temp_text(threshold);
-            let text = if curve.needs_full {
-                // Translators: the emergency temperature of the source on a
-                // fan curve that must reach full duty by then; e.g.
-                // "Emergency threshold 95 °C: 100 % from there".
-                gettext("Emergency threshold {temperature}: {duty} from there")
-                    .replace("{temperature}", &temperature)
-                    .replace("{duty}", &percent_text(100))
-            } else {
-                // Translators: the emergency temperature of the source on a
-                // fan curve, e.g. "Emergency threshold 95 °C".
-                gettext("Emergency threshold {temperature}").replace("{temperature}", &temperature)
-            };
-            let label = layout(widget, &text, text_scale, true);
-            let (w, _) = size_of(&label);
-            draw_text(snapshot, &label, x + 4.0 - w, area.y - 16.0, &palette.error);
-        }
-
-        // The curve: straight segments, dashed outside the end points.
+        let obstacles = draw_zone_texts(widget, snapshot, plot, palette, curve);
         if let Some(shape) = &shape {
-            let width = 2.75;
-            let ends = stroke(width, &[5.0, 5.0], false);
-            let ends_color = alpha(&palette.accent, 0.75);
-            for part in [shape.lead, shape.tail].into_iter().flatten() {
-                line(snapshot, part[0], part[1], &ends_color, &ends);
-            }
-            snapshot.append_stroke(
-                &polyline(&shape.line),
-                &stroke(width, &[], true),
-                &palette.accent,
-            );
+            draw_curve_line(snapshot, palette, shape);
         }
-        // Where the curve must reach 100 % (B14).
-        let full_at = curve
-            .threshold
-            .filter(|t| curve.needs_full && f64::from(*t) < geometry::TEMP_MAX);
-        if let Some(threshold) = full_at {
-            let ring = circle(
-                (plot.x(f64::from(threshold)), plot.y(geometry::DUTY_MAX)),
-                5.0,
-            );
-            snapshot.append_fill(&ring, gsk::FillRule::Winding, &palette.surface);
-            snapshot.append_stroke(&ring, &stroke(2.0, &[], false), &palette.error);
-        }
-
+        draw_full_at(snapshot, plot, palette, curve);
         // The points: a dot for each run of equal points.
         for h in &geometry::handles(plot, &curve.points) {
             let dot = circle((h.x, h.y), 4.5);
@@ -951,14 +1001,14 @@ impl FanChart {
                 &numbers.value(Kind::Temp, reading.millidegrees as f64 / 1000.0),
             )
             .replace("{duty}", &percent_text(duty_to_percent(reading.duty)));
-        let first = layout(widget, &first, 0.82, true);
+        let first = layout(widget, &first, TEXT_SCALE, true);
         let second = moving.then(|| {
             let target = shown.target.round().clamp(0.0, 255.0) as u8;
             let percent = percent_text(duty_to_percent(target));
             // Translators: under the label of the operating point, where
             // the fan is heading, e.g. "target 40 %".
             let text = gettext("target {duty}").replace("{duty}", &percent);
-            layout(widget, &text, 0.82, false)
+            layout(widget, &text, TEXT_SCALE, false)
         });
         // Lines 17 px apart as in the mockups, more with larger text.
         let (w1, h1) = size_of(&first);

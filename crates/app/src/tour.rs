@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Debug builds only: `BASEBOARD_DEBUG_TOUR=1` walks through the window as
-//! a user would. On the Overview, Fans and System pages it clicks every
-//! large number and every row that can be clicked, and checks that each
-//! one opens what its text names; then it opens Preferences with "Visible
-//! Readings", About and the keyboard shortcuts, copies the system
-//! information and quits. It prints a line for each check and "baseboard:
-//! tour done" when all of them passed. `tests/tour.sh` runs it on an
-//! invisible X server and also fails on any warning of GTK or GLib.
+//! a user would (docs/PROJEKT.md §8, Z10). It clicks every row of the
+//! sidebar; on the Overview, Fans and System pages it clicks every large
+//! number and every row that can be clicked, and checks that each one
+//! opens what its text names, and that nothing expected is missing; from
+//! the main menu it opens Preferences (a switch, "Visible Readings" and a
+//! switch there), the keyboard shortcuts and About; it copies the system
+//! information, checks the clipboard and quits. It prints a line for each
+//! check and "baseboard: tour done" when all of them passed.
+//! `tests/tour.sh` runs it on an invisible X server, tells it how many
+//! fans of the tree open their curve (`BASEBOARD_TOUR_CURVES`), and also
+//! fails on any warning of GTK or GLib.
 
 use std::cell::Cell;
 use std::time::Duration;
@@ -15,10 +19,12 @@ use std::time::Duration;
 use adw::prelude::*;
 use baseboard_core::overview::GroupKind;
 use gettextrs::{gettext, pgettext};
-use gtk::glib;
+use gtk::{gio, glib};
 
+use crate::config;
 use crate::fans::FansPage;
 use crate::overview::{OverviewPage, SensorsView};
+use crate::system::SystemPage;
 use crate::window::{BaseboardWindow, Page};
 
 /// What a large number or a row of the Overview opens.
@@ -62,10 +68,12 @@ pub fn start(app: &adw::Application, window: &BaseboardWindow) {
         failed: Cell::new(0),
     };
     glib::MainContext::default().spawn_local(async move {
+        tour.sidebar().await;
         tour.overview().await;
         tour.fans().await;
         tour.system().await;
-        tour.dialogs().await;
+        tour.menu().await;
+        tour.copy().await;
         match tour.failed.get() {
             0 => eprintln!("baseboard: tour done"),
             failed => eprintln!("baseboard: tour failed: {failed} checks"),
@@ -179,21 +187,45 @@ impl Tour {
         }
     }
 
+    /// Each row of the sidebar shows its page, also in a narrow window,
+    /// where the sidebar and the page take turns.
+    async fn sidebar(&self) {
+        let pages = [Page::Overview, Page::Fans, Page::System];
+        for (index, page) in pages.into_iter().enumerate() {
+            self.window.close_subpages();
+            self.window.show_sidebar();
+            pause(200).await;
+            let rows: Vec<gtk::Widget> = find::<adw::Sidebar>(self.window.upcast_ref())
+                .map(|sidebar| clickables(sidebar.upcast_ref()))
+                .unwrap_or_default();
+            self.check(rows.len() == pages.len(), "the sidebar has a row per page");
+            let Some(row) = rows.get(index) else {
+                continue;
+            };
+            let what = format!(
+                "sidebar {:?}",
+                texts(row).first().cloned().unwrap_or_default()
+            );
+            let shown = || self.window.shown().0.is_some_and(|w| is_page(&w, page));
+            if let Some(ok) = self.click(row, &what, shown).await {
+                self.check(ok, &format!("{what} shows {page:?}"));
+            }
+        }
+    }
+
     async fn overview(&self) {
         let clickables = self.open(Page::Overview).await;
-        self.check(
-            !clickables.is_empty(),
-            "the Overview has something to click",
-        );
         let expected = overview_expected();
+        let mut found = Vec::new();
         for widget in clickables {
             let texts = texts(&widget);
             let what = format!("Overview {:?}", texts.first().cloned().unwrap_or_default());
-            let Some(&(_, opens)) = expected.iter().find(|(text, _)| texts.contains(text)) else {
+            let Some((text, opens)) = expected.iter().find(|(text, _)| texts.contains(text)) else {
                 self.check(false, &format!("{what}: nothing expected of {texts:?}"));
                 continue;
             };
-            let Some(ok) = self.click(&widget, &what, || self.opened(opens)).await else {
+            found.push(text.clone());
+            let Some(ok) = self.click(&widget, &what, || self.opened(*opens)).await else {
                 continue;
             };
             self.check(
@@ -204,29 +236,43 @@ impl Tour {
             self.window.select_page(Page::Overview);
             pause(200).await;
         }
+        // Nothing expected is missing.
+        for (text, _) in &expected {
+            self.check(
+                found.contains(text),
+                &format!("the Overview shows {text:?}"),
+            );
+        }
     }
 
     /// Every clickable row of the Fans page opens the curve page named as
-    /// the row. Without curves (the driver of the kernel) there is none.
+    /// the row; as many rows as the tree has fans with curves
+    /// (`BASEBOARD_TOUR_CURVES`; none with the driver of the kernel).
     async fn fans(&self) {
         let clickables = self.open(Page::Fans).await;
-        if clickables.is_empty() {
-            eprintln!("baseboard: tour: the Fans page has nothing to click");
-        }
+        let mut opened = 0;
         for widget in clickables {
             let texts = texts(&widget);
             let what = format!("Fans {:?}", texts.first().cloned().unwrap_or_default());
-            let opened = || self.subpage().is_some_and(|title| texts.contains(&title));
-            let Some(ok) = self.click(&widget, &what, opened).await else {
+            let shown = || self.subpage().is_some_and(|title| texts.contains(&title));
+            let Some(ok) = self.click(&widget, &what, shown).await else {
                 continue;
             };
             self.check(
                 ok,
                 &format!("{what} opens its curve page (seen: {})", self.seen()),
             );
+            opened += usize::from(ok);
             self.window.close_subpages();
             pause(200).await;
         }
+        let expected = std::env::var("BASEBOARD_TOUR_CURVES")
+            .ok()
+            .and_then(|count| count.parse::<usize>().ok());
+        self.check(
+            expected == Some(opened),
+            &format!("{opened} fans open their curve, {expected:?} expected"),
+        );
     }
 
     /// The status row opens "Diagnostics", "Technical details" its page;
@@ -267,42 +313,151 @@ impl Tour {
         );
     }
 
-    async fn dialogs(&self) {
-        // As Ctrl+, opens it: nothing but the dialog is kept.
-        self.app.activate_action("preferences", None);
-        pause(500).await;
-        let preferences = self
-            .window
-            .visible_dialog()
-            .and_downcast::<adw::PreferencesDialog>();
-        self.check(preferences.is_some(), "app.preferences opens Preferences");
-        if let Some(preferences) = preferences {
-            let row = crate::preferences::row_titled(&preferences, &gettext("Visible readings"));
-            let clicked = row.is_some_and(|row| WidgetExt::activate(&row));
-            pause(500).await;
-            self.check(
-                clicked && preferences.pop_subpage(),
-                "Preferences \"Visible readings\" opens its subpage",
-            );
-            preferences.close();
-            pause(300).await;
-        }
-        for action in ["about", "shortcuts"] {
-            self.app.activate_action(action, None);
+    /// The items of the main menu: each one's action opens its dialog, as
+    /// a click on the item does. (A popover of the menu on the invisible X
+    /// server warns of its frames, so the tour reads the menu's model.)
+    async fn menu(&self) {
+        let actions = ["app.preferences", "app.shortcuts", "app.about"];
+        let model = find::<gtk::MenuButton>(self.window.upcast_ref())
+            .and_then(|button| button.menu_model());
+        let items = model.map(|model| menu_actions(&model)).unwrap_or_default();
+        self.check(
+            items == actions,
+            &format!("the main menu has {actions:?}: {items:?}"),
+        );
+        for action in items {
+            let Some(name) = action.strip_prefix("app.") else {
+                continue;
+            };
+            self.app.activate_action(name, None);
             pause(500).await;
             let dialog = self.window.visible_dialog();
-            self.check(dialog.is_some(), &format!("app.{action} opens a dialog"));
+            self.check(
+                dialog.is_some(),
+                &format!("main menu {action} opens a dialog"),
+            );
+            if let Some(preferences) = dialog.clone().and_downcast::<adw::PreferencesDialog>() {
+                self.preferences(&preferences).await;
+            }
             if let Some(dialog) = dialog {
                 dialog.close();
             }
             pause(300).await;
         }
+    }
+
+    /// The switch "Names from lm-sensors" changes its setting; "Visible
+    /// readings" opens its subpage, where a switch hides a reading. Both
+    /// switches are put back. "Custom names" opens an outside app, so it is
+    /// only looked for.
+    async fn preferences(&self, preferences: &adw::PreferencesDialog) {
+        use crate::preferences::{HIDDEN, SENSORS_LABELS, row_titled};
+
+        let settings = gio::Settings::new(config::APP_ID);
+        let row = |title: &str| row_titled(preferences, &gettext(title));
+        let click = |title: &str| row(title).is_some_and(|row| WidgetExt::activate(&row));
+
+        let names = settings.boolean(SENSORS_LABELS);
+        let clicked = click("Names from lm-sensors");
+        pause(300).await;
+        let changed = settings.boolean(SENSORS_LABELS) != names;
+        let clicked = clicked && click("Names from lm-sensors");
+        pause(300).await;
+        self.check(
+            clicked && changed && settings.boolean(SENSORS_LABELS) == names,
+            "Preferences \"Names from lm-sensors\" changes its setting and back",
+        );
+        self.check(
+            row("Custom names").is_some(),
+            "Preferences has \"Custom names\"",
+        );
+
+        let clicked = click("Visible readings");
+        pause(500).await;
+        // The rows of the readings, each with its switch.
+        let rows: Vec<gtk::Widget> = find_all::<gtk::Switch>(preferences.upcast_ref())
+            .into_iter()
+            .filter(|switch| switch.is_mapped())
+            .filter_map(|switch| switch.ancestor(adw::ActionRow::static_type()))
+            .collect();
+        self.check(
+            clicked && !rows.is_empty(),
+            "Preferences \"Visible readings\" opens its subpage with switches",
+        );
+        if let Some(row) = rows.first() {
+            let hidden = || settings.strv(HIDDEN).len();
+            let before = hidden();
+            row.activate();
+            pause(300).await;
+            let changed = hidden() != before;
+            row.activate();
+            pause(300).await;
+            self.check(
+                changed && hidden() == before,
+                "a switch of \"Visible readings\" hides its reading and shows it again",
+            );
+        }
+        preferences.pop_subpage();
+        pause(300).await;
+    }
+
+    /// "Copy system information" puts the text of a report on the
+    /// clipboard.
+    async fn copy(&self) {
         self.window.select_page(Page::System);
         pause(300).await;
         let copied = WidgetExt::activate_action(&self.window, "win.copy-system-info", None);
-        self.check(copied.is_ok(), "the system information can be copied");
         pause(500).await;
+        let text = self.window.clipboard().read_text_future().await;
+        let text = text.ok().flatten().unwrap_or_default();
+        self.check(
+            copied.is_ok() && text.starts_with("Baseboard ") && text.contains("\nBoard\n"),
+            "the system information is copied to the clipboard",
+        );
     }
+}
+
+/// The page of the sidebar `widget` is.
+fn is_page(widget: &gtk::Widget, page: Page) -> bool {
+    match page {
+        Page::Overview => widget.is::<OverviewPage>(),
+        Page::Fans => widget.is::<FansPage>(),
+        Page::System => widget.is::<SystemPage>(),
+    }
+}
+
+/// The actions of the items of `menu` and of its sections, in order.
+fn menu_actions(menu: &gio::MenuModel) -> Vec<String> {
+    let mut actions = Vec::new();
+    for item in 0..menu.n_items() {
+        let action = menu.item_attribute_value(item, "action", Some(glib::VariantTy::STRING));
+        actions.extend(action.and_then(|value| value.get::<String>()));
+        for link in [gio::MENU_LINK_SECTION, gio::MENU_LINK_SUBMENU] {
+            if let Some(inner) = menu.item_link(item, link) {
+                actions.extend(menu_actions(&inner));
+            }
+        }
+    }
+    actions
+}
+
+/// The first widget of type `W` under `root`, depth first.
+fn find<W: IsA<gtk::Widget>>(root: &gtk::Widget) -> Option<W> {
+    find_all(root).into_iter().next()
+}
+
+/// Every widget of type `W` under `root`, depth first.
+fn find_all<W: IsA<gtk::Widget>>(root: &gtk::Widget) -> Vec<W> {
+    let mut found = Vec::new();
+    let mut child = root.first_child();
+    while let Some(widget) = child {
+        if let Some(wanted) = widget.downcast_ref::<W>() {
+            found.push(wanted.clone());
+        }
+        found.extend(find_all::<W>(&widget));
+        child = widget.next_sibling();
+    }
+    found
 }
 
 async fn pause(milliseconds: u64) {

@@ -7,6 +7,10 @@
 //! translated text and no unsafe code. Both programs compute the same
 //! results from it; the helper always has the final say.
 
+// Every dependency is used (docs/PROJEKT.md §8, Z4). Not in the workspace
+// lints: the integration tests would report the crate's own dependencies.
+#![warn(unused_crate_dependencies)]
+
 pub mod board;
 pub mod fans;
 pub mod labels;

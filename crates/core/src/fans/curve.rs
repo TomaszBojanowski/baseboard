@@ -47,17 +47,6 @@ pub fn expected_duty(points: &[CurvePoint], millidegrees: i64) -> Option<u8> {
     u8::try_from(duty).ok()
 }
 
-/// The straight line itself at `temp` °C, without rounding, for drawing.
-pub fn line_at(points: &[CurvePoint], temp: f64) -> Option<f64> {
-    let (start, end) = segment(points, |p| f64::from(p.temp) <= temp)?;
-    let Some(end) = end else {
-        return Some(f64::from(start.duty));
-    };
-    let (t0, t1) = (f64::from(start.temp), f64::from(end.temp));
-    let (d0, d1) = (f64::from(start.duty), f64::from(end.duty));
-    Some(d0 + (d1 - d0) * (temp - t0) / (t1 - t0))
-}
-
 /// Runs of equal consecutive points as (first, last) indices. The
 /// controller of MS-7E61 has 7 points, and a curve with fewer levels
 /// repeats the last one; the interface draws one handle per run ("6–7").
@@ -102,6 +91,18 @@ fn ceil_div(a: i64, b: i64) -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The straight line itself at `temp` °C, without rounding: what
+    /// [`expected_duty`] rounds up.
+    fn line_at(points: &[CurvePoint], temp: f64) -> Option<f64> {
+        let (start, end) = segment(points, |p| f64::from(p.temp) <= temp)?;
+        let Some(end) = end else {
+            return Some(f64::from(start.duty));
+        };
+        let (t0, t1) = (f64::from(start.temp), f64::from(end.temp));
+        let (d0, d1) = (f64::from(start.duty), f64::from(end.duty));
+        Some(d0 + (d1 - d0) * (temp - t0) / (t1 - t0))
+    }
 
     fn curve(points: &[(u8, u8)]) -> Vec<CurvePoint> {
         points
@@ -249,7 +250,7 @@ mod tests {
     }
 
     #[test]
-    fn line_for_the_chart() {
+    fn line_without_rounding() {
         let line = line_at(&sys1(), 46.0).unwrap();
         assert!((line - 97.557).abs() < 0.001, "{line}");
         assert_eq!(line_at(&sys1(), 85.0), Some(255.0));

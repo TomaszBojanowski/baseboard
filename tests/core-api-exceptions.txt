@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Public items of the core crate that nothing outside the tests uses
+# today, each with its reason: the step of the plan that needs it, or the
+# code that reads it without naming it (docs/PROJEKT.md §7, §8, Z3). An
+# item leaves this list when its step uses it, or when the plan drops it.
+# Names are written with their module, e.g. `fans::driver::read`.
+#
+# name  reason
+fans::driver::read  the helper's GetState reads every attribute of a channel at once (§7 M2b)
+fans::driver::Reading  what `fans::driver::read` gives the helper's GetState (§7 M2b)
+sensors::inode  read by the derived comparison of `sensors::Device`, which notices a driver loaded again (§5.1)
+units::duty_from_percent  the slider of manual mode turns percent into a duty cycle (§7 M2b, step 12; §3.5)

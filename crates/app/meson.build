@@ -34,11 +34,13 @@ app = custom_target(
   ],
 )
 
+# No test is skipped silently: a missing tool, library or display fails
+# (docs/PROJEKT.md §8, Z12).
 test(
   'cargo-test',
   cargo,
   args: ['test', cargo_build_options, '--workspace'],
-  env: cargo_env,
+  env: cargo_env + ['BASEBOARD_TESTS_STRICT=1'],
   timeout: 600,
 )
 
@@ -54,6 +56,7 @@ if rust_target == 'debug'
       'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
       'BASEBOARD_LOCALEDIR=' + meson.project_build_root() / 'po',
       'BASEBOARD_BOARDS_DIR=' + meson.project_source_root() / 'data' / 'boards',
+      'BASEBOARD_TESTS_STRICT=1',
     ],
     timeout: 900,
   )

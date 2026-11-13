@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# A function longer than this is split (docs/PROJEKT.md §8, Z1).
+too-many-lines-threshold = 150

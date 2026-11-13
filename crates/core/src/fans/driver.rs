@@ -3,9 +3,9 @@
 //! The one place that knows the sysfs ABI of the `nct6683` driver
 //! (docs/PROJEKT.md §3.7, §5.5.1): what the driver allows for each channel
 //! (§5.5.2), and reading its mode, duty cycle, curve and curve source
-//! through [`FanDriver`], from sysfs ([`SysfsDriver`]) or from a model in
-//! memory for tests ([`model::ModelDriver`]). Writing comes with the helper
-//! (M2b), and only the helper will have it (B1).
+//! through [`FanDriver`], from sysfs ([`SysfsDriver`]) or, in the tests,
+//! from a model in memory (`model::ModelDriver`). Writing comes with the
+//! helper (M2b), and only the helper will have it (B1).
 //!
 //! Detection looks only at the attributes, separately for every channel:
 //! whether a file exists and whether its owner write bit is set. It uses
@@ -21,6 +21,7 @@
 //! follows a temperature the driver does not report. Anything else is
 //! [`ReadError::Invalid`], never a guess.
 
+#[cfg(test)]
 pub mod model;
 
 use std::collections::BTreeSet;
@@ -609,7 +610,7 @@ mod tests {
             .collect()
     }
 
-    fn is_invalid<T: std::fmt::Debug>(result: Result<T, ReadError>) -> bool {
+    fn is_invalid<T: fmt::Debug>(result: &Result<T, ReadError>) -> bool {
         matches!(result, Err(ReadError::Invalid { .. }))
     }
 
@@ -855,24 +856,24 @@ mod tests {
         let driver = hwmon.driver();
         for text in ["0", "3", "auto", ""] {
             hwmon.write("pwm1_enable", text);
-            assert!(is_invalid(driver.mode(1)), "pwm1_enable {text:?}");
+            assert!(is_invalid(&driver.mode(1)), "pwm1_enable {text:?}");
         }
         for text in ["256", "-1", "1.5"] {
             hwmon.write("pwm1", text);
-            assert!(is_invalid(driver.duty(1)), "pwm1 {text:?}");
+            assert!(is_invalid(&driver.duty(1)), "pwm1 {text:?}");
         }
         // Temperatures: not whole degrees, negative, above 255 °C.
         for text in ["45500", "-1000", "256000"] {
             hwmon.curve_values(2, &SYS1);
             hwmon.write("pwm2_auto_point3_temp", text);
-            assert!(is_invalid(driver.curve(2)), "temp {text:?}");
+            assert!(is_invalid(&driver.curve(2)), "temp {text:?}");
         }
         hwmon.curve_values(2, &SYS1);
         hwmon.write("pwm2_auto_point7_pwm", "300");
-        assert!(is_invalid(driver.curve(2)));
+        assert!(is_invalid(&driver.curve(2)));
         for text in ["-1", "x"] {
             hwmon.write("pwm1_auto_channels_temp", text);
-            assert!(is_invalid(driver.source(1)), "source {text:?}");
+            assert!(is_invalid(&driver.source(1)), "source {text:?}");
         }
         // The error names the attribute and the text.
         hwmon.write("pwm1", "abc\n");

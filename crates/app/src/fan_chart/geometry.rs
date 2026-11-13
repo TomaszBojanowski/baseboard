@@ -14,6 +14,12 @@ pub const TEMP_MAX: f64 = 100.0;
 pub const DUTY_MAX: f64 = 255.0;
 /// A target closer to the dot than this, in pixels, is not drawn apart.
 pub const MIN_TARGET_GAP: f64 = 3.0;
+/// Temperatures with a vertical grid line.
+pub const GRID_TEMPS: [u8; 11] = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+/// Temperatures with a label under the axis.
+pub const LABEL_TEMPS: [u8; 6] = [0, 20, 40, 60, 80, 100];
+/// Percentages with a horizontal line and a label.
+pub const PERCENTS: [u8; 5] = [0, 25, 50, 75, 100];
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Rect {
@@ -77,21 +83,6 @@ impl Plot {
     /// y of a percentage of the duty-cycle axis.
     pub fn y_percent(&self, percent: f64) -> f64 {
         self.y(percent * DUTY_MAX / 100.0)
-    }
-
-    /// Temperatures with a vertical grid line.
-    pub fn grid_temps(&self) -> Vec<u8> {
-        (0..=100).step_by(10).collect()
-    }
-
-    /// Temperatures with a label under the axis.
-    pub fn label_temps(&self) -> Vec<u8> {
-        (0..=100).step_by(20).collect()
-    }
-
-    /// Percentages with a horizontal line and a label.
-    pub fn percents(&self) -> &'static [u8] {
-        &[0, 25, 50, 75, 100]
     }
 }
 

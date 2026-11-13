@@ -56,14 +56,29 @@ Obowiązuje każdą stronę, także przyszłe (podświetlenie, wydajność):
 ## Tłumaczenia
 
 - gettext od pierwszego kodu. Każdy tekst widoczny dla użytkownika przechodzi przez `gettext`/`ngettext`/`pgettext`. msgid po angielsku.
-- Nowy lub zmieniony tekst: zaktualizuj `po/POTFILES.in` i `po/pl.po` w tym samym commicie.
+- Nowy lub zmieniony tekst: zaktualizuj `po/POTFILES.in` i `po/pl.po` w tym samym commicie (`meson compile -C build baseboard-pot baseboard-update-po`, potem `msgattrib --no-obsolete -o po/pl.po po/pl.po`).
 - Plik `.desktop`, metainfo i akcje polkit tłumaczone przez `msgfmt` w meson: `custom_target` zależny od `po/LINGUAS` i plików `.po` (nie `i18n.merge_file`, który nie przebudowuje pliku po zmianie tłumaczeń).
 - Nie składaj zdań z kawałków. Liczby formatuj zgodnie z lokalizacją.
 
 ## Kod i jakość
 
-- Przed commitem: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `meson test`.
+- Przed commitem: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings` i to samo z `--release`, `meson test` (z testem `tour`). Wymagania i automaty: `docs/PROJEKT.md` §8.
 - `unsafe` tylko w modułach FFI (libsensors, libudev, i18n: `setlocale` i `nl_langinfo`, ioctl hidraw), każdy blok z komentarzem `// SAFETY:`.
 - Pomocnik przyjmuje z D-Bus wyłącznie klucze kanałów z profilu, nigdy ścieżek. Profile czyta tylko z katalogów systemowych.
 - Każdy plik źródłowy (Rust, meson, skrypty, pliki danych, w których komentarz jest przyjęty) zaczyna się od `SPDX-License-Identifier: GPL-3.0-or-later`. Metainfo ma `CC0-1.0`. Ikon SVG nie zmieniamy.
 - Język: `docs/` po polsku; README, komentarze w kodzie i wiadomości commitów po angielsku.
+
+## Gotowe: pytania przed każdym commitem
+
+Na każde odpowiedź „tak”; inaczej commit nie jest gotowy.
+
+1. `cargo fmt --check`, `cargo clippy` (debug i release) z `-D warnings` i `meson test` (z `tour`) są zielone?
+2. Każda zmiana zachowania ma test, który przed zmianą nie przechodził, a wiadomość commita mówi, jak to sprawdzono?
+3. Nowy klikalny element (na stronie, podstronie albo w oknie dialogowym) ma oczekiwanie w `tour`?
+4. Zmiana układu usuwa stary kod, pola modelu, testy, style, ikony, teksty i makiety, a wiadomość commita wymienia je w sekcji „Removed:”?
+5. Każde nowe pole, parametr, opcja albo abstrakcja ma dziś co najmniej dwie wartości albo dwa użycia (wyjątek: krok planu na liście wyjątków `tests/core-api-exceptions.txt`)?
+6. Teksty idą przez gettext, `POTFILES.in` jest aktualny, `pl.po` nie ma fuzzy ani `#~`, a żadne pojęcie nie dostało drugiego słowa (D66)?
+7. Komentarze mówią, co jest dziś i dlaczego: bez historii zmian, a komentarze dla tłumaczy bez numerów decyzji?
+8. Specyfikacja w `docs/PROJEKT.md` zgadza się z kodem, „Stan prac” jest zastąpiony, nie dopisany, a decyzja jest w tabeli decyzji (zastąpiona oznaczona)?
+9. To, co zmieniłem, kliknąłem w prawdziwej aplikacji (albo sprawdza to `tour`), a w jej wyjściu nie ma ostrzeżeń?
+10. `git status` jest czysty poza zmianami kroku, commit jest mały, po angielsku, a temat ma do 72 znaków?

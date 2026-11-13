@@ -310,7 +310,7 @@ mod debug {
                         window.set_focus_visible(true);
                         for step in 1..=steps {
                             window.child_focus(gtk::DirectionType::TabForward);
-                            let focus = gtk::prelude::RootExt::focus(&window);
+                            let focus = RootExt::focus(&window);
                             let text = focus.as_ref().map(first_text).unwrap_or_default();
                             let kind = focus
                                 .as_ref()

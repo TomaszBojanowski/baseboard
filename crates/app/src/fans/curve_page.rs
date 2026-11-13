@@ -248,6 +248,115 @@ fn swatch(css: &str) -> gtk::Box {
     swatch
 }
 
+/// In place of the chart, when the curve could not be read; hidden.
+fn unreadable_list() -> gtk::ListBox {
+    let list = boxed_list();
+    list.append(&info_row(
+        "help-about-symbolic",
+        // Translators: on a fan's row and on its curve page when the
+        // board's controller did not give the curve.
+        &gettext("The curve could not be read"),
+        &gettext("Baseboard tries again every 10 seconds."),
+    ));
+    list.set_visible(false);
+    list
+}
+
+/// What the list of fans does not show (D62): the list, its header and
+/// its rows.
+fn header_group() -> (gtk::ListBox, gtk::Box, HeaderRows) {
+    let list = boxed_list();
+    let header = list_header(
+        &list,
+        // Translators: on the curve page, the group about the fan
+        // header of the board: its mode, minimum and notes.
+        &gettext("Header"),
+        None,
+    );
+    let (mode_row, mode) = value_row(&gettext("Mode"), None);
+    let manual = info_row(
+        "help-about-symbolic",
+        // Translators: on the curve page of a fan in manual mode.
+        &gettext("In manual mode the curve does not run"),
+        &gettext(
+            "The fan holds a fixed duty cycle, and the curve stays in the board's controller.",
+        ),
+    );
+    let (minimum_row, minimum) = value_row(
+        // Translators: on the curve page, the lowest duty cycle of a
+        // header.
+        &gettext("Minimum"),
+        Some(&gettext("The lowest duty cycle Baseboard allows")),
+    );
+    let unverified = info_row(
+        "help-about-symbolic",
+        // Translators: on the curve page of a fan header whose channel
+        // nobody has checked on this board.
+        &gettext("This header was not checked on this board"),
+        &gettext("Nobody has confirmed yet that this reading belongs to this header."),
+    );
+    let empty = info_row(
+        "help-about-symbolic",
+        // Translators: on the curve page of a fan that has not spun
+        // since Baseboard started.
+        &gettext("Not spinning since the app started"),
+        &gettext("The header may be empty."),
+    );
+    for row in [&mode_row, &manual, &minimum_row, &unverified, &empty] {
+        list.append(row);
+    }
+    let rows = HeaderRows {
+        mode,
+        manual,
+        minimum_row,
+        minimum,
+        unverified,
+        empty,
+    };
+    (list, header, rows)
+}
+
+/// The temperature the curve follows, which cannot be changed: the group
+/// and its row.
+fn source_group() -> (adw::PreferencesGroup, adw::ActionRow) {
+    let source_group = group(&gettext("Temperature source"));
+    // Translators: under "Temperature source" on the curve page; "it"
+    // is the temperature.
+    let computes = gettext("The controller computes the duty cycle from it.");
+    source_group.set_description(Some(&computes));
+    let row = adw::ActionRow::builder().use_markup(false).build();
+    let thermometer = gtk::Image::from_icon_name("baseboard-temperature-symbolic");
+    thermometer.set_accessible_role(gtk::AccessibleRole::Presentation);
+    row.add_prefix(&thermometer);
+    let lock = gtk::Image::builder()
+        .icon_name("system-lock-screen-symbolic")
+        .css_classes(["dimmed"])
+        .build();
+    // Translators: read by screen readers next to the temperature
+    // source on the curve page.
+    lock.update_property(&[gtk::accessible::Property::Label(&gettext(
+        "Cannot be changed",
+    ))]);
+    row.add_suffix(&lock);
+    source_group.add(&row);
+    (source_group, row)
+}
+
+fn how_group() -> adw::PreferencesGroup {
+    let how = group(&gettext("How the curve works"));
+    how.add(&info_row(
+        "baseboard-curve-symbolic",
+        &gettext("The duty cycle changes linearly between the points"),
+        &gettext("Below the first point and above the last one, their duty cycle applies."),
+    ));
+    how.add(&info_row(
+        "baseboard-board-symbolic",
+        &gettext("The board's controller runs the curve"),
+        &gettext("Baseboard does not have to run for it."),
+    ));
+    how
+}
+
 impl CurvePage {
     pub(super) fn new(key: &str) -> Self {
         let title = adw::WindowTitle::new("", "");
@@ -291,16 +400,7 @@ impl CurvePage {
         chart_card.append(&legend);
         content.append(&chart_card);
 
-        // In place of the chart, when the curve could not be read.
-        let unreadable = boxed_list();
-        unreadable.append(&info_row(
-            "help-about-symbolic",
-            // Translators: on a fan's row and on its curve page when the
-            // board's controller did not give the curve.
-            &gettext("The curve could not be read"),
-            &gettext("Baseboard tries again every 10 seconds."),
-        ));
-        unreadable.set_visible(false);
+        let unreadable = unreadable_list();
         content.append(&unreadable);
 
         // Points on the left; source and how it works on the right, or
@@ -329,82 +429,11 @@ impl CurvePage {
             .valign(gtk::Align::Start)
             .build();
 
-        // What the list of fans does not show (D62).
-        let header_list = boxed_list();
-        let header_header = list_header(
-            &header_list,
-            // Translators: on the curve page, the group about the fan
-            // header of the board: its mode, minimum and notes.
-            &gettext("Header"),
-            None,
-        );
-        let (mode_row, mode) = value_row(&gettext("Mode"), None);
-        let manual = info_row(
-            "help-about-symbolic",
-            // Translators: on the curve page of a fan in manual mode.
-            &gettext("In manual mode the curve does not run"),
-            &gettext(
-                "The fan holds a fixed duty cycle, and the curve stays in the board's controller.",
-            ),
-        );
-        let (minimum_row, minimum) = value_row(
-            // Translators: on the curve page, the lowest duty cycle of a
-            // header.
-            &gettext("Minimum"),
-            Some(&gettext("The lowest duty cycle Baseboard allows")),
-        );
-        let unverified = info_row(
-            "help-about-symbolic",
-            // Translators: on the curve page of a fan header whose channel
-            // nobody has checked on this board.
-            &gettext("This header was not checked on this board"),
-            &gettext("Nobody has confirmed yet that this reading belongs to this header."),
-        );
-        let empty = info_row(
-            "help-about-symbolic",
-            // Translators: on the curve page of a fan that has not spun
-            // since Baseboard started.
-            &gettext("Not spinning since the app started"),
-            &gettext("The header may be empty."),
-        );
-        for row in [&mode_row, &manual, &minimum_row, &unverified, &empty] {
-            header_list.append(row);
-        }
+        let (header_list, header_header, header_rows) = header_group();
         side.append(&header_list);
-
-        let source_group = group(&gettext("Temperature source"));
-        // Translators: under "Temperature source" on the curve page; "it"
-        // is the temperature.
-        let computes = gettext("The controller computes the duty cycle from it.");
-        source_group.set_description(Some(&computes));
-        let source_row = adw::ActionRow::builder().use_markup(false).build();
-        let thermometer = gtk::Image::from_icon_name("baseboard-temperature-symbolic");
-        thermometer.set_accessible_role(gtk::AccessibleRole::Presentation);
-        source_row.add_prefix(&thermometer);
-        let lock = gtk::Image::builder()
-            .icon_name("system-lock-screen-symbolic")
-            .css_classes(["dimmed"])
-            .build();
-        // Translators: read by screen readers next to the temperature
-        // source on the curve page.
-        lock.update_property(&[gtk::accessible::Property::Label(&gettext(
-            "Cannot be changed",
-        ))]);
-        source_row.add_suffix(&lock);
-        source_group.add(&source_row);
+        let (source_group, source_row) = source_group();
         side.append(&source_group);
-        let how = group(&gettext("How the curve works"));
-        how.add(&info_row(
-            "baseboard-curve-symbolic",
-            &gettext("The duty cycle changes linearly between the points"),
-            &gettext("Below the first point and above the last one, their duty cycle applies."),
-        ));
-        how.add(&info_row(
-            "baseboard-board-symbolic",
-            &gettext("The board's controller runs the curve"),
-            &gettext("Baseboard does not have to run for it."),
-        ));
-        side.append(&how);
+        side.append(&how_group());
         content.append(&columns);
         // What this version does, as under the list of fans.
         content.append(
@@ -468,14 +497,7 @@ impl CurvePage {
             points,
             rows: RefCell::new(Vec::new()),
             shown: RefCell::new(Vec::new()),
-            header: HeaderRows {
-                mode,
-                manual,
-                minimum_row,
-                minimum,
-                unverified,
-                empty,
-            },
+            header: header_rows,
             source_row,
             labelled,
         }

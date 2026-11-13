@@ -460,7 +460,7 @@ fn board_rows(chip: &Chip, board: &Board, context: &Context, out: &mut Rows) {
                 reading,
                 context,
                 |l| l.fan(&fan.key),
-                || labelled(&fan.label).unwrap_or_else(|| role.clone()),
+                || labelled(fan.label.as_ref()).unwrap_or_else(|| role.clone()),
             ),
             role,
             subtitle: Subtitle::Header {
@@ -490,7 +490,7 @@ fn board_rows(chip: &Chip, board: &Board, context: &Context, out: &mut Rows) {
                 reading,
                 context,
                 |l| l.temp(&temp.key),
-                || labelled(&temp.label).unwrap_or_else(|| role.clone()),
+                || labelled(temp.label.as_ref()).unwrap_or_else(|| role.clone()),
             ),
             role,
             subtitle: channel_source(chip, reading),
@@ -521,7 +521,7 @@ fn board_rows(chip: &Chip, board: &Board, context: &Context, out: &mut Rows) {
                 reading,
                 context,
                 |l| l.voltage(&rail.key),
-                || labelled(&rail.label).unwrap_or_else(|| role.clone()),
+                || labelled(rail.label.as_ref()).unwrap_or_else(|| role.clone()),
             ),
             role,
             subtitle: channel_source(chip, reading),
@@ -736,8 +736,8 @@ fn pick_custom<'a>(
     }
 }
 
-fn labelled(label: &Option<String>) -> Option<Name> {
-    label.clone().map(Name::Label)
+fn labelled(label: Option<&String>) -> Option<Name> {
+    label.cloned().map(Name::Label)
 }
 
 /// The rating of a rail. The limit itself is within the tolerance, also

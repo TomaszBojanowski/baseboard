@@ -11,7 +11,7 @@
 //! it stays on the thread that made it (it is neither `Send` nor `Sync`).
 //! It only reads: `set` statements are never executed.
 
-#![allow(unsafe_code)]
+#![allow(unsafe_code, reason = "an FFI module: libsensors through dlopen")]
 
 use std::cell::RefCell;
 use std::ffi::{CStr, CString, c_char, c_int, c_short, c_uint, c_void};
@@ -26,17 +26,18 @@ use baseboard_core::sensors::{LmChip, LmFeature};
 /// The sonames to try: upstream 3.6 is `.so.5`, Fedora keeps `.so.4`.
 const LIBRARIES: [&CStr; 2] = [c"libsensors.so.5", c"libsensors.so.4"];
 
-// The C structures of sensors.h. Not every field is read here.
+// The C structures of sensors.h. Not every field is read here, but each
+// one keeps the layout.
 
 #[repr(C)]
-#[allow(dead_code)]
+#[allow(dead_code, reason = "the layout of sensors.h")]
 struct BusId {
     kind: c_short,
     nr: c_short,
 }
 
 #[repr(C)]
-#[allow(dead_code)]
+#[allow(dead_code, reason = "the layout of sensors.h")]
 struct ChipName {
     prefix: *mut c_char,
     bus: BusId,
@@ -45,7 +46,7 @@ struct ChipName {
 }
 
 #[repr(C)]
-#[allow(dead_code)]
+#[allow(dead_code, reason = "the layout of sensors.h")]
 struct Feature {
     name: *mut c_char,
     number: c_int,
@@ -55,7 +56,7 @@ struct Feature {
 }
 
 #[repr(C)]
-#[allow(dead_code)]
+#[allow(dead_code, reason = "the layout of sensors.h")]
 struct Subfeature {
     name: *mut c_char,
     number: c_int,
@@ -480,7 +481,8 @@ unsafe fn text(ptr: *const c_char) -> Option<String> {
 mod tests {
     //! These tests read the real /sys through libsensors (it cannot be
     //! pointed elsewhere) with a configuration of their own, never the
-    //! system one. Where libsensors is missing they are skipped.
+    //! system one. Where libsensors is missing they are skipped; where the
+    //! computer has no fitting chip, they say that they do not apply.
 
     use std::collections::HashSet;
     use std::sync::Mutex;
@@ -512,7 +514,7 @@ mod tests {
         match Libsensors::load(Some(path)) {
             Ok(lib) => Some(lib),
             Err(e @ (Error::Library(_) | Error::Symbol(_) | Error::Init(_))) => {
-                eprintln!("libsensors not usable here, test skipped: {e}");
+                crate::test_env::skip("libsensors", &format!("libsensors not usable here: {e}"));
                 None
             }
             Err(e) => panic!("{e}"),
@@ -575,7 +577,10 @@ mod tests {
             return;
         };
         let Some(chip) = lib.chips().into_iter().find(|c| !c.features.is_empty()) else {
-            eprintln!("no hwmon chip with features on this system, test skipped");
+            crate::test_env::not_applicable(
+                "syntax_error_keeps_the_other_statements",
+                "no hwmon chip with features",
+            );
             return;
         };
         drop(lib);
@@ -682,7 +687,10 @@ mod tests {
         };
         let rounds = rounds(&lib);
         if rounds[0].lm.is_empty() {
-            eprintln!("no hwmon chips on this system, only the empty case checked");
+            crate::test_env::not_applicable(
+                "same_as_sysfs_without_configuration",
+                "no hwmon chips, only the empty case checked",
+            );
         }
         let candidates = steady(&rounds);
         assert_eq!(sensors::computed(&rounds, &candidates), HashSet::new());
@@ -730,9 +738,10 @@ mod tests {
             .max_by_key(|chip| chip.features.len())
             .filter(|chip| chip.features.len() >= 4)
         else {
-            eprintln!(
-                "no chip with 4 voltages or temperatures that hold still, \
-                 test skipped (needs a driver that keeps its readings, like nct6683)"
+            crate::test_env::not_applicable(
+                "compute_ignore_and_label",
+                "no chip with 4 voltages or temperatures that hold still (it needs a driver \
+                 that keeps its readings, like nct6683)",
             );
             return;
         };

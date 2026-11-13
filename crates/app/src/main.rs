@@ -2,6 +2,9 @@
 
 //! Baseboard: monitoring and control of motherboard hardware for GNOME.
 
+// Every dependency is used (docs/PROJEKT.md §8, Z4).
+#![warn(unused_crate_dependencies)]
+
 mod alert;
 mod application;
 mod board;
@@ -19,6 +22,8 @@ mod sampler;
 mod sensors;
 mod system;
 mod system_reader;
+#[cfg(test)]
+mod test_env;
 #[cfg(debug_assertions)]
 mod tour;
 mod window;

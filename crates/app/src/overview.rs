@@ -246,8 +246,9 @@ pub(crate) struct RowWidgets {
     value: gtk::Inscription,
     range: gtk::Inscription,
     icon: Option<gtk::Image>,
-    /// The rating the icon shows, to set it only when it changes.
-    shown_rating: Cell<Option<Option<bool>>>,
+    /// What the icon shows, to set it only when it changes: within the
+    /// tolerance or not, or `None` without a rating.
+    shown_rating: Cell<Option<bool>>,
 }
 
 impl RowWidgets {
@@ -277,6 +278,7 @@ impl RowWidgets {
         row.add_suffix(&range);
         let icon = rated.then(|| {
             let icon = gtk::Image::new();
+            set_rating_icon(&icon, None);
             row.add_suffix(&icon);
             icon
         });
@@ -334,8 +336,7 @@ impl RowWidgets {
                 Some(Rating::Rated { within, .. }) => Some(within),
                 _ => None,
             };
-            if self.shown_rating.get() != Some(within) {
-                self.shown_rating.set(Some(within));
+            if self.shown_rating.replace(within) != within {
                 set_rating_icon(icon, data.rating);
             }
         }

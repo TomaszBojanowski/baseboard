@@ -61,17 +61,6 @@ impl Paths {
             host_processes: false,
         }
     }
-
-    /// Everything under one folder: `<root>/sys`, `<root>/proc`, …
-    pub fn under(root: &Path) -> Self {
-        Self {
-            sys: root.join("sys"),
-            proc: root.join("proc"),
-            etc: Some(root.join("etc")),
-            os_release: vec![root.join("etc/os-release"), root.join("usr/lib/os-release")],
-            host_processes: true,
-        }
-    }
 }
 
 /// How Baseboard is installed, for "Copy system information".

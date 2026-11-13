@@ -11,7 +11,7 @@
 //! safe, so [`Libudev`] stays on the thread that made it (it is neither
 //! `Send` nor `Sync`). It only reads the database.
 
-#![allow(unsafe_code)]
+#![allow(unsafe_code, reason = "an FFI module: libudev through dlopen")]
 
 use std::ffi::{CStr, CString, c_char, c_void};
 use std::os::unix::ffi::OsStrExt;
@@ -177,7 +177,8 @@ mod tests {
         let udev = match Libudev::load() {
             Ok(udev) => udev,
             Err(e) => {
-                eprintln!("libudev not available, test skipped: {e}");
+                let why = format!("libudev not available: {e}");
+                crate::test_env::skip("properties_of_a_real_device", &why);
                 return;
             }
         };
@@ -185,6 +186,8 @@ mod tests {
         let dmi = Path::new("devices/virtual/dmi/id");
         if Path::new("/sys").join(dmi).exists() {
             assert_eq!(udev.property(dmi, "SUBSYSTEM").as_deref(), Some("dmi"));
+        } else {
+            crate::test_env::not_applicable("properties_of_a_real_device", "no DMI device");
         }
         assert_eq!(udev.property(dmi, "BASEBOARD_NO_SUCH_PROPERTY"), None);
         assert_eq!(

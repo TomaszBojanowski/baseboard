@@ -42,6 +42,16 @@ subdir('data')
 subdir('po')
 subdir('crates/app')
 
+# Checks of the source tree (docs/PROJEKT.md §8): every public item of
+# core is used or planned (Z3), and resources and styles have no orphans
+# (Z6).
+python = find_program('python3')
+foreach check : ['core_api', 'resources']
+  test(check.replace('_', '-'), python,
+    args: [meson.project_source_root() / 'tests' / check + '.py', meson.project_source_root()],
+  )
+endforeach
+
 # `meson devenv -C build ./crates/app/baseboard` runs the app without
 # installing it, with the settings schema and the translations of the build
 # directory and the board profiles of the source tree.

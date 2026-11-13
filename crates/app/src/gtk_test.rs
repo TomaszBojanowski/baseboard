@@ -3,8 +3,8 @@
 //! Tests with widgets. GTK runs on the one thread that initialized it,
 //! while each test has a thread of its own, so the tests hand their
 //! widgets work to one thread of GTK's and wait for it. Without a display
-//! GTK does not start and the tests are skipped. A warning or an error of
-//! GTK or GLib during a test fails it.
+//! GTK does not start and the tests are skipped (`test_env::skip`). A
+//! warning or an error of GTK or GLib during a test fails it.
 
 use std::panic::{self, AssertUnwindSafe};
 use std::sync::mpsc;
@@ -73,11 +73,11 @@ fn gtk_thread() -> Option<&'static Mutex<mpsc::Sender<Job>>> {
         .as_ref()
 }
 
-/// Runs `test` on the thread of GTK; a failure there fails the test. Says
-/// so and returns without a display.
+/// Runs `test` on the thread of GTK; a failure there fails the test.
+/// Without a display the test is skipped.
 pub fn run(name: &str, test: impl FnOnce() + Send + 'static) {
     let Some(thread) = gtk_thread() else {
-        eprintln!("no display: {name} skipped");
+        crate::test_env::skip(name, "no display");
         return;
     };
     let (done, receive_done) = mpsc::channel();

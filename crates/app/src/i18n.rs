@@ -6,7 +6,7 @@
 //! An FFI module: `setlocale` changes the process-wide C locale, which is
 //! why it is unsafe, and `nl_langinfo` reads it.
 
-#![allow(unsafe_code)]
+#![allow(unsafe_code, reason = "an FFI module: setlocale and nl_langinfo")]
 
 use std::ffi::CStr;
 

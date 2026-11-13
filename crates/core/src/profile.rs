@@ -32,7 +32,9 @@ const MAX_EMERGENCY_C: u8 = 125;
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Profile {
-    pub schema: u32,
+    /// Checked before, in [`parse`].
+    #[serde(rename = "schema")]
+    _schema: u32,
     /// Short name of the profile, equal to the file name without `.toml`.
     pub id: String,
     /// Board model for display, as DMI reports it.
@@ -940,7 +942,7 @@ tolerance_pct = 5.0
     /// voltage and rated against another.
     #[test]
     fn nominal_voltages_agree_with_their_names() {
-        let dir = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../data/boards"));
+        let dir = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../data/boards"));
         let mut checked = 0;
         for entry in std::fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();

@@ -406,6 +406,12 @@ impl BaseboardWindow {
         self.imp().split_view.set_show_content(true);
     }
 
+    /// Shows the sidebar instead of the page when the window is narrow.
+    #[cfg(debug_assertions)]
+    pub fn show_sidebar(&self) {
+        self.imp().split_view.set_show_content(false);
+    }
+
     /// Chooses a page in the sidebar.
     #[cfg(debug_assertions)]
     pub fn select_page(&self, page: Page) {

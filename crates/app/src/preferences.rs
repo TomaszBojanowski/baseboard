@@ -290,7 +290,7 @@ fn open(button: &gtk::Button, path: &Path) {
 }
 
 /// A path with the home folder written as "~".
-pub fn home_relative(path: &std::path::Path) -> String {
+pub fn home_relative(path: &Path) -> String {
     match path.strip_prefix(glib::home_dir()) {
         Ok(rest) => format!("~/{}", rest.display()),
         Err(_) => path.display().to_string(),
@@ -403,7 +403,7 @@ mod tests {
             .arg(&dir)
             .status();
         if !compiled.is_ok_and(|status| status.success()) {
-            eprintln!("glib-compile-schemas not available, test skipped");
+            crate::test_env::skip(test, "glib-compile-schemas not available");
             return None;
         }
         let source =
