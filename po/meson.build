@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # Only comments marked for translators reach them, not the doc comments of
-# the code.
-i18n.gettext(
+# the code. The first of the targets builds the .mo files, which the tour
+# needs.
+translations = i18n.gettext(
   meson.project_name(),
   args: ['--from-code=UTF-8', '--add-comments=Translators:'],
 )

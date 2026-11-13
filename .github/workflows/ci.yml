@@ -6,7 +6,8 @@
 # skipped test (BASEBOARD_TESTS_STRICT=1). The runner has no motherboard of
 # the app: the tests that read the real /sys run once more with their
 # output, which says what does not apply there. Actions are pinned to
-# commits.
+# commits and the runner to a version of its system; the tests run in the
+# container of a release of Fedora, whose packages dnf brings up to date.
 name: CI
 
 on:
@@ -25,7 +26,7 @@ concurrency:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     container: fedora:45
     timeout-minutes: 60
     env:

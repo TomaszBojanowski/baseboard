@@ -505,12 +505,20 @@ mod tests {
         let _ = sampler.sample();
         assert_eq!(sampler.made, 1, "nothing changed, nothing made again");
 
+        // The new folder is made before the old one goes, as sysfs never
+        // gives a new folder the number of an old one; a file system that
+        // reuses the numbers of removed folders (ext4, also under the
+        // overlay of a container) would otherwise give it the old inode.
         let hwmon = tree.0.join("devices/platform/nct6683.2592/hwmon/hwmon0");
-        std::fs::remove_dir_all(&hwmon).unwrap();
+        let new = tree
+            .0
+            .join("devices/platform/nct6683.2592/hwmon/hwmon0.new");
         copy(
             &Path::new(FIXTURES).join("sysfs-ms7e61-v1/devices/platform/nct6683.2592/hwmon/hwmon7"),
-            &hwmon,
+            &new,
         );
+        std::fs::remove_dir_all(&hwmon).unwrap();
+        std::fs::rename(&new, &hwmon).unwrap();
         std::fs::write(hwmon.join("fan1_input"), "900\n").unwrap();
         let second = sampler.sample().groups;
         assert_eq!(sampler.made, 2);

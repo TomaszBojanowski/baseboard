@@ -64,8 +64,11 @@ install_data(
   install_dir: datadir / 'baseboard' / 'boards',
 )
 
-# Compiled into the build directory for `meson devenv`.
-gnome.compile_schemas(build_by_default: true, depend_files: files(app_id + '.gschema.xml'))
+# Compiled into the build directory for `meson devenv` and the tour.
+compiled_schemas = gnome.compile_schemas(
+  build_by_default: true,
+  depend_files: files(app_id + '.gschema.xml'),
+)
 
 glib_compile_schemas = find_program('glib-compile-schemas', required: false)
 if glib_compile_schemas.found()

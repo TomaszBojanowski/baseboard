@@ -45,13 +45,15 @@ test(
 )
 
 # The tour of every page and subpage on an invisible X server
-# (tests/tour.sh); only debug builds have it.
+# (tests/tour.sh); only debug builds have it. `meson test` builds only
+# what the tests depend on: the app, its settings schema and its
+# translations.
 if rust_target == 'debug'
   test(
     'tour',
     find_program(meson.project_source_root() / 'tests' / 'tour.sh'),
     args: [app],
-    depends: app,
+    depends: [app, compiled_schemas, translations[0]],
     env: [
       'GSETTINGS_SCHEMA_DIR=' + meson.project_build_root() / 'data',
       'BASEBOARD_LOCALEDIR=' + meson.project_build_root() / 'po',
