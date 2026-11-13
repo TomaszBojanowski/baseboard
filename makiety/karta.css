@@ -1,0 +1,78 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* The card of a part (karta.js) and the status sentence (D67), on the
+   Overview, the Fans page and the System page. The widths as in the app
+   (`app::layout`): from 1100 px of content wide, 880–1099 px denser,
+   600–879 px one card a row with the number beside the line, up to 599 px
+   narrow. */
+
+/* AdwNavigationSplitView: the sidebar is a quarter of the window, 180–280 px */
+.sidebar-pane { width: clamp(180px, 25%, 280px); }
+
+.chev { opacity: .4; flex: none; }
+
+/* the icon of a part in a light circle of the accent color */
+.badge { width: 38px; height: 38px; flex: none; border-radius: 50%; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--accent-bg) 16%, transparent); color: var(--accent); }
+.badge svg.ic { width: 18px; height: 18px; }
+.badge.warn { background: color-mix(in srgb, var(--warning-bg) 22%, transparent); color: var(--warning); }
+.badge.small { width: 32px; height: 32px; }
+.badge.small svg.ic { width: 16px; height: 16px; }
+
+/* the status sentence on top of the Overview and the System page */
+.o-status { display: flex; gap: 14px; align-items: flex-start; padding: 14px 18px; border-radius: 12px;
+  background: var(--card-bg); box-shadow: var(--card-shadow); }
+.o-status svg.ic { width: 20px; height: 20px; margin-top: 2px; flex: none; }
+.o-status .grow { flex: 1; min-width: 0; }
+.o-status .t { font-weight: 700; font-size: 112%; }
+.o-status .s { opacity: .7; margin-top: 2px; }
+.o-status.ok svg.ic { color: var(--success); }
+.o-status.info svg.ic { opacity: .7; }
+.o-status.warn { background: color-mix(in srgb, var(--warning-bg) 18%, transparent); box-shadow: none; }
+.o-status.warn > svg.ic:first-child { color: var(--warning); }
+.o-status .chev { align-self: center; }
+
+/* the line of the last 5 minutes */
+.spark { position: relative; height: 96px; color: var(--accent-bg); }
+.spark svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.spark .sl { fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; }
+.spark .dot { position: absolute; right: -4.5px; width: 9px; height: 9px; border-radius: 50%; background: currentColor;
+  transform: translateY(-50%); box-shadow: 0 0 0 2.5px var(--card-bg); }
+.spark.big { height: 170px; }
+.cap { display: flex; justify-content: space-between; gap: 8px; font-size: 85%; opacity: .55; font-variant-numeric: tabular-nums; margin-top: 4px; }
+
+/* the card */
+.pcard { display: flex; flex-direction: column; gap: 14px; padding: 16px 18px 18px; border-radius: 14px;
+  background: var(--card-bg); box-shadow: var(--card-shadow); }
+.pc-head { display: flex; align-items: center; gap: 12px; }
+.pc-name { flex: 1; font-weight: 700; font-size: 110%; }
+.pc-main { display: grid; grid-template-areas: "num" "hist" "facts"; gap: 12px; }
+.pc-num { grid-area: num; }
+.pc-num .n { font-size: 80px; font-weight: 300; line-height: 1.02; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.pc-num .n .u { font-size: 36%; opacity: .55; vertical-align: 120%; margin-left: 4px; font-weight: 400; }
+.pc-hist { grid-area: hist; }
+.facts { grid-area: facts; display: flex; flex-direction: column; }
+.fact { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--card-shade); }
+.fact span { opacity: .65; }
+.fact b { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; display: inline-flex; gap: 6px; align-items: center; }
+.fact.warn b { color: var(--warning); }
+.pc-note { opacity: .55; margin-top: -4px; }
+.pc-note.reserved { visibility: hidden; }
+/* close to its limit: the number and the line in the color of warnings */
+.pcard.hot .pc-num .n { color: var(--warning); }
+.pcard.hot .spark { color: var(--warning-bg); }
+
+@container (max-width: 1099px) {
+  .pc-num .n { font-size: 56px; }
+  .spark.big { height: 96px; }
+}
+/* one card a row: the temperature and the facts beside the line */
+@container (max-width: 879px) {
+  .pc-main { grid-template-columns: 210px minmax(0, 1fr); grid-template-areas: "num hist" "facts hist"; column-gap: 24px; row-gap: 4px; }
+  .pc-hist { align-self: stretch; display: flex; flex-direction: column; justify-content: flex-end; }
+}
+@container (max-width: 599px) {
+  .pc-main { grid-template-columns: 1fr; grid-template-areas: "num" "hist" "facts"; }
+  .pc-num .n { font-size: 48px; }
+  .spark.big { height: 70px; }
+}

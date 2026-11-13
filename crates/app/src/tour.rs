@@ -2,16 +2,18 @@
 
 //! Debug builds only: `BASEBOARD_DEBUG_TOUR=1` walks through the window as
 //! a user would (docs/PROJEKT.md §8, Z10). It clicks every row of the
-//! sidebar; on the Overview, Fans and System pages it clicks every large
-//! number and every row that can be clicked, and checks that each one
-//! opens what its text names, and that nothing expected is missing; from
-//! the main menu it opens Preferences (a switch, "Visible Readings" and a
-//! switch there), the keyboard shortcuts and About; it copies the system
-//! information, checks the clipboard and quits. It prints a line for each
-//! check and "baseboard: tour done" when all of them passed.
-//! `tests/tour.sh` runs it on an invisible X server, tells it how many
-//! fans of the tree open their curve (`BASEBOARD_TOUR_CURVES`), and also
-//! fails on any warning of GTK or GLib.
+//! sidebar; on the Overview, Fans and System pages it clicks every card,
+//! tile and row that can be clicked, and checks that each one opens what
+//! its text names, that the status sentence says what the tree shows, and
+//! that nothing expected is missing; from the main menu it opens
+//! Preferences (a switch, "Visible Readings" and a switch there), the
+//! keyboard shortcuts and About; it copies the system information, checks
+//! the clipboard and quits. It prints a line for each check and
+//! "baseboard: tour done" when all of them passed. `tests/tour.sh` runs it
+//! on an invisible X server, tells it how many fans of the tree open their
+//! curve (`BASEBOARD_TOUR_CURVES`) and whether its processor is close to
+//! its limit (`BASEBOARD_TOUR_HOT`), and also fails on any warning of GTK
+//! or GLib.
 
 use std::cell::Cell;
 use std::time::Duration;
@@ -35,14 +37,14 @@ enum Opens {
     FansPage,
 }
 
-/// What the texts of the Overview open, from what they say.
-fn overview_expected() -> [(String, Opens); 8] {
+/// What the cards, tiles and rows of the Overview open, from what they
+/// say (D67).
+fn overview_expected() -> [(String, Opens); 7] {
     let sensors = |kind| Opens::Sensors(Some(kind));
     [
         (gettext("Processor"), sensors(GroupKind::Cpu)),
         (gettext("Graphics card"), sensors(GroupKind::Gpu)),
         (gettext("Motherboard"), sensors(GroupKind::Board)),
-        (gettext("Power"), sensors(GroupKind::Voltages)),
         (gettext("Fans"), Opens::FansPage),
         (
             pgettext("system memory", "Memory"),
@@ -51,6 +53,30 @@ fn overview_expected() -> [(String, Opens); 8] {
         (gettext("Disks"), sensors(GroupKind::Disks)),
         (gettext("All sensors"), Opens::Sensors(None)),
     ]
+}
+
+/// The tree has a processor close to its limit (`tests/tour.sh`).
+fn hot() -> bool {
+    std::env::var_os("BASEBOARD_TOUR_HOT").is_some_and(|hot| !hot.is_empty())
+}
+
+/// The status sentence of the tree: the processor close to its limit, or
+/// all fine; it is a row to click only when it warns.
+fn status_says(texts: &[String]) -> bool {
+    match texts.first() {
+        Some(title) if hot() => {
+            let words = gettext("Processor is very hot: {value}");
+            let start = words.split("{value}").next().unwrap_or_default();
+            title.starts_with(start)
+        }
+        Some(title) => *title == crate::alert::everything_fine(),
+        None => false,
+    }
+}
+
+/// The row of the status sentence on the Overview and the System page.
+fn is_status(widget: &gtk::Widget) -> bool {
+    widget.has_css_class("status-row")
 }
 
 /// Starts the tour when `BASEBOARD_DEBUG_TOUR` is set.
@@ -213,19 +239,51 @@ impl Tour {
         }
     }
 
+    /// The row of the status sentence of the page shown.
+    fn status_row(&self) -> Option<gtk::Widget> {
+        let page = self.window.shown().0?;
+        find_all::<adw::ActionRow>(&page)
+            .into_iter()
+            .map(|row| row.upcast::<gtk::Widget>())
+            .find(|row| row.is_mapped() && is_status(row))
+    }
+
     async fn overview(&self) {
-        let clickables = self.open(Page::Overview).await;
+        let mut clickables = self.open(Page::Overview).await;
+        // The processor warns after three readings close to its limit.
+        for _ in 0..100 {
+            if !hot() || clickables.iter().any(is_status) {
+                break;
+            }
+            pause(100).await;
+            clickables = self.clickables();
+        }
+        let status = self.status_row().map(|row| texts(&row));
+        self.check(
+            status.as_deref().is_some_and(status_says),
+            &format!("the Overview says what the tree shows: {status:?}"),
+        );
         let expected = overview_expected();
         let mut found = Vec::new();
+        let mut warned = false;
         for widget in clickables {
             let texts = texts(&widget);
             let what = format!("Overview {:?}", texts.first().cloned().unwrap_or_default());
-            let Some((text, opens)) = expected.iter().find(|(text, _)| texts.contains(text)) else {
+            let opens = if is_status(&widget) {
+                // Only a warning is a row to click: it opens the group of
+                // the processor.
+                warned = true;
+                Opens::Sensors(Some(GroupKind::Cpu))
+            } else if let Some((text, opens)) =
+                expected.iter().find(|(text, _)| texts.contains(text))
+            {
+                found.push(text.clone());
+                *opens
+            } else {
                 self.check(false, &format!("{what}: nothing expected of {texts:?}"));
                 continue;
             };
-            found.push(text.clone());
-            let Some(ok) = self.click(&widget, &what, || self.opened(*opens)).await else {
+            let Some(ok) = self.click(&widget, &what, || self.opened(opens)).await else {
                 continue;
             };
             self.check(
@@ -236,6 +294,10 @@ impl Tour {
             self.window.select_page(Page::Overview);
             pause(200).await;
         }
+        self.check(
+            warned == hot(),
+            "the status sentence is a row to click when it warns, and only then",
+        );
         // Nothing expected is missing.
         for (text, _) in &expected {
             self.check(
@@ -275,23 +337,30 @@ impl Tour {
         );
     }
 
-    /// The status row opens "Diagnostics", "Technical details" its page;
-    /// both are there.
+    /// The status row says what the Overview says (a system that only
+    /// reads the fans: that the readings work) and opens "Diagnostics",
+    /// "Technical details" its page; both are there.
     async fn system(&self) {
         let clickables = self.open(Page::System).await;
         let diagnostics = gettext("Diagnostics");
         let details = gettext("Technical Details");
-        let expected = [
-            (gettext("Everything works"), &diagnostics),
-            (gettext("Sensors work"), &diagnostics),
-            (gettext("Needs attention"), &diagnostics),
-            (gettext("Technical details"), &details),
-        ];
+        let status = self.status_row().map(|row| texts(&row));
+        let says = status.as_deref().is_some_and(|texts| {
+            status_says(texts) || (!hot() && texts.first() == Some(&crate::alert::readings_work()))
+        });
+        self.check(
+            says,
+            &format!("the System page says what the tree shows: {status:?}"),
+        );
         let mut opened = Vec::new();
         for widget in clickables {
             let texts = texts(&widget);
             let what = format!("System {:?}", texts.first().cloned().unwrap_or_default());
-            let Some(&(_, page)) = expected.iter().find(|(text, _)| texts.contains(text)) else {
+            let page = if is_status(&widget) {
+                &diagnostics
+            } else if texts.contains(&gettext("Technical details")) {
+                &details
+            } else {
                 self.check(false, &format!("{what}: nothing expected of {texts:?}"));
                 continue;
             };

@@ -3,15 +3,19 @@
 //! The main window: a sidebar with the pages and the page shown next to it.
 
 use std::path::PathBuf;
+use std::rc::Rc;
+use std::time::Instant;
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
 use baseboard_core::board::{self, Detection, Dmi};
+use baseboard_core::history::Histories;
 use gettextrs::{gettext, ngettext};
 use gtk::{gio, glib};
 
 use crate::config;
 use crate::fans::FansPage;
+use crate::layout;
 use crate::overview::OverviewPage;
 use crate::preferences::{self, DialogSetup};
 use crate::sampler::{FanReads, Sample, Setup, Worker};
@@ -86,6 +90,8 @@ mod imp {
         #[template_child]
         pub copy_button: TemplateChild<gtk::Button>,
         #[template_child]
+        pub copy_content: TemplateChild<adw::ButtonContent>,
+        #[template_child]
         pub toasts: TemplateChild<adw::ToastOverlay>,
         #[template_child]
         pub pages: TemplateChild<gtk::Stack>,
@@ -103,6 +109,9 @@ mod imp {
         pub worker: RefCell<Option<Worker>>,
         /// What the reader was last told to read of the fan channels.
         pub fan_reads: Cell<Option<FanReads>>,
+        /// The last five minutes of the temperatures (D67), for the cards
+        /// of the Overview and the Fans page.
+        pub histories: Rc<RefCell<Histories>>,
     }
 
     #[glib::object_subclass]
@@ -128,9 +137,16 @@ mod imp {
             self.parent_constructed();
             let obj = self.obj();
             obj.load_window_state();
+            self.overview.set_histories(self.histories.clone());
+            self.fans.set_histories(self.histories.clone());
 
             // With the window narrow the sidebar and the page are shown one
-            // at a time; choosing a page in the sidebar shows it.
+            // at a time, and the copy button only its icon, so that the
+            // page title fits; choosing a page in the sidebar shows it.
+            let narrow = layout::narrow_window();
+            narrow.add_setter(&*self.split_view, "collapsed", Some(&true.to_value()));
+            narrow.add_setter(&*self.copy_content, "label", Some(&"".to_value()));
+            obj.add_breakpoint(narrow);
             self.sidebar.connect_activated(glib::clone!(
                 #[weak(rename_to = split_view)]
                 self.split_view,
@@ -312,6 +328,9 @@ impl BaseboardWindow {
 
     fn show_sample(&self, sample: Sample) {
         let imp = self.imp();
+        imp.histories
+            .borrow_mut()
+            .update(&sample.groups, Instant::now());
         imp.fans.show(&sample);
         imp.overview.show(sample);
         // The warnings of the readings for the status row of the System
@@ -572,6 +591,7 @@ impl BaseboardWindow {
         let model =
             board::board_name(dmi, detection.profile()).unwrap_or_else(|| gettext("Unknown board"));
         imp.fans.set_board(detection.profile().cloned());
+        imp.overview.set_profile(detection.profile().is_some());
         imp.board_model.set_label(&model);
         imp.board_model.set_tooltip_text(Some(&model));
     }

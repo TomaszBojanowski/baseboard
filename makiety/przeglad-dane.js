@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// The readings the Overview of D64 shows, as the test tree of the app has
+// The readings the Overview shows at rest, as the test tree of the app has
 // them (MS-7E61, CPU sensor of the board at 50 °C): the processor (Tctl),
 // the graphics card, the board's system temperature, the warmest memory
-// module and drive, the fans that turn.
+// module and disk, the fans that spin. Also for the Preferences.
 window.PRZEGLAD = {
   tctlN: 68.2,
   gpuN: 30.0,

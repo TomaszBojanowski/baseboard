@@ -19,11 +19,12 @@ use std::time::{Duration, Instant};
 
 use baseboard_core::fans::driver::{Capability, Channel, FanDriver, Mode, SysfsDriver};
 use baseboard_core::fans::page::{ChannelReading, CurveRead, SourceRead};
+use baseboard_core::heat::{HeatWatch, Hot, Limits};
 use baseboard_core::labels::UserLabels;
 use baseboard_core::overview::{self, Board, Context, Extremes, Group, RowId};
 use baseboard_core::profile::Profile;
 use baseboard_core::sensors::{self, Device, SensorSource};
-use baseboard_core::summary::FanWatch;
+use baseboard_core::summary::{FanWatch, SpeedWatch};
 use baseboard_core::udev::{NoUdev, Udev};
 use gtk::glib;
 
@@ -92,6 +93,10 @@ pub struct Sampler {
     extremes: Extremes,
     /// How long the CPU fans have not been spinning (D65).
     watch: FanWatch,
+    /// Whether the fans speed up (D67).
+    speed: SpeedWatch,
+    /// Which temperatures are close to their limit (D67).
+    heat: HeatWatch,
     /// What to read of the fan channels.
     reads: FanReads,
     /// How many times the reader was made, for the tests.
@@ -107,6 +112,9 @@ struct Reader {
     /// The curves and sources by N of `pwmN`, and when they were read.
     curves: HashMap<u8, (CurveRead, SourceRead)>,
     curves_read: Option<Instant>,
+    /// The limits of the temperatures, read with the first sample: they
+    /// do not change while the devices stay.
+    limits: Option<Limits>,
 }
 
 /// One sample for the main loop.
@@ -121,6 +129,11 @@ pub struct Sample {
     /// The CPU fans that stopped spinning (D65), also when their rows are
     /// hidden.
     pub stopped: Vec<RowId>,
+    /// The duty cycle of a fan rose in the last seconds (D67).
+    pub speeding: bool,
+    /// The temperatures close to their limit (D67), also when their rows
+    /// are hidden; the closest first.
+    pub hot: Vec<Hot>,
 }
 
 /// How the sample was read, for the notes on the pages (§5.1, §5.4).
@@ -142,6 +155,8 @@ impl Sampler {
             reader: None,
             extremes: Extremes::default(),
             watch: FanWatch::default(),
+            speed: SpeedWatch::default(),
+            heat: HeatWatch::default(),
             made: 0,
         }
     }
@@ -214,7 +229,13 @@ impl Sampler {
         };
         let mut groups = overview::build(&chips, &context);
         self.extremes.update(&mut groups);
-        let stopped = self.watch.update(&groups, Instant::now());
+        let now = Instant::now();
+        let stopped = self.watch.update(&groups, now);
+        let speeding = self.speed.update(&groups, now);
+        let limits = reader
+            .limits
+            .get_or_insert_with(|| Limits::read(&chips, self.setup.profile.as_ref()));
+        let hot = self.heat.update(&groups, limits);
         Sample {
             groups,
             status: Status {
@@ -223,6 +244,8 @@ impl Sampler {
             },
             fans,
             stopped,
+            speeding,
+            hot,
         }
     }
 
@@ -255,6 +278,7 @@ impl Reader {
             udev,
             curves: HashMap::new(),
             curves_read: None,
+            limits: None,
         }
     }
 

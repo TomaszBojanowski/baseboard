@@ -17,6 +17,7 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use baseboard_core::fans::driver::Mode;
 use baseboard_core::sensors::Kind;
+use baseboard_core::summary::VISIBLE_CHANGE;
 use baseboard_core::units::{Numbers, UNIT_SPACE, duty_to_percent};
 use gettextrs::{gettext, pgettext};
 use gtk::{glib, pango};
@@ -24,10 +25,6 @@ use gtk::{glib, pango};
 use super::curve_page::mode_text;
 use super::percent;
 use super::spark::Spark;
-
-/// A change of the duty cycle shown on screen, in points of percent;
-/// smaller ones only go to screen readers (D62).
-pub(super) const VISIBLE_CHANGE: u8 = 5;
 
 /// The small chart in a wide and in a narrow window, in pixels.
 const SPARK_WIDE: (i32, i32) = (192, 36);

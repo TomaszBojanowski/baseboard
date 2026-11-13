@@ -1,16 +1,19 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 
-/* The "Curve Details" page of D62. */
+/* The "Curve Details" page of D62, as wide as every page of D67: up to
+   1320 px, the points beside the groups from 880 px of content. */
 
 :root[data-bare="1"], :root[data-bare="1"] body { background: transparent; }
 :root[data-bare="1"] body { padding: 0; }
 :root[data-bare="1"] .window { box-shadow: none; }
 
-.d-page { display: flex; flex-direction: column; gap: 24px; }
+.d-page { max-width: 1320px; margin: 0 auto; padding: 0 12px; display: flex; flex-direction: column; gap: 24px; }
 .d-chart { padding: 14px 14px 12px; }
 .d-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
 .d-side { display: flex; flex-direction: column; gap: 24px; }
-@container (max-width: 760px) { .d-cols { grid-template-columns: 1fr; } }
+.d-foot { margin: 0; font-size: 88%; opacity: .55; text-align: center; }
+@container (max-width: 879px) { .d-cols { grid-template-columns: 1fr; } }
+@container (max-width: 599px) { .d-page { padding: 0; } }
 .row .v { font-variant-numeric: tabular-nums; opacity: .8; }
 .pt-n.wide { width: auto; padding: 0 8px; border-radius: 13px; }
 

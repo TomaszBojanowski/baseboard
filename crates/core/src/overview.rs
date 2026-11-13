@@ -811,7 +811,7 @@ fn source(chip: &Chip, reading: &Reading, name: &Name) -> Subtitle {
     }
 }
 
-fn row_id(chip: &Chip, reading: &Reading) -> RowId {
+pub(crate) fn row_id(chip: &Chip, reading: &Reading) -> RowId {
     RowId {
         chip: chip.name.clone(),
         device: chip.device.clone(),

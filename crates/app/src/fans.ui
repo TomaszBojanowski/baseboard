@@ -3,26 +3,15 @@
 <interface>
   <requires lib="gtk" version="4.0"/>
   <requires lib="Adw" version="1.0"/>
-  <!-- The Fans page (docs/PROJEKT.md §5.5.4, §7 M2, M2.4, D62): the
-       temperature the curves follow, large; under it the list of the fans,
-       as wide as in GNOME Settings. fans.rs fills it. The breakpoints lay
-       out the curve page (below 760 sp) and the rows of the list (below
-       620 sp, where the list gets narrower than 600 sp). -->
+  <!-- The Fans page (docs/PROJEKT.md §5.5.4, §7 M2, M2.4, D62, D67): the
+       processor's card, the same as on the Overview, beside the list of
+       the fans, or above it in a narrow window. fans.rs fills it and lays
+       it out by the widths of layout.rs. -->
   <template class="BaseboardFansPage" parent="AdwBin">
     <property name="child">
       <object class="AdwBreakpointBin" id="bin">
         <property name="width-request">360</property>
         <property name="height-request">200</property>
-        <child>
-          <object class="AdwBreakpoint" id="one_column">
-            <condition>max-width: 760sp</condition>
-          </object>
-        </child>
-        <child>
-          <object class="AdwBreakpoint" id="narrow">
-            <condition>max-width: 620sp</condition>
-          </object>
-        </child>
         <property name="child">
           <object class="GtkStack" id="stack">
             <property name="transition-type">crossfade</property>
@@ -55,138 +44,26 @@
                   <object class="GtkScrolledWindow" id="scrolled">
                     <property name="hscrollbar-policy">never</property>
                     <property name="child">
-                      <object class="GtkBox">
-                        <property name="orientation">vertical</property>
-                        <property name="margin-top">24</property>
-                        <property name="margin-bottom">36</property>
-                        <property name="margin-start">12</property>
-                        <property name="margin-end">12</property>
-                        <!-- The temperature, large, with what it is. -->
-                        <child>
-                          <object class="GtkBox" id="hero">
+                      <object class="AdwClamp" id="clamp">
+                        <property name="child">
+                          <!-- A stopped CPU fan (D65) puts a warning on top
+                               (fans.rs), above the card and the list. -->
+                          <object class="GtkBox" id="content">
                             <property name="orientation">vertical</property>
-                            <property name="halign">center</property>
-                            <property name="margin-top">10</property>
-                            <property name="margin-bottom">22</property>
-                            <style>
-                              <class name="hero"/>
-                            </style>
+                            <property name="spacing">18</property>
+                            <property name="margin-top">24</property>
+                            <property name="margin-bottom">36</property>
+                            <property name="margin-start">12</property>
+                            <property name="margin-end">12</property>
                             <child>
-                              <object class="GtkLabel" id="hero_label">
-                                <style>
-                                  <class name="hero-label"/>
-                                </style>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="GtkBox">
-                                <property name="halign">center</property>
-                                <child>
-                                  <object class="GtkLabel" id="hero_value">
-                                    <style>
-                                      <class name="hero-value"/>
-                                      <class name="numeric"/>
-                                    </style>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel" id="hero_unit">
-                                    <property name="label">°C</property>
-                                    <property name="valign">start</property>
-                                    <style>
-                                      <class name="hero-unit"/>
-                                    </style>
-                                  </object>
-                                </child>
-                              </object>
-                            </child>
-                            <!-- Always in place, so that the list does not
-                                 move when it shows (D62). -->
-                            <child>
-                              <object class="GtkLabel" id="speeding">
-                                <property name="label" translatable="yes" comments="Under the large temperature on the Fans page, while a fan speeds up to the duty cycle of its curve.">Fans are speeding up</property>
-                                <property name="opacity">0</property>
-                                <property name="margin-top">4</property>
-                                <style>
-                                  <class name="dimmed"/>
-                                </style>
-                              </object>
-                            </child>
-                            <!-- On a driver without control: a lasting
-                                 state, so it may take more room. -->
-                            <child>
-                              <object class="AdwClamp">
-                                <property name="maximum-size">560</property>
-                                <property name="unit">sp</property>
-                                <property name="child">
-                                  <!-- The sentence with its link; the icon
-                                       of the link stands in the room left
-                                       for it at the end of the link. -->
-                                  <object class="GtkOverlay" id="kernel_box">
-                                    <property name="visible">False</property>
-                                    <property name="margin-top">10</property>
-                                    <property name="child">
-                                      <object class="GtkLabel" id="kernel">
-                                        <property name="use-markup">True</property>
-                                        <property name="wrap">True</property>
-                                        <property name="justify">center</property>
-                                        <style>
-                                          <class name="fan-kernel"/>
-                                        </style>
-                                      </object>
-                                    </property>
-                                    <child type="overlay">
-                                      <object class="GtkImage" id="kernel_icon">
-                                        <property name="icon-name">adw-external-link-symbolic</property>
-                                        <property name="pixel-size">14</property>
-                                        <property name="can-target">False</property>
-                                        <property name="accessible-role">presentation</property>
-                                        <style>
-                                          <class name="accent"/>
-                                        </style>
-                                      </object>
-                                    </child>
-                                  </object>
-                                </property>
+                              <object class="GtkGrid" id="columns">
+                                <property name="column-spacing">24</property>
+                                <property name="row-spacing">18</property>
+                                <property name="column-homogeneous">True</property>
                               </object>
                             </child>
                           </object>
-                        </child>
-                        <!-- The list as wide as in GNOME Settings; it grows
-                             with the size of the text. -->
-                        <child>
-                          <object class="AdwClamp">
-                            <property name="maximum-size">600</property>
-                            <property name="tightening-threshold">400</property>
-                            <property name="unit">sp</property>
-                            <property name="child">
-                              <!-- A stopped CPU fan (D65) puts a warning
-                                   above the list (fans.rs). -->
-                              <object class="GtkBox" id="list_column">
-                                <property name="orientation">vertical</property>
-                                <property name="spacing">18</property>
-                                <child>
-                                  <object class="GtkListBox" id="list">
-                                    <property name="selection-mode">none</property>
-                                    <style>
-                                      <class name="boxed-list"/>
-                                    </style>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel" id="footer">
-                                    <property name="wrap">True</property>
-                                    <property name="justify">center</property>
-                                    <style>
-                                      <class name="caption"/>
-                                      <class name="dimmed"/>
-                                    </style>
-                                  </object>
-                                </child>
-                              </object>
-                            </property>
-                          </object>
-                        </child>
+                        </property>
                       </object>
                     </property>
                   </object>
@@ -198,4 +75,74 @@
       </object>
     </property>
   </template>
+  <!-- The processor's card (fans.rs puts it first) and, on a driver
+       without control, what the kernel can do. -->
+  <object class="GtkBox" id="side">
+    <property name="orientation">vertical</property>
+    <property name="spacing">12</property>
+    <property name="valign">start</property>
+    <child>
+      <!-- The sentence with its link; the icon of the link stands in the
+           room left for it at the end of the link. -->
+      <object class="GtkOverlay" id="kernel_box">
+        <property name="visible">False</property>
+        <property name="margin-start">6</property>
+        <property name="margin-end">6</property>
+        <property name="child">
+          <object class="GtkLabel" id="kernel">
+            <property name="use-markup">True</property>
+            <property name="wrap">True</property>
+            <property name="xalign">0</property>
+            <style>
+              <class name="fan-kernel"/>
+            </style>
+          </object>
+        </property>
+        <child type="overlay">
+          <object class="GtkImage" id="kernel_icon">
+            <property name="icon-name">adw-external-link-symbolic</property>
+            <property name="pixel-size">14</property>
+            <property name="can-target">False</property>
+            <property name="accessible-role">presentation</property>
+            <style>
+              <class name="accent"/>
+            </style>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+  <!-- The list as wide as in GNOME Settings at most; it grows with the
+       size of the text, and takes the whole 600 sp as soon as its column
+       has them, so that the sentences of its rows fit beside the card. -->
+  <object class="AdwClamp" id="list_clamp">
+    <property name="maximum-size">600</property>
+    <property name="tightening-threshold">600</property>
+    <property name="unit">sp</property>
+    <property name="valign">start</property>
+    <property name="child">
+      <object class="GtkBox" id="list_column">
+        <property name="orientation">vertical</property>
+        <property name="spacing">18</property>
+        <child>
+          <object class="GtkListBox" id="list">
+            <property name="selection-mode">none</property>
+            <style>
+              <class name="boxed-list"/>
+            </style>
+          </object>
+        </child>
+        <child>
+          <object class="GtkLabel" id="footer">
+            <property name="wrap">True</property>
+            <property name="justify">center</property>
+            <style>
+              <class name="caption"/>
+              <class name="dimmed"/>
+            </style>
+          </object>
+        </child>
+      </object>
+    </property>
+  </object>
 </interface>

@@ -3,20 +3,15 @@
 <interface>
   <requires lib="gtk" version="4.0"/>
   <requires lib="Adw" version="1.0"/>
-  <!-- The Overview page (docs/PROJEKT.md §5.1, D64): a warning, three
-       large numbers and a short list in one column as wide as the list of
-       the Fans page; every reading on the page "All Sensors" below. The
-       numbers and rows are made in overview.rs. -->
+  <!-- The Overview page (docs/PROJEKT.md §5.1, D67): the status sentence,
+       a card for each part of the computer, tiles and the row "All
+       sensors", made in overview/summary.rs; every reading on the page
+       "All Sensors" below. The widths come from layout.rs. -->
   <template class="BaseboardOverviewPage" parent="AdwBin">
     <property name="child">
       <object class="AdwBreakpointBin" id="bin">
         <property name="width-request">360</property>
         <property name="height-request">200</property>
-        <child>
-          <object class="AdwBreakpoint" id="narrow">
-            <condition>max-width: 500sp</condition>
-          </object>
-        </child>
         <property name="child">
           <object class="GtkBox">
             <property name="orientation">vertical</property>
@@ -49,44 +44,15 @@
                       <object class="GtkScrolledWindow" id="scrolled">
                         <property name="hscrollbar-policy">never</property>
                         <property name="child">
-                          <!-- As wide as the list of the Fans page. -->
-                          <object class="AdwClamp">
-                            <property name="maximum-size">600</property>
-                            <property name="tightening-threshold">400</property>
-                            <property name="unit">sp</property>
+                          <object class="AdwClamp" id="clamp">
                             <property name="child">
                               <object class="GtkBox" id="column">
                                 <property name="orientation">vertical</property>
-                                <property name="spacing">24</property>
+                                <property name="spacing">22</property>
                                 <property name="margin-top">24</property>
                                 <property name="margin-bottom">36</property>
                                 <property name="margin-start">12</property>
                                 <property name="margin-end">12</property>
-                                <child>
-                                  <object class="GtkBox" id="heroes">
-                                    <property name="homogeneous">True</property>
-                                    <property name="spacing">6</property>
-                                    <style>
-                                      <class name="hero"/>
-                                    </style>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkListBox" id="list">
-                                    <property name="selection-mode">none</property>
-                                    <style>
-                                      <class name="boxed-list"/>
-                                    </style>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkListBox" id="all_list">
-                                    <property name="selection-mode">none</property>
-                                    <style>
-                                      <class name="boxed-list"/>
-                                    </style>
-                                  </object>
-                                </child>
                               </object>
                             </property>
                           </object>
@@ -103,7 +69,8 @@
     </property>
   </template>
   <!-- "All Sensors": every reading in its group with its source and range,
-       pushed over the page by the window. Two columns when wide. -->
+       pushed over the page by the window. Two columns when wide
+       (layout.rs). -->
   <object class="AdwNavigationPage" id="sensors_page">
     <property name="title" translatable="yes">All Sensors</property>
     <property name="tag">sensors</property>
@@ -113,21 +80,14 @@
           <object class="AdwHeaderBar"/>
         </child>
         <property name="content">
-          <object class="AdwBreakpointBin">
+          <object class="AdwBreakpointBin" id="sensors_bin">
             <property name="width-request">360</property>
             <property name="height-request">200</property>
-            <child>
-              <object class="AdwBreakpoint" id="wide">
-                <condition>min-width: 760sp</condition>
-              </object>
-            </child>
             <property name="child">
               <object class="GtkScrolledWindow" id="sensors_scrolled">
                 <property name="hscrollbar-policy">never</property>
                 <property name="child">
-                  <object class="AdwClamp">
-                    <property name="maximum-size">1200</property>
-                    <property name="tightening-threshold">1000</property>
+                  <object class="AdwClamp" id="sensors_clamp">
                     <property name="child">
                       <object class="GtkBox">
                         <property name="spacing">24</property>

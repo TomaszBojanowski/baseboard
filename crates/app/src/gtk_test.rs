@@ -73,6 +73,16 @@ fn gtk_thread() -> Option<&'static Mutex<mpsc::Sender<Job>>> {
         .as_ref()
 }
 
+/// Registers the resources of the app, once, for a test of a page made
+/// from its template.
+pub fn resources() {
+    static DONE: std::sync::Once = std::sync::Once::new();
+    DONE.call_once(|| {
+        gtk::gio::resources_register_include!("baseboard.gresource")
+            .expect("the resource bundle is built into the tests");
+    });
+}
+
 /// Runs `test` on the thread of GTK; a failure there fails the test.
 /// Without a display the test is skipped.
 pub fn run(name: &str, test: impl FnOnce() + Send + 'static) {

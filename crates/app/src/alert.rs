@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! A warning on top of a page, in plain words (D63, D64): an icon, a short
-//! title and one or two sentences. The Overview shows it for a rail
-//! outside its tolerance, the Fans page for a stopped CPU fan (D65).
+//! Warnings in plain words (D63, D64, D67): the texts of the problems of
+//! the status sentence on the Overview and the System page, and the
+//! warning box on top of the Fans page for a stopped CPU fan (D65).
 
 use adw::prelude::*;
 use baseboard_core::sensors::Kind;
-use baseboard_core::summary::OutsideRail;
+use baseboard_core::summary::{HotPart, OutsideRail, Problem};
 use baseboard_core::units::Numbers;
-use gettextrs::gettext;
+use gettextrs::{gettext, ngettext};
 
 use crate::overview;
 
-/// The warning about a stopped CPU fan (D65), also in the Fans row of the
-/// Overview and in the status row of the System page.
+/// The warning about a stopped CPU fan (D65): on the Overview, on its
+/// fans tile, on the Fans page and in the status row of the System page.
 pub fn cpu_fan_stopped() -> String {
     // Translators: a CPU fan was spinning and shows 0 rpm now, on the
     // Overview, the Fans page and the System page.
@@ -26,23 +26,7 @@ pub fn cpu_fan_stopped_why() -> String {
     gettext("It was spinning earlier and has shown 0 rpm for at least 10 seconds.")
 }
 
-/// A rail outside its tolerance, in a few words, in the tone of the power
-/// row's "Normal": the row of the Overview and the status row of the System
-/// page.
-pub fn rail_outside(rail: &OutsideRail, numbers: &Numbers) -> String {
-    let text = if rail.too_low() {
-        // Translators: {rail} is a supply rail, e.g. "+12 V"; the power
-        // row of the Overview otherwise says "Normal".
-        gettext("{rail} below normal")
-    } else {
-        // Translators: {rail} is a supply rail, e.g. "+12 V"; the power
-        // row of the Overview otherwise says "Normal".
-        gettext("{rail} above normal")
-    };
-    text.replace("{rail}", &overview::name(&rail.name, numbers))
-}
-
-/// The warning on top of the Overview about a rail outside its tolerance:
+/// The status sentence about a rail outside its tolerance:
 /// its title with the value, and the normal range with advice that does not
 /// overstate a reading of the board (D64).
 pub fn rail_warning(rail: &OutsideRail, numbers: &Numbers) -> (String, String) {
@@ -67,6 +51,70 @@ pub fn rail_warning(rail: &OutsideRail, numbers: &Numbers) -> (String, String) {
     )
     .replace("{range}", &range);
     (title, text)
+}
+
+/// A temperature close to its limit, as the status sentence says it (D67):
+/// the processor in its own words (it slows down at its limit, and the
+/// fans may already run at full speed), any other part by its name.
+pub fn hot_warning(part: &HotPart, fans_at_full: bool, numbers: &Numbers) -> (String, String) {
+    let value = crate::history_chart::degrees(part.value);
+    let limit = crate::history_chart::degrees(part.limit);
+    if part.processor {
+        // Translators: the status sentence on top of the Overview; {value}
+        // is e.g. "93 °C".
+        let title = gettext("Processor is very hot: {value}").replace("{value}", &value);
+        let text = if fans_at_full {
+            // Translators: under "Processor is very hot"; {limit} is the
+            // threshold of the board profile, e.g. "95 °C".
+            gettext(
+                "At {limit} it starts to slow down so as not to overheat. The fans run at full speed.",
+            )
+        } else {
+            gettext("At {limit} it starts to slow down so as not to overheat.")
+        };
+        (title, text.replace("{limit}", &limit))
+    } else {
+        // Translators: the status sentence on top of the Overview; {name}
+        // is a reading, e.g. "Composite", and {value} e.g. "87 °C".
+        let title = gettext("Very hot: {name}, {value}")
+            .replace("{name}", &overview::name(&part.name, numbers))
+            .replace("{value}", &value);
+        // Translators: under "Very hot"; {limit} is e.g. "94 °C".
+        let text = gettext("The limit is {limit}.").replace("{limit}", &limit);
+        (title, text)
+    }
+}
+
+// The status sentence on the Overview and the status row of the System
+// page say the same (D67).
+
+pub fn everything_fine() -> String {
+    // Translators: the status sentence on top of the Overview and the
+    // System page.
+    gettext("Everything is fine")
+}
+
+/// A board without a profile, or a system that only reads the fans.
+pub fn readings_work() -> String {
+    // Translators: the status sentence on top of the Overview and the
+    // System page on a board without a profile.
+    gettext("Readings work")
+}
+
+/// Under the most important problem: how many more there are.
+pub fn more_problems(more: u32) -> String {
+    // Translators: under the most important problem on the Overview and the
+    // System page.
+    ngettext("And {} more problem", "And {} more problems", more).replace("{}", &more.to_string())
+}
+
+/// A problem of the status sentence: its title and text.
+pub fn problem(problem: &Problem, fans_at_full: bool, numbers: &Numbers) -> (String, String) {
+    match problem {
+        Problem::CpuFanStopped => (cpu_fan_stopped(), cpu_fan_stopped_why()),
+        Problem::Hot(part) => hot_warning(part, fans_at_full, numbers),
+        Problem::Rail(rail) => rail_warning(rail, numbers),
+    }
 }
 
 /// The warning box: hidden until there is something to say.
@@ -137,14 +185,6 @@ impl Alert {
         self.text.set_visible(!text.is_empty());
         self.widget.set_visible(true);
     }
-
-    /// The title shown, or `None` while hidden (tests).
-    #[cfg(test)]
-    pub fn shown(&self) -> Option<(String, String)> {
-        self.widget
-            .get_visible()
-            .then(|| (self.title.label().into(), self.text.label().into()))
-    }
 }
 
 #[cfg(test)]
@@ -166,7 +206,6 @@ mod tests {
             low: 11.4,
             high: 12.6,
         };
-        assert_eq!(rail_outside(&low, &numbers), "+12\u{a0}V below normal");
         let (title, text) = rail_warning(&low, &numbers);
         assert_eq!(title, "+12\u{a0}V below normal: 11,20\u{a0}V");
         assert!(
@@ -174,6 +213,6 @@ mod tests {
             "{text}"
         );
         let high = OutsideRail { value: 12.8, ..low };
-        assert!(rail_outside(&high, &numbers).contains("above"));
+        assert!(rail_warning(&high, &numbers).0.contains("above"));
     }
 }

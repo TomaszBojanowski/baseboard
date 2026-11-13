@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The Fans page (docs/PROJEKT.md §5.5.3, §5.5.4, §7 M2, M2.4, D62) of
-//! version 0.2.0: what the board's controller does with the fans, without
-//! changing anything, in plain words. On top the temperature the curves
-//! follow, large; under it a list of the fans as wide as in GNOME Settings,
-//! a row each with a small chart. The model comes from `core::fans::page`;
+//! The Fans page (docs/PROJEKT.md §5.5.3, §5.5.4, §7 M2, M2.4, D62, D67)
+//! of version 0.2.0: what the board's controller does with the fans,
+//! without changing anything, in plain words. The processor's card, the
+//! same as on the Overview, beside a list of the fans as wide as in GNOME
+//! Settings at most, a row each with a small chart; in a narrow window the
+//! card stands above the list. The model comes from `core::fans::page`;
 //! this module gives it texts and widgets. Rows are made again only when
 //! the fans change (another driver after a reload, a header turned off),
 //! otherwise their values are set. Samples come from the window's sensor
@@ -15,14 +16,17 @@ mod row;
 mod spark;
 
 use std::cell::{Cell, OnceCell, RefCell};
+use std::rc::Rc;
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
 use baseboard_core::fans::driver::DriverLevel;
 use baseboard_core::fans::driver::{Mode, Source};
 use baseboard_core::fans::page::{self, Fan, FanKind, Page, SourceRow};
+use baseboard_core::history::Histories;
 use baseboard_core::overview::{Name, Row, RowId, Subtitle, Visibility};
-use baseboard_core::profile::{FanRole, Profile, TempRole};
+use baseboard_core::profile::{FanRole, Profile};
+use baseboard_core::summary::{self, HeroKind};
 use baseboard_core::units::{Numbers, UNIT_SPACE};
 use gettextrs::gettext;
 use gtk::{gdk, gio, glib, pango};
@@ -31,20 +35,12 @@ use crate::alert::{self, Alert};
 use crate::config;
 use crate::fan_chart::swatch::Mark;
 use crate::fan_chart::{self, ChartCurve, Reading};
+use crate::layout::{self, Width};
 use crate::overview;
+use crate::part_card::PartCard;
 use crate::sampler::Sample;
 use curve_page::{CurvePage, fan_mode};
 use row::{FanLine, FanRow};
-
-/// How wide the page is (fans.ui): the curve page in two columns or one;
-/// the rows of the list wide or narrow.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub(crate) enum Layout {
-    #[default]
-    Wide,
-    OneColumn,
-    Narrow,
-}
 
 /// What a row and the curve page need besides their fan.
 pub(crate) struct PageContext<'a> {
@@ -86,16 +82,6 @@ pub(crate) fn source_name(row: &SourceRow, numbers: &Numbers) -> String {
     }
 }
 
-/// What the large temperature on top is (D62): "Processor" for the
-/// processor's temperature of the profile, as the large number of the
-/// Overview; otherwise its name as on the Overview.
-fn temperature_name(row: &SourceRow, numbers: &Numbers) -> String {
-    match row.temp.as_ref().map(|t| t.role) {
-        Some(TempRole::Cpu) => gettext("Processor"),
-        _ => source_name(row, numbers),
-    }
-}
-
 // The section of the project's website on fan control in the kernel, in
 // the language of the app (D60). No doc comment right above: xgettext would
 // take it for translators.
@@ -115,7 +101,7 @@ fn kernel_url() -> String {
 const LINK_ICON: i32 = 14;
 const LINK_GAP: i32 = 4;
 
-/// Under the temperature on a driver without control (D62): what the
+/// Under the processor's card on a driver without control (D62): what the
 /// system can do, with a link to the kernel section of the website. The
 /// link is bold and never breaks; it ends in a no-break space that keeps
 /// the room for its icon (`reserve_link_icon`).
@@ -336,10 +322,10 @@ fn read_only_line(row: &Row, numbers: &Numbers) -> FanLine {
     }
 }
 
-fn set_label(label: &gtk::Label, text: &str) {
-    if label.label() != text {
-        label.set_label(text);
-    }
+/// The rows of the list are narrow in a narrow window, and beside the
+/// card in a window of about 1200 px, where their column is.
+fn narrow_rows(width: Width) -> bool {
+    matches!(width, Width::Narrow | Width::Compact)
 }
 
 #[derive(Default)]
@@ -359,10 +345,6 @@ mod imp {
         #[template_child]
         pub bin: TemplateChild<adw::BreakpointBin>,
         #[template_child]
-        pub one_column: TemplateChild<adw::Breakpoint>,
-        #[template_child]
-        pub narrow: TemplateChild<adw::Breakpoint>,
-        #[template_child]
         pub stack: TemplateChild<gtk::Stack>,
         #[template_child]
         pub status: TemplateChild<adw::StatusPage>,
@@ -371,32 +353,35 @@ mod imp {
         #[template_child]
         pub scrolled: TemplateChild<gtk::ScrolledWindow>,
         #[template_child]
-        pub hero: TemplateChild<gtk::Box>,
+        pub clamp: TemplateChild<adw::Clamp>,
         #[template_child]
-        pub hero_label: TemplateChild<gtk::Label>,
+        pub content: TemplateChild<gtk::Box>,
         #[template_child]
-        pub hero_value: TemplateChild<gtk::Label>,
+        pub columns: TemplateChild<gtk::Grid>,
         #[template_child]
-        pub hero_unit: TemplateChild<gtk::Label>,
-        #[template_child]
-        pub speeding: TemplateChild<gtk::Label>,
+        pub side: TemplateChild<gtk::Box>,
         #[template_child]
         pub kernel_box: TemplateChild<gtk::Overlay>,
         #[template_child]
         pub kernel: TemplateChild<gtk::Label>,
         #[template_child]
-        pub list_column: TemplateChild<gtk::Box>,
+        pub list_clamp: TemplateChild<adw::Clamp>,
         #[template_child]
         pub list: TemplateChild<gtk::ListBox>,
         #[template_child]
         pub footer: TemplateChild<gtk::Label>,
+        /// The processor's card, the same as on the Overview (D67).
+        pub(super) card: OnceCell<PartCard>,
+        /// The last five minutes of the temperatures, which the window
+        /// keeps.
+        pub(super) histories: OnceCell<Rc<RefCell<Histories>>>,
         /// The warning about a stopped CPU fan (D65).
         pub(super) alert: OnceCell<Alert>,
         /// The board profile; `None` without one.
         pub(super) profile: RefCell<Option<Profile>>,
         pub(super) visibility: RefCell<Visibility>,
         pub(super) numbers: OnceCell<Numbers>,
-        pub(super) layout: Cell<Layout>,
+        pub(super) width: Cell<Option<Width>>,
         pub(super) state: RefCell<State>,
         /// The latest sample; the page shows it when it is mapped.
         pub(super) last: RefCell<Option<Sample>>,
@@ -425,16 +410,27 @@ mod imp {
         fn constructed(&self) {
             self.parent_constructed();
             let obj = self.obj();
-            self.bin.connect_current_breakpoint_notify(glib::clone!(
-                #[weak]
-                obj,
-                move |_| obj.update_layout()
-            ));
             // Samples are only stored while the page cannot be seen.
             obj.connect_map(|page| page.display());
 
-            self.speeding
-                .update_state(&[gtk::accessible::State::Hidden(true)]);
+            let card = PartCard::new(
+                "baseboard-processor-symbolic",
+                &overview::hero_name(HeroKind::Cpu),
+                None,
+            );
+            // Always in place, so that the list does not move when it shows
+            // (D62).
+            card.reserve_note(&gettext("Fans are speeding up"));
+            self.side.prepend(&card.widget);
+            let _ = self.card.set(card);
+            layout::limit(&self.clamp);
+            let page = obj.downgrade();
+            layout::watch(&self.bin, move |width| {
+                if let Some(page) = page.upgrade() {
+                    page.set_width(width);
+                }
+            });
+
             self.kernel.set_label(&kernel_markup());
             reserve_link_icon(&self.kernel);
             // The label is laid out before the icon over it.
@@ -460,7 +456,7 @@ mod imp {
             });
             self.footer.set_label(&footer_text());
             let alert = Alert::new();
-            self.list_column.prepend(&alert.widget);
+            self.content.prepend(&alert.widget);
             let _ = self.alert.set(alert);
             // Translators: read by screen readers for the list of fans.
             let name = gettext("Fans");
@@ -492,6 +488,11 @@ impl FansPage {
         self.display();
     }
 
+    /// The histories of the temperatures, which the window keeps.
+    pub fn set_histories(&self, histories: Rc<RefCell<Histories>>) {
+        let _ = self.imp().histories.set(histories);
+    }
+
     /// A new sample from the window's sensor reader.
     pub fn show(&self, sample: &Sample) {
         let imp = self.imp();
@@ -514,7 +515,7 @@ impl FansPage {
             .iter()
             .find(|f| f.key == key && f.has_details())?;
         let curve = CurvePage::new(key);
-        curve.set_layout(imp.layout.get());
+        curve.set_layout(imp.width.get().unwrap_or_default());
         let numbers = self.numbers();
         curve.update(
             fan,
@@ -553,37 +554,57 @@ impl FansPage {
             .get_or_init(|| Numbers::new(&crate::i18n::decimal_separator()))
     }
 
-    fn update_layout(&self) {
+    /// The card beside the list when there is room for two columns (D67),
+    /// above it otherwise; the rows narrow when their column is.
+    fn set_width(&self, width: Width) {
         let imp = self.imp();
-        let current = imp.bin.current_breakpoint();
-        let layout = if current.as_ref() == Some(&*imp.narrow) {
-            Layout::Narrow
-        } else if current.as_ref() == Some(&*imp.one_column) {
-            Layout::OneColumn
-        } else {
-            Layout::Wide
-        };
-        if imp.layout.replace(layout) == layout {
+        if imp.width.replace(Some(width)) == Some(width) {
             return;
         }
-        self.apply_layout();
-    }
-
-    fn apply_layout(&self) {
-        let imp = self.imp();
-        let layout = imp.layout.get();
-        let narrow = layout == Layout::Narrow;
-        if narrow {
-            imp.hero.add_css_class("narrow");
+        for part in [
+            imp.side.upcast_ref::<gtk::Widget>(),
+            imp.list_clamp.upcast_ref(),
+        ] {
+            if part.parent().is_some() {
+                imp.columns.remove(part);
+            }
+        }
+        if width.columns() {
+            imp.columns.attach(&*imp.side, 0, 0, 1, 1);
+            imp.columns.attach(&*imp.list_clamp, 1, 0, 1, 1);
         } else {
-            imp.hero.remove_css_class("narrow");
+            imp.columns.attach(&*imp.side, 0, 0, 1, 1);
+            imp.columns.attach(&*imp.list_clamp, 0, 1, 1, 1);
+        }
+        if let Some(card) = imp.card.get() {
+            card.set_width(width);
         }
         let numbers = self.numbers();
         for row in &imp.state.borrow().rows {
-            row.set_narrow(narrow, numbers);
+            row.set_narrow(narrow_rows(width), numbers);
         }
         if let Some(curve) = imp.curve.borrow().as_ref() {
-            curve.set_layout(layout);
+            curve.set_layout(width);
+        }
+    }
+
+    /// The processor's card as on the Overview (D67), with "Fans are
+    /// speeding up" under it while one does.
+    fn show_card(&self, sample: &Sample, speeding: bool) {
+        let imp = self.imp();
+        let (Some(card), Some(histories)) = (imp.card.get(), imp.histories.get()) else {
+            return;
+        };
+        let groups = baseboard_core::overview::visible(&sample.groups, &imp.visibility.borrow());
+        let top = summary::summary(&groups, &sample.stopped, sample.speeding);
+        let state = summary::state(&top, &sample.groups, &sample.hot, true);
+        let hero = top.heroes.iter().find(|h| h.kind == HeroKind::Cpu);
+        card.widget.set_visible(hero.is_some());
+        if let Some(hero) = hero {
+            let mut view =
+                overview::card_view(hero, &top, &state, &histories.borrow(), self.numbers());
+            view.note = speeding.then(|| gettext("Fans are speeding up"));
+            card.update(&view);
         }
     }
 
@@ -648,50 +669,39 @@ impl FansPage {
             );
             return;
         }
-        self.render(&model, &sample.stopped);
+        self.render(&model, sample);
         if imp.stack.visible_child_name().as_deref() != Some("fans") {
             imp.stack.set_visible_child_name("fans");
         }
         imp.model.replace(Some(model));
     }
 
-    /// The page for `model`; `stopped` are the CPU fans that stopped
-    /// spinning (D65).
-    fn render(&self, model: &Page, stopped: &[RowId]) {
+    /// The page for `model` of `sample`.
+    fn render(&self, model: &Page, sample: &Sample) {
         let imp = self.imp();
         let numbers = self.numbers();
         let context = PageContext {
             numbers,
             source: model.source.as_ref(),
         };
+        let stopped = &sample.stopped;
 
-        // A stopped CPU fan: the warning above the list, as on the
-        // Overview and the System page.
+        // A stopped CPU fan: the warning on top, as on the Overview and the
+        // System page.
         if let Some(alert) = imp.alert.get() {
             let shown = model.fans.iter().any(|f| stopped.contains(&f.row.id));
             let (title, why) = (alert::cpu_fan_stopped(), alert::cpu_fan_stopped_why());
             alert.set(shown.then_some((title.as_str(), why.as_str())));
         }
 
-        // The temperature on top, in whole degrees.
-        let temperature = model.temperature.as_ref();
-        let value = temperature
+        // The rows; a fan in manual mode has its point at the temperature
+        // the curves follow.
+        let value = model
+            .temperature
+            .as_ref()
             .and_then(|t| t.row.as_ref())
             .map(|r| r.value)
             .filter(|v| v.is_finite());
-        for widget in [
-            imp.hero_label.upcast_ref::<gtk::Widget>(),
-            imp.hero_value.upcast_ref(),
-            imp.hero_unit.upcast_ref(),
-        ] {
-            widget.set_visible(value.is_some());
-        }
-        if let (Some(temperature), Some(value)) = (temperature, value) {
-            set_label(&imp.hero_label, &temperature_name(temperature, numbers));
-            set_label(&imp.hero_value, &format!("{}", value.round() as i64));
-        }
-
-        // The rows.
         let mut lines: Vec<FanLine> = model
             .fans
             .iter()
@@ -699,21 +709,15 @@ impl FansPage {
             .collect();
         lines.extend(model.read_only.iter().map(|r| read_only_line(r, numbers)));
 
-        // Under the temperature: the reserved line, or what the kernel can
+        // The card with the reserved line, and under it what the kernel can
         // do.
         let no_control = model.level == DriverLevel::ReadOnly;
         imp.kernel_box.set_visible(no_control);
-        imp.speeding.set_visible(!no_control);
         imp.footer.set_visible(!no_control);
         let speeding = !no_control && row::speeding_up(&lines);
-        let opacity = if speeding { 1.0 } else { 0.0 };
-        if imp.speeding.opacity() != opacity {
-            imp.speeding.set_opacity(opacity);
-            imp.speeding
-                .update_state(&[gtk::accessible::State::Hidden(!speeding)]);
-        }
+        self.show_card(sample, speeding);
 
-        let narrow = imp.layout.get() == Layout::Narrow;
+        let narrow = narrow_rows(imp.width.get().unwrap_or_default());
         let shapes: Vec<(String, bool, bool)> = lines
             .iter()
             .map(|line| (line.key.clone(), line.opens, line.chart.is_empty()))
@@ -805,21 +809,6 @@ mod tests {
         assert_eq!(percent(30), "30\u{a0}%");
     }
 
-    /// On top, the processor is just "Processor", as on the Overview;
-    /// another source by its name.
-    #[test]
-    fn name_of_the_temperature_on_top() {
-        let numbers = Numbers::new(".");
-        assert_eq!(
-            temperature_name(&source(Source::Temp(1), Some(cpu())), &numbers),
-            "Processor"
-        );
-        assert_eq!(
-            temperature_name(&source(Source::Temp(5), None), &numbers),
-            "temp5"
-        );
-    }
-
     /// A wrapped text never leaves fewer than three words alone on its last
     /// line (D60).
     #[test]
@@ -831,6 +820,29 @@ mod tests {
             footer_text(),
             "For now, Baseboard only shows the fan settings from\u{a0}the\u{a0}BIOS."
         );
+    }
+
+    /// In a wide window the list stands beside the card as wide as in GNOME
+    /// Settings, 600 px, so that the sentences of its rows fit (D62, D67);
+    /// in a window of about 1200 px it takes its column. Needs a display.
+    #[test]
+    fn list_beside_the_card() {
+        crate::gtk_test::run("list_beside_the_card", || {
+            crate::gtk_test::resources();
+            let page = glib::Object::new::<FansPage>();
+            let imp = page.imp();
+            imp.stack.set_visible_child_name("fans");
+            let list_at = |width: i32| {
+                let (_, height, _, _) = page.measure(gtk::Orientation::Vertical, width);
+                page.allocate(width, height, -1, None);
+                imp.list_clamp.child().map_or(0, |list| list.width())
+            };
+            // 1850 px and 1200 px windows without their sidebars.
+            assert_eq!(list_at(1570), 600);
+            assert_eq!(imp.columns.query_child(&*imp.list_clamp).0, 1);
+            let compact = list_at(920);
+            assert!((400..=440).contains(&compact), "{compact}");
+        });
     }
 
     /// The icon of the link stands right after the link text, on its

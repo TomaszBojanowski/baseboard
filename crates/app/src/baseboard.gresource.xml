@@ -16,6 +16,16 @@
     <file compressed="true" alias="icons/scalable/actions/baseboard-fan-symbolic.svg">icons/fan-symbolic.svg</file>
     <file compressed="true" alias="icons/scalable/actions/baseboard-temperature-symbolic.svg">icons/temperature-symbolic.svg</file>
     <file compressed="true" alias="icons/scalable/actions/baseboard-curve-symbolic.svg">icons/curve-symbolic.svg</file>
+    <!-- The parts of the computer on the Overview and the System page
+         (D67): Adwaita has no processor, graphics card or memory module,
+         and its disks are a platter and a chip. -->
+    <file compressed="true" alias="icons/scalable/actions/baseboard-processor-symbolic.svg">icons/processor-symbolic.svg</file>
+    <file compressed="true" alias="icons/scalable/actions/baseboard-graphics-card-symbolic.svg">icons/graphics-card-symbolic.svg</file>
+    <file compressed="true" alias="icons/scalable/actions/baseboard-memory-symbolic.svg">icons/memory-symbolic.svg</file>
+    <file compressed="true" alias="icons/scalable/actions/baseboard-disk-symbolic.svg">icons/disk-symbolic.svg</file>
+    <!-- "Everything is fine" and the checks that passed: a check in a
+         circle, as next to the warnings and the information. -->
+    <file compressed="true" alias="icons/scalable/actions/baseboard-ok-symbolic.svg">icons/ok-symbolic.svg</file>
     <!-- The board (the System page): the symbolic app icon. -->
     <file compressed="true" alias="icons/scalable/actions/baseboard-board-symbolic.svg">icons/hicolor/symbolic/apps/me.bojanowski.Baseboard-symbolic.svg</file>
   </gresource>

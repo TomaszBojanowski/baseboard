@@ -21,9 +21,10 @@ use baseboard_core::units::{Numbers, UNIT_SPACE, duty_to_percent};
 use gettextrs::gettext;
 use gtk::{glib, pango};
 
-use super::{Layout, PageContext, footer_text, legend_items, percent, source_name};
+use super::{PageContext, footer_text, legend_items, percent, source_name};
 use crate::fan_chart::swatch::Swatch;
 use crate::fan_chart::{ChartCurve, FanChart, Reading};
+use crate::layout::{self, Width};
 use crate::overview;
 
 /// The widgets of one row of the list of points: one point, or a run of
@@ -446,11 +447,8 @@ impl CurvePage {
                 .build(),
         );
 
-        let clamp = adw::Clamp::builder()
-            .maximum_size(940)
-            .tightening_threshold(700)
-            .child(&content)
-            .build();
+        let clamp = adw::Clamp::builder().child(&content).build();
+        layout::limit(&clamp);
         let scrolled = gtk::ScrolledWindow::builder()
             .hscrollbar_policy(gtk::PolicyType::Never)
             .child(&clamp)
@@ -503,9 +501,11 @@ impl CurvePage {
         }
     }
 
-    pub(super) fn set_layout(&self, layout: Layout) {
+    /// Two columns under the chart when the page has room for them
+    /// (`layout`), one otherwise.
+    pub(super) fn set_layout(&self, width: Width) {
         let columns = &self.columns;
-        let wide = layout == Layout::Wide;
+        let wide = width.columns();
         if columns.wide.replace(Some(wide)) == Some(wide) {
             return;
         }

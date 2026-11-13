@@ -1,18 +1,22 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The top of the Overview page (docs/PROJEKT.md §5.1, D64): a few large
-//! numbers, the state of the power rails and of the fans, the warmest
-//! memory module and drive. And the stopped CPU fan (D65), which the Fans
-//! and System pages show as well. No user-visible text: the app makes it.
+//! The Overview page as a model (docs/PROJEKT.md §5.1, D67): a card for
+//! the processor, the graphics card and the board, the state of the power
+//! rails and of the fans, the warmest memory module and disk, and the
+//! status sentence on top by one rule (`state`), which the System page
+//! uses too. And the stopped CPU fan (D65), which the Fans and System
+//! pages show as well, and whether the fans speed up. No user-visible
+//! text: the app makes it.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
+use crate::heat::Hot;
 use crate::overview::{Group, GroupKind, Name, Rating, Row, RowId, Subtitle};
 use crate::profile::{FanRole, TempRole};
 use crate::sensors::Kind;
 
-/// What a large number on top stands for.
+/// What a card on top stands for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HeroKind {
     /// The processor: the first temperature of its group (Tctl on AMD).
@@ -23,13 +27,46 @@ pub enum HeroKind {
     Board,
 }
 
-/// A large number on top, and the group of the full list it opens.
-#[derive(Debug, Clone, Copy, PartialEq)]
+impl HeroKind {
+    /// The group of "All Sensors" the card opens.
+    pub fn group(self) -> GroupKind {
+        match self {
+            Self::Cpu => GroupKind::Cpu,
+            Self::Gpu => GroupKind::Gpu,
+            Self::Board => GroupKind::Board,
+        }
+    }
+}
+
+/// The temperature of a card.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Hero {
     pub kind: HeroKind,
+    /// The reading, for its history.
+    pub id: RowId,
     /// In °C; NaN when it could not be read.
     pub value: f64,
-    pub group: GroupKind,
+    /// The highest value since the app started.
+    pub highest: f64,
+}
+
+/// The CPU fan on the processor's card (with a profile only: without one
+/// the app does not know which fan it is).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CpuFan {
+    /// In rpm.
+    pub value: f64,
+    /// 0–255, where the driver reports it.
+    pub duty: Option<f64>,
+    /// It stopped spinning (D65).
+    pub stopped: bool,
+}
+
+impl CpuFan {
+    /// It runs at full duty cycle.
+    pub fn at_full(&self) -> bool {
+        self.duty.is_some_and(|duty| duty >= 254.5)
+    }
 }
 
 /// A rated rail outside its tolerance (§5.1).
@@ -51,13 +88,20 @@ impl OutsideRail {
     }
 }
 
-/// The fans in one row.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// The fans on their tile.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Fans {
     /// Fans of the list that spin now.
     pub spinning: usize,
+    /// The slowest and the fastest of them, in rpm.
+    pub speeds: Option<(f64, f64)>,
+    /// Every fan in the order of the headers, in rpm, and whether it is a
+    /// stopped CPU fan: the bars of the tile.
+    pub bars: Vec<(f64, bool)>,
     /// A CPU fan stopped spinning (D65).
     pub cpu_stopped: bool,
+    /// The fans speed up ([`SpeedWatch`]).
+    pub speeding: bool,
 }
 
 /// The warmest of a kind of device, e.g. of the memory modules.
@@ -69,7 +113,7 @@ pub struct Warmest {
     pub count: usize,
 }
 
-/// The top of the Overview page.
+/// The Overview page.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Summary {
     /// In the order processor, graphics card, board; only those found.
@@ -77,48 +121,55 @@ pub struct Summary {
     /// The rated rails: `Some` with an empty list when all are within
     /// their tolerance; `None` without rated rails (no profile).
     pub power: Option<Vec<OutsideRail>>,
+    pub cpu_fan: Option<CpuFan>,
+    /// What the first graphics card draws, in watts.
+    pub gpu_power: Option<f64>,
     /// `None` without fans and without a stopped CPU fan.
     pub fans: Option<Fans>,
     pub memory: Option<Warmest>,
     pub disks: Option<Warmest>,
 }
 
-/// The top of the page from the groups it shows; `stopped` are the CPU
-/// fans that stopped spinning ([`FanWatch`]), also when their rows are
-/// hidden.
-pub fn summary(groups: &[Group], stopped: &[RowId]) -> Summary {
+/// The page from the groups it shows; `stopped` are the CPU fans that
+/// stopped spinning ([`FanWatch`]), also when their rows are hidden, and
+/// `speeding` says whether the fans speed up ([`SpeedWatch`]).
+pub fn summary(groups: &[Group], stopped: &[RowId], speeding: bool) -> Summary {
     let group = |kind: GroupKind| groups.iter().find(|g| g.kind == kind);
-    let first_temp = |group: &Group| {
-        group
-            .rows
-            .iter()
-            .find(|r| r.kind == Kind::Temp)
-            .map(|r| r.value)
-    };
-    let mut heroes = Vec::new();
-    let mut hero = |kind: HeroKind, group: GroupKind, value: Option<f64>| {
-        if let Some(value) = value {
-            heroes.push(Hero { kind, value, group });
-        }
-    };
-    hero(
-        HeroKind::Cpu,
-        GroupKind::Cpu,
-        group(GroupKind::Cpu).and_then(first_temp),
-    );
-    hero(
-        HeroKind::Gpu,
-        GroupKind::Gpu,
-        group(GroupKind::Gpu).and_then(first_temp),
-    );
-    let board = group(GroupKind::Board).and_then(|board| {
+    fn first(group: &Group, kind: Kind) -> Option<&Row> {
+        group.rows.iter().find(|r| r.kind == kind)
+    }
+    fn board_temp(board: &Group) -> Option<&Row> {
         board
             .rows
             .iter()
             .find(|r| r.role == Name::Temp(TempRole::System))
-            .map(|r| r.value)
-    });
-    hero(HeroKind::Board, GroupKind::Board, board);
+    }
+    let heroes = [
+        (
+            HeroKind::Cpu,
+            group(GroupKind::Cpu).and_then(|g| first(g, Kind::Temp)),
+        ),
+        (
+            HeroKind::Gpu,
+            group(GroupKind::Gpu).and_then(|g| first(g, Kind::Temp)),
+        ),
+        (
+            HeroKind::Board,
+            group(GroupKind::Board).and_then(board_temp),
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(kind, row)| {
+        let row = row?;
+        let highest = row.range.map_or(row.value, |(_, max)| max.max(row.value));
+        Some(Hero {
+            kind,
+            id: row.id.clone(),
+            value: row.value,
+            highest,
+        })
+    })
+    .collect();
 
     let power = group(GroupKind::Voltages).and_then(|voltages| {
         let rated: Vec<&Row> = voltages
@@ -129,27 +180,68 @@ pub fn summary(groups: &[Group], stopped: &[RowId]) -> Summary {
         (!rated.is_empty()).then(|| rated.into_iter().filter_map(outside).collect())
     });
 
+    let cpu_fan = group(GroupKind::Fans)
+        .and_then(|fans| {
+            fans.rows.iter().find(|r| {
+                matches!(
+                    r.role,
+                    Name::Fan {
+                        role: FanRole::Cpu,
+                        ..
+                    }
+                )
+            })
+        })
+        .map(|row| CpuFan {
+            value: row.value,
+            duty: match row.subtitle {
+                Subtitle::Header { duty, .. } => duty.filter(|d| d.is_finite()),
+                _ => None,
+            },
+            stopped: stopped.contains(&row.id),
+        });
+
     let fans = group(GroupKind::Fans)
         .map(|fans| {
-            fans.rows
+            let speeds: Vec<f64> = fans
+                .rows
                 .iter()
-                .filter(|r| r.value.is_finite() && r.value > 0.0)
-                .count()
-        })
-        .map(|spinning| Fans {
-            spinning,
-            cpu_stopped: !stopped.is_empty(),
+                .map(|r| r.value)
+                .filter(|v| v.is_finite() && *v > 0.0)
+                .collect();
+            Fans {
+                spinning: speeds.len(),
+                speeds: speeds
+                    .iter()
+                    .copied()
+                    .reduce(f64::min)
+                    .zip(speeds.iter().copied().reduce(f64::max)),
+                bars: fans
+                    .rows
+                    .iter()
+                    .map(|r| (r.value, stopped.contains(&r.id)))
+                    .collect(),
+                cpu_stopped: !stopped.is_empty(),
+                speeding,
+            }
         })
         .or_else(|| {
             (!stopped.is_empty()).then_some(Fans {
                 spinning: 0,
+                speeds: None,
+                bars: Vec::new(),
                 cpu_stopped: true,
+                speeding,
             })
         });
 
     Summary {
         heroes,
         power,
+        cpu_fan,
+        gpu_power: group(GroupKind::Gpu)
+            .and_then(|g| first(g, Kind::Power))
+            .map(|r| r.value),
         fans,
         memory: group(GroupKind::Memory).and_then(|g| warmest(&g.rows, |_| true)),
         disks: group(GroupKind::Disks).and_then(|g| {
@@ -200,6 +292,80 @@ fn warmest(rows: &[Row], counted: impl Fn(&Row) -> bool) -> Option<Warmest> {
         value,
         count: temps.len(),
     })
+}
+
+/// What the status sentence warns about.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Problem {
+    /// A CPU fan stopped spinning (D65).
+    CpuFanStopped,
+    /// A temperature close to its limit ([`crate::heat`]).
+    Hot(HotPart),
+    /// A rated rail outside its tolerance (D64).
+    Rail(OutsideRail),
+}
+
+/// A temperature close to its limit, with what the sentence says of it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct HotPart {
+    pub name: Name,
+    /// Its group, which the warning opens.
+    pub group: GroupKind,
+    /// A temperature of the processor, which slows down at its limit.
+    pub processor: bool,
+    /// In °C.
+    pub value: f64,
+    pub limit: f64,
+}
+
+/// The status sentence on top of the Overview and the status row of the
+/// System page (D67).
+#[derive(Debug, Clone, PartialEq)]
+pub enum State {
+    /// The most important first: a stopped CPU fan, then temperatures
+    /// closest to their limit, then rails.
+    Problems(Vec<Problem>),
+    /// No problem, but no board profile: the readings work, without the
+    /// names and ratings a profile gives.
+    NoProfile,
+    Fine,
+}
+
+/// The state of the page: `groups` has every row (a hidden temperature can
+/// be close to its limit too), `hot` comes from [`crate::heat::HeatWatch`],
+/// and `profile` says whether a board profile matches.
+pub fn state(summary: &Summary, groups: &[Group], hot: &[Hot], profile: bool) -> State {
+    let mut problems = Vec::new();
+    if summary.fans.as_ref().is_some_and(|fans| fans.cpu_stopped) {
+        problems.push(Problem::CpuFanStopped);
+    }
+    for hot in hot {
+        let found = groups.iter().find_map(|group| {
+            group
+                .rows
+                .iter()
+                .chain(&group.auxiliary)
+                .find(|row| row.id == hot.id)
+                .map(|row| (group.kind, row))
+        });
+        if let Some((group, row)) = found {
+            problems.push(Problem::Hot(HotPart {
+                name: row.name.clone(),
+                group,
+                processor: group == GroupKind::Cpu || row.role == Name::Temp(TempRole::Cpu),
+                value: hot.value,
+                limit: hot.limit,
+            }));
+        }
+    }
+    problems.extend(summary.power.iter().flatten().cloned().map(Problem::Rail));
+    if !problems.is_empty() {
+        State::Problems(problems)
+    } else if profile {
+        State::Fine
+    } else {
+        State::NoProfile
+    }
 }
 
 /// How long a CPU fan has to be stopped before the app says so (D65).
@@ -261,6 +427,70 @@ fn watched(row: &Row) -> bool {
             }
         )
         && matches!(row.subtitle, Subtitle::Header { verified: true, .. })
+}
+
+/// A change of the duty cycle people see, in points of percent: the Fans
+/// page shows a fan moving to its curve by this much, smaller moves only go
+/// to screen readers (D62); the Overview says the fans speed up when one
+/// rose by this much (D67).
+pub const VISIBLE_CHANGE: u8 = 5;
+
+/// How far back [`SpeedWatch`] looks.
+pub const SPEEDING_FOR: Duration = Duration::from_secs(10);
+
+/// Watches the duty cycles of the fan headers across samples, for the
+/// Overview, which reads no curves (each read goes to the board's
+/// controller): the fans speed up while the duty cycle of one of them is
+/// [`VISIBLE_CHANGE`] points or more above its lowest of the last
+/// [`SPEEDING_FOR`].
+#[derive(Debug, Clone, Default)]
+pub struct SpeedWatch {
+    /// The duty cycles of each header, 0–255, oldest first.
+    duties: HashMap<RowId, VecDeque<(Instant, f64)>>,
+    last: Option<Instant>,
+}
+
+impl SpeedWatch {
+    /// Takes the sample of `now` and says whether the fans speed up.
+    pub fn update(&mut self, groups: &[Group], now: Instant) -> bool {
+        if self
+            .last
+            .is_some_and(|last| now.saturating_duration_since(last) > LONGEST_GAP)
+        {
+            self.duties.clear();
+        }
+        self.last = Some(now);
+        let percent = |duty: f64| duty * 100.0 / 255.0;
+        let mut speeding = false;
+        let mut seen = HashSet::new();
+        let rows = groups
+            .iter()
+            .flat_map(|g| g.rows.iter().chain(&g.auxiliary));
+        for row in rows {
+            let Subtitle::Header {
+                duty: Some(duty), ..
+            } = row.subtitle
+            else {
+                continue;
+            };
+            if !duty.is_finite() {
+                continue;
+            }
+            seen.insert(row.id.clone());
+            let duties = self.duties.entry(row.id.clone()).or_default();
+            duties.push_back((now, duty));
+            while duties
+                .front()
+                .is_some_and(|&(at, _)| now.saturating_duration_since(at) > SPEEDING_FOR)
+            {
+                duties.pop_front();
+            }
+            let lowest = duties.iter().map(|&(_, d)| d).fold(duty, f64::min);
+            speeding |= percent(duty) - percent(lowest) >= f64::from(VISIBLE_CHANGE);
+        }
+        self.duties.retain(|id, _| seen.contains(id));
+        speeding
+    }
 }
 
 /// 0 rpm now at a duty cycle above zero, after spinning earlier.
@@ -398,6 +628,7 @@ mod tests {
                 vec![
                     row("fan1", Name::GpuFan, Kind::Fan, 0.0),
                     row("temp1", Name::GpuChip, Kind::Temp, 30.0),
+                    row("power1", Name::GpuPower, Kind::Power, 12.0),
                 ],
             ),
             group(
@@ -442,38 +673,57 @@ mod tests {
         ]
     }
 
-    /// The large numbers: the processor's first temperature, the graphics
-    /// card's first temperature (not its fan), the board's system
-    /// temperature; each opens its group.
+    /// The cards: the processor's first temperature, the graphics card's
+    /// first temperature (not its fan), the board's system temperature,
+    /// each with the highest value since the start; the CPU fan and what
+    /// the graphics card draws.
     #[test]
-    fn large_numbers() {
-        let summary = summary(&page(), &[]);
+    fn cards() {
+        let mut groups = page();
+        groups[0].rows[0].range = Some((40.0, 78.0));
+        let summary = summary(&groups, &[], false);
         assert_eq!(
             summary.heroes,
             [
                 Hero {
                     kind: HeroKind::Cpu,
+                    id: id("temp1"),
                     value: 68.2,
-                    group: GroupKind::Cpu
+                    highest: 78.0,
                 },
                 Hero {
                     kind: HeroKind::Gpu,
+                    id: id("temp1"),
                     value: 30.0,
-                    group: GroupKind::Gpu
+                    highest: 30.0,
                 },
                 Hero {
                     kind: HeroKind::Board,
+                    id: id("temp2"),
                     value: 37.5,
-                    group: GroupKind::Board
+                    highest: 37.5,
                 },
             ]
         );
+        assert_eq!(HeroKind::Board.group(), GroupKind::Board);
+        assert_eq!(
+            summary.cpu_fan,
+            Some(CpuFan {
+                value: 890.0,
+                duty: Some(124.0),
+                stopped: false
+            })
+        );
+        assert!(!summary.cpu_fan.unwrap().at_full());
+        assert_eq!(summary.gpu_power, Some(12.0));
+        let stopped = super::summary(&groups, &[id("fan1")], false);
+        assert!(stopped.cpu_fan.unwrap().stopped);
         // Without a graphics card and a profile, only the processor.
         let groups: Vec<Group> = page()
             .into_iter()
             .filter(|g| !matches!(g.kind, GroupKind::Gpu | GroupKind::Board))
             .collect();
-        let kinds: Vec<HeroKind> = super::summary(&groups, &[])
+        let kinds: Vec<HeroKind> = super::summary(&groups, &[], false)
             .heroes
             .iter()
             .map(|h| h.kind)
@@ -485,28 +735,31 @@ mod tests {
     /// in, and nothing without rated rails.
     #[test]
     fn power() {
-        assert_eq!(summary(&page(), &[]).power, Some(Vec::new()));
+        assert_eq!(summary(&page(), &[], false).power, Some(Vec::new()));
         let mut groups = page();
         groups[3].rows[0] = rail(11.2, false);
-        let power = summary(&groups, &[]).power.unwrap();
+        let power = summary(&groups, &[], false).power.unwrap();
         assert_eq!(power.len(), 1);
         let rail = &power[0];
         assert!(rail.too_low());
         assert!((rail.low - 11.4).abs() < 1e-9 && (rail.high - 12.6).abs() < 1e-9);
         groups[3].rows.remove(0);
-        assert_eq!(summary(&groups, &[]).power, None);
+        assert_eq!(summary(&groups, &[], false).power, None);
     }
 
     /// Fans that spin; the warmest module and disk, a disk once by its
     /// composite temperature.
     #[test]
     fn fans_memory_and_disks() {
-        let summary = summary(&page(), &[]);
+        let summary = summary(&page(), &[], false);
         assert_eq!(
             summary.fans,
             Some(Fans {
                 spinning: 1,
-                cpu_stopped: false
+                speeds: Some((890.0, 890.0)),
+                bars: vec![(890.0, false), (0.0, false)],
+                cpu_stopped: false,
+                speeding: false,
             })
         );
         assert_eq!(
@@ -523,8 +776,92 @@ mod tests {
                 count: 2
             })
         );
-        let stopped = super::summary(&page(), &[id("fan1")]);
+        let stopped = super::summary(&page(), &[id("fan1")], false);
         assert!(stopped.fans.unwrap().cpu_stopped);
+        let speeding = super::summary(&page(), &[], true);
+        assert!(speeding.fans.unwrap().speeding);
+    }
+
+    /// The fans speed up while a duty cycle is 5 points of percent or more
+    /// above its lowest of the last 10 s: a smaller rise, a fall and a
+    /// steady duty cycle are not; nor two samples a minute apart.
+    #[test]
+    fn fans_speeding_up() {
+        let start = Instant::now();
+        let at = |s: u64| start + Duration::from_secs(s);
+        let fan = |duty: f64| {
+            [group(
+                GroupKind::Fans,
+                vec![cpu_fan(890.0, 900.0, Some(duty), true)],
+            )]
+        };
+        let mut w = SpeedWatch::default();
+        assert!(!w.update(&fan(100.0), at(0)));
+        assert!(!w.update(&fan(110.0), at(1)), "3.9 points");
+        assert!(w.update(&fan(113.0), at(2)), "5.1 points");
+        assert!(w.update(&fan(140.0), at(5)));
+        assert!(
+            w.update(&fan(140.0), at(11)),
+            "100 at 0 s is gone, 110 at 1 s is not"
+        );
+        assert!(!w.update(&fan(140.0), at(16)), "steady for 10 s");
+        assert!(!w.update(&fan(90.0), at(17)), "slowing down");
+        assert!(!w.update(&fan(90.0), at(18)));
+        // Hidden for a minute: nothing is known of the time in between.
+        assert!(!w.update(&fan(200.0), at(80)));
+        // A row without a duty cycle is no fan to watch.
+        let rpm_only = [group(
+            GroupKind::Fans,
+            vec![cpu_fan(890.0, 900.0, None, true)],
+        )];
+        assert!(!w.update(&rpm_only, at(81)));
+        assert!(w.duties.is_empty());
+    }
+
+    /// The status sentence (D67): the most important problem first (a
+    /// stopped CPU fan, the temperature closest to its limit, a rail),
+    /// "the readings work" without a profile, else all fine.
+    #[test]
+    fn state_of_the_page() {
+        let groups = page();
+        let fine = summary(&groups, &[], false);
+        assert_eq!(state(&fine, &groups, &[], true), State::Fine);
+        assert_eq!(state(&fine, &groups, &[], false), State::NoProfile);
+
+        let mut low = groups.clone();
+        low[3].rows[0] = rail(11.2, false);
+        let stopped = summary(&low, &[id("fan1")], false);
+        let hot = [Hot {
+            id: id("temp3"),
+            value: 92.0,
+            limit: 95.0,
+        }];
+        let State::Problems(problems) = state(&stopped, &low, &hot, false) else {
+            panic!("no problems");
+        };
+        assert_eq!(problems.len(), 3);
+        assert_eq!(problems[0], Problem::CpuFanStopped);
+        // temp3 is in the processor's group (and a chiplet of the board's
+        // group too: the first row with the id wins).
+        let Problem::Hot(part) = &problems[1] else {
+            panic!("{:?}", problems[1]);
+        };
+        assert_eq!(
+            (part.group, part.processor, part.value, part.limit),
+            (GroupKind::Cpu, true, 92.0, 95.0)
+        );
+        assert!(matches!(&problems[2], Problem::Rail(rail) if rail.too_low()));
+        // A board temperature that is not the processor's.
+        let board = [Hot {
+            id: id("temp2"),
+            value: 76.0,
+            limit: 80.0,
+        }];
+        let State::Problems(problems) = state(&fine, &groups, &board, true) else {
+            panic!("no problems");
+        };
+        assert!(matches!(&problems[0], Problem::Hot(part)
+            if part.group == GroupKind::Board && !part.processor));
     }
 
     fn watch(fan: Row, watch: &mut FanWatch, at: Instant) -> Vec<RowId> {

@@ -13,6 +13,8 @@
 
 pub mod board;
 pub mod fans;
+pub mod heat;
+pub mod history;
 pub mod labels;
 pub mod overview;
 pub mod profile;

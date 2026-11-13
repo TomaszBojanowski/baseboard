@@ -33,7 +33,7 @@
   const temp = hot ? 85 : 50;
   const target = Math.ceil(dutyAt(f.curve, temp));
   document.body.dataset.title = f.name;
-  document.body.dataset.subtitle = `${f.header} · podgląd`;
+  document.body.dataset.subtitle = f.header;
 
   // Runs of equal points as one row, "4–7".
   const runs = [];
@@ -78,13 +78,13 @@
       <div class="group-header"><div class="labels"><div class="heading">Jak działa krzywa</div></div></div>
       <div class="boxed-list">
         <div class="row"><div class="prefix"><i data-ic="curve"></i></div><div class="tb"><div class="t">Między punktami wypełnienie zmienia się liniowo</div><div class="sub">Poniżej pierwszego punktu i powyżej ostatniego obowiązuje ich wypełnienie.</div></div></div>
-        <div class="row"><div class="prefix"><i data-ic="chip"></i></div><div class="tb"><div class="t">Krzywą wykonuje kontroler płyty</div><div class="sub">Aplikacja ani pomocnik nie muszą przy tym działać.</div></div></div>
+        <div class="row"><div class="prefix"><i data-ic="chip"></i></div><div class="tb"><div class="t">Krzywą wykonuje kontroler płyty</div><div class="sub">Baseboard nie musi przy tym działać.</div></div></div>
       </div>
     </section>`;
 
-  document.getElementById("content").innerHTML = `<div class="clamp wide d-page">
-      <div class="boxed-list"><div class="row"><div class="prefix"><i data-ic="info"></i></div>
-        <div class="tb"><div class="t">Ta wersja Baseboard pokazuje ustawienia wentylatorów bez możliwości zmiany.</div></div></div></div>
+  // The only word that this version changes nothing is the sentence at the
+  // end of the page, the same as under the list of fans (D66).
+  document.getElementById("content").innerHTML = `<div class="d-page">
       <div class="card d-chart"><div data-big></div>${legend}</div>
       <div class="d-cols">
         <section class="group">
@@ -93,6 +93,7 @@
         </section>
         <div class="d-side">${header}${source}${how}</div>
       </div>
+      <p class="d-foot">Baseboard na razie tylko pokazuje ustawienia wentylatorów${NB}z${NB}BIOS-u.</p>
     </div>`;
 
   window.afterBuild.unshift(() => {

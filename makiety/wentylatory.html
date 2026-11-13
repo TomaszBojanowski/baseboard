@@ -6,23 +6,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Baseboard – Wentylatory (makieta)</title>
 <link rel="stylesheet" href="wspolne.css">
+<link rel="stylesheet" href="karta.css">
 <link rel="stylesheet" href="wentylatory-lista.css">
 </head>
 <body data-page="wentylatory" data-title="Wentylatory">
 
 <!--
-  M2, D62: the temperature of the curves' source large on top, a list of
-  the fans under it. ?stan= picks the state:
-    (none)     at rest, CPU 50 °C;
-    85         CPU 85 °C, three fans move to 100 %;
+  M2, D62, D67: the processor's card of the Overview and a list of the
+  fans, side by side in a wide window. ?stan= picks the state:
+    (none)     at rest, CPU sensor of the board 50 °C;
+    85         CPU sensor 85 °C, three fans move to 100 %;
     reczny     SYS_FAN2 in manual mode at 45 %;
-    fabryczny  driver of the Fedora kernel, without control.
+    fabryczny  driver of the Fedora kernel, without control;
+    stoi       the CPU fan stopped (D65).
   Data: see wentylatory-lista.js. The controls of M2b (mode switch, banner,
   manual mode with a slider) are still to be designed in this layout.
 -->
 
 <main id="content" class="page"></main>
 
+<script src="karta.js"></script>
 <script src="wentylatory-lista.js"></script>
 <script src="wspolne.js"></script>
 </body>

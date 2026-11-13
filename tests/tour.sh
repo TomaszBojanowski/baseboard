@@ -45,11 +45,20 @@ printf '%s\n' \
 
 failed=0
 
+# The v1 tree with the processor at 93 °C, close to its limit of 95 °C in
+# the profile: the status sentence warns of it (docs/PROJEKT.md §5.1).
+cp -RP "$fixtures/sysfs-ms7e61-v1" "$work/sysfs-ms7e61-hot"
+echo 93000 > "$work/sysfs-ms7e61-hot/devices/platform/nct6683.2592/hwmon/hwmon7/temp1_input"
+
 # tour TREE LANGUAGE LOCALE SIZE CURVES; CURVES is how many fans of the
 # tree open their curve.
 tour() {
     name=$1-$2-$4
     home=$work/$name
+    root=$fixtures/sysfs-ms7e61-$1
+    [ -d "$root" ] || root=$work/sysfs-ms7e61-$1
+    hot=
+    [ "$1" = hot ] && hot=1
     mkdir -p "$home/runtime" "$home/config" "$home/data" "$home/cache" "$home/state"
     chmod 700 "$home/runtime"
     status=0
@@ -60,10 +69,10 @@ tour() {
         XDG_DATA_HOME="$home/data" XDG_CACHE_HOME="$home/cache" \
         XDG_STATE_HOME="$home/state" \
         LC_ALL="$3" LANGUAGE="$2" \
-        BASEBOARD_SYSFS_ROOT="$fixtures/sysfs-ms7e61-$1" \
+        BASEBOARD_SYSFS_ROOT="$root" \
         BASEBOARD_DEBUG_SIZE="$4" BASEBOARD_DEBUG_SHOW_CONTENT=1 \
-        BASEBOARD_DEBUG_TOUR=1 BASEBOARD_TOUR_CURVES="$5" \
-        xvfb-run -a -s "-screen 0 1600x1000x24" \
+        BASEBOARD_DEBUG_TOUR=1 BASEBOARD_TOUR_CURVES="$5" BASEBOARD_TOUR_HOT="$hot" \
+        xvfb-run -a -s "-screen 0 1920x1200x24" \
         dbus-run-session --config-file="$work/bus.conf" -- \
         timeout 120 "$binary" > "$home/log" 2>&1 || status=$?
     echo "== $name"
@@ -81,9 +90,11 @@ tour() {
 }
 
 # Wide and narrow (the narrowest of 360 px; on X11 the window has 10 px
-# more for its shadow), on the three drivers (§5.5.2).
+# more for its shadow), on the three drivers (§5.5.2); the warning in the
+# widest window.
 tour v1 en C.UTF-8 1200x800 6
 tour v1 en C.UTF-8 370x720 6
+tour hot en C.UTF-8 1850x1100 6
 tour hwmon-next en C.UTF-8 1200x800 6
 tour fedora-7.3.3 en C.UTF-8 1200x800 0
 if locale -a | grep -qx 'pl_PL.utf8'; then

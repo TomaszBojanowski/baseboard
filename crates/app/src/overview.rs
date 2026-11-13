@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The Overview page (docs/PROJEKT.md §5.1, D64): on top a warning, three
-//! large numbers and a short list (`summary`); every reading on the page
-//! "All Sensors", which the window pushes over it: the groups and rows of
+//! The Overview page (docs/PROJEKT.md §5.1, D67): the status sentence, a
+//! card for each part of the computer, tiles and the row "All sensors"
+//! (`summary`); every reading on the page "All Sensors", which the window
+//! pushes over it, in one or two columns by `layout`: the groups and rows of
 //! the model from `core::overview`, with names, subtitles and ratings
 //! through gettext and numbers through `core::units`. A worker thread
 //! (`sampler`, started by the window) takes the samples; the page only
@@ -12,22 +13,28 @@
 mod summary;
 
 use std::cell::{Cell, OnceCell, RefCell};
+use std::rc::Rc;
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
 use baseboard_core::fans::driver::Mode;
+use baseboard_core::heat::Hot;
+use baseboard_core::history::Histories;
 use baseboard_core::overview::{
     self, Group, GroupKind, Name, Rating, Row, RowId, Subtitle, Visibility,
 };
 use baseboard_core::profile::{FanRole, TempRole, VoltageRole};
 use baseboard_core::sensors::Kind;
+use baseboard_core::summary::{self as top, Summary};
 use baseboard_core::system;
 use baseboard_core::units::Numbers;
 use gettextrs::{gettext, pgettext};
 use gtk::{glib, graphene};
 
+use crate::layout;
 use crate::sampler::{Sample, Status};
 use summary::SummaryWidgets;
+pub use summary::{card_view, hero_name};
 
 /// The title of a group.
 pub fn group_title(kind: GroupKind) -> String {
@@ -359,20 +366,17 @@ impl RowWidgets {
     }
 }
 
-/// The warnings of the top of the page in words, for the System page: a
-/// stopped CPU fan (D65) first, then each rail outside its tolerance.
-fn alerts(top: &baseboard_core::summary::Summary, numbers: &Numbers) -> Vec<String> {
-    let mut alerts = Vec::new();
-    if top.fans.is_some_and(|fans| fans.cpu_stopped) {
-        alerts.push(crate::alert::cpu_fan_stopped());
-    }
-    alerts.extend(
-        top.power
-            .iter()
-            .flatten()
-            .map(|rail| crate::alert::rail_outside(rail, numbers)),
-    );
-    alerts
+/// The problems of the status sentence (D67) in words, the most important
+/// first, for the status row of the System page.
+fn alerts(state: &top::State, summary: &Summary, numbers: &Numbers) -> Vec<String> {
+    let top::State::Problems(problems) = state else {
+        return Vec::new();
+    };
+    let at_full = summary.cpu_fan.is_some_and(|fan| fan.at_full());
+    problems
+        .iter()
+        .map(|problem| crate::alert::problem(problem, at_full, numbers).0)
+        .collect()
 }
 
 /// The rating as an icon next to the value, never by color alone: the
@@ -381,7 +385,7 @@ fn alerts(top: &baseboard_core::summary::Summary, numbers: &Numbers) -> Vec<Stri
 fn set_rating_icon(icon: &gtk::Image, rating: Option<Rating>) {
     match rating {
         Some(Rating::Rated { within: true, .. }) => {
-            icon.set_icon_name(Some("object-select-symbolic"));
+            icon.set_icon_name(Some("baseboard-ok-symbolic"));
             icon.set_css_classes(&["success"]);
             icon.set_opacity(1.0);
             icon.set_tooltip_text(Some(&gettext("Within tolerance")));
@@ -395,7 +399,7 @@ fn set_rating_icon(icon: &gtk::Image, rating: Option<Rating>) {
             icon.update_state(&[gtk::accessible::State::Hidden(false)]);
         }
         _ => {
-            icon.set_icon_name(Some("object-select-symbolic"));
+            icon.set_icon_name(Some("baseboard-ok-symbolic"));
             icon.set_opacity(0.0);
             icon.set_tooltip_text(None);
             icon.update_state(&[gtk::accessible::State::Hidden(true)]);
@@ -551,7 +555,7 @@ mod imp {
     #[template(resource = "/me/bojanowski/Baseboard/overview.ui")]
     pub struct OverviewPage {
         #[template_child]
-        pub narrow: TemplateChild<adw::Breakpoint>,
+        pub bin: TemplateChild<adw::BreakpointBin>,
         #[template_child]
         pub stack: TemplateChild<gtk::Stack>,
         #[template_child]
@@ -561,17 +565,15 @@ mod imp {
         #[template_child]
         pub scrolled: TemplateChild<gtk::ScrolledWindow>,
         #[template_child]
+        pub clamp: TemplateChild<adw::Clamp>,
+        #[template_child]
         pub column: TemplateChild<gtk::Box>,
-        #[template_child]
-        pub heroes: TemplateChild<gtk::Box>,
-        #[template_child]
-        pub list: TemplateChild<gtk::ListBox>,
-        #[template_child]
-        pub all_list: TemplateChild<gtk::ListBox>,
         #[template_child]
         pub sensors_page: TemplateChild<adw::NavigationPage>,
         #[template_child]
-        pub wide: TemplateChild<adw::Breakpoint>,
+        pub sensors_bin: TemplateChild<adw::BreakpointBin>,
+        #[template_child]
+        pub sensors_clamp: TemplateChild<adw::Clamp>,
         #[template_child]
         pub sensors_scrolled: TemplateChild<gtk::ScrolledWindow>,
         #[template_child]
@@ -585,6 +587,16 @@ mod imp {
         pub(super) last: RefCell<Option<Vec<Group>>>,
         /// The CPU fans that stopped spinning in the latest sample (D65).
         pub(super) stopped: RefCell<Vec<RowId>>,
+        /// The fans speed up in the latest sample.
+        pub(super) speeding: Cell<bool>,
+        /// The temperatures close to their limit in the latest sample.
+        pub(super) hot: RefCell<Vec<Hot>>,
+        /// A board profile matches: without one the status sentence says
+        /// that the readings work rather than that all is fine.
+        pub(super) profile: Cell<bool>,
+        /// The last five minutes of the temperatures, which the window
+        /// keeps for this page and the Fans page.
+        pub(super) histories: OnceCell<Rc<RefCell<Histories>>>,
         /// The warnings of the latest sample in words (`alerts`).
         pub(super) alerts: RefCell<Vec<String>>,
         /// The rows turned off and on in the settings.
@@ -614,32 +626,23 @@ mod imp {
         fn constructed(&self) {
             self.parent_constructed();
             let obj = self.obj();
-            let _ = self.summary.set(SummaryWidgets::new(
-                &self.column,
-                &self.heroes,
-                &self.list,
-                &self.all_list,
-            ));
-            self.narrow.connect_apply(glib::clone!(
-                #[weak]
-                obj,
-                move |_| obj.set_narrow(true)
-            ));
-            self.narrow.connect_unapply(glib::clone!(
-                #[weak]
-                obj,
-                move |_| obj.set_narrow(false)
-            ));
-            self.wide.connect_apply(glib::clone!(
-                #[weak]
-                obj,
-                move |_| obj.set_wide(true)
-            ));
-            self.wide.connect_unapply(glib::clone!(
-                #[weak]
-                obj,
-                move |_| obj.set_wide(false)
-            ));
+            let _ = self.summary.set(SummaryWidgets::new(&self.column));
+            layout::limit(&self.clamp);
+            layout::limit(&self.sensors_clamp);
+            let page = obj.downgrade();
+            layout::watch(&self.bin, move |width| {
+                if let Some(page) = page.upgrade()
+                    && let Some(summary) = page.imp().summary.get()
+                {
+                    summary.set_width(width);
+                }
+            });
+            let page = obj.downgrade();
+            layout::watch(&self.sensors_bin, move |width| {
+                if let Some(page) = page.upgrade() {
+                    page.set_wide(width.columns());
+                }
+            });
         }
     }
 
@@ -657,6 +660,17 @@ impl OverviewPage {
     /// The rows turned off and on in the settings; the page changes at once.
     pub fn set_visibility(&self, visibility: Visibility) {
         self.imp().visibility.replace(visibility);
+        self.display();
+    }
+
+    /// The histories of the temperatures, which the window keeps.
+    pub fn set_histories(&self, histories: Rc<RefCell<Histories>>) {
+        let _ = self.imp().histories.set(histories);
+    }
+
+    /// Whether a board profile matches.
+    pub fn set_profile(&self, profile: bool) {
+        self.imp().profile.set(profile);
         self.display();
     }
 
@@ -681,6 +695,8 @@ impl OverviewPage {
         let imp = self.imp();
         imp.last.replace(Some(sample.groups));
         imp.stopped.replace(sample.stopped);
+        imp.speeding.set(sample.speeding);
+        imp.hot.replace(sample.hot);
         if imp.reading.borrow().as_ref() != Some(&sample.status) {
             self.show_status(&sample.status);
             if let Some(f) = imp.on_status.borrow().as_ref() {
@@ -706,14 +722,13 @@ impl OverviewPage {
     /// Shows the latest sample without the hidden rows.
     fn display(&self) {
         let imp = self.imp();
-        let (any, groups) = match imp.last.borrow().as_deref() {
+        let last = imp.last.borrow();
+        let (all, groups) = match last.as_deref() {
             // Still reading the first sample.
             None => return,
-            Some(all) => (
-                !all.is_empty(),
-                overview::visible(all, &imp.visibility.borrow()),
-            ),
+            Some(all) => (all, overview::visible(all, &imp.visibility.borrow())),
         };
+        let any = !all.is_empty();
         // Without any readings the status page says more than the banner.
         let missing = imp
             .reading
@@ -722,8 +737,9 @@ impl OverviewPage {
             .is_some_and(|status| status.missing_chip.is_some());
         imp.banner.set_revealed(missing && any);
         let numbers = self.numbers();
-        let top = baseboard_core::summary::summary(&groups, &imp.stopped.borrow());
-        imp.alerts.replace(alerts(&top, numbers));
+        let summary = top::summary(&groups, &imp.stopped.borrow(), imp.speeding.get());
+        let state = top::state(&summary, all, &imp.hot.borrow(), imp.profile.get());
+        imp.alerts.replace(alerts(&state, &summary, numbers));
         if groups.is_empty() {
             let (title, description) = if any {
                 (
@@ -751,14 +767,15 @@ impl OverviewPage {
         for (widgets, group) in imp.state.borrow().groups.iter().zip(&groups) {
             widgets.update(group, numbers);
         }
-        if let Some(summary) = imp.summary.get() {
-            summary.update(&top, numbers);
+        if let (Some(widgets), Some(histories)) = (imp.summary.get(), imp.histories.get()) {
+            widgets.update(&summary, &state, &histories.borrow(), numbers);
         }
         imp.stack.set_visible_child_name("summary");
     }
 
-    /// The warnings of the latest sample in words, for the System page:
-    /// a stopped CPU fan (D65) and rails outside their tolerance.
+    /// The problems of the latest sample in words, for the System page: a
+    /// stopped CPU fan (D65), temperatures close to their limit and rails
+    /// outside their tolerance (D67).
     pub fn alerts(&self) -> Vec<String> {
         self.imp().alerts.borrow().clone()
     }
@@ -813,12 +830,6 @@ impl OverviewPage {
             }
             glib::ControlFlow::Break
         });
-    }
-
-    fn set_narrow(&self, narrow: bool) {
-        if let Some(summary) = self.imp().summary.get() {
-            summary.set_narrow(narrow);
-        }
     }
 
     fn rebuild(&self, groups: &[Group], shape: Vec<Shape>) {

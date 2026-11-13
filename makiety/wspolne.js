@@ -68,6 +68,15 @@
     minimize: `<path d="M4.5 10.5h7"/>`,
     maximize: `<rect x="4.5" y="4.5" width="7" height="7" rx="1"/>`,
     chevron: `<path d="M6 3.5 L10.5 8 L6 12.5"/>`,
+    // The parts of the computer on the cards and in the list of the System
+    // page (D67): a disk, a memory module, a graphics card, a processor,
+    // and the list of every sensor.
+    drive: `<rect x="1.8" y="4" width="12.4" height="8" rx="1.6"/><circle cx="11.2" cy="8" r=".9" ${F}/><path d="M4 8h4"/>`,
+    memory: `<rect x="1.5" y="4.5" width="13" height="6" rx="1"/><path d="M4 7h1.5M7.2 7h1.5M10.5 7h1.5M3 10.5v1.8M6 10.5v1.8M9 10.5v1.8M12 10.5v1.8"/>`,
+    gpu: `<rect x="1.5" y="3.5" width="13" height="8" rx="1.3"/><circle cx="6" cy="7.5" r="2.3"/><path d="M10 6h2.5M10 9h2.5M3 11.5v2"/>`,
+    cpu: `<rect x="3.5" y="3.5" width="9" height="9" rx="1.5"/><rect x="6" y="6" width="4" height="4" rx=".5" ${F}/>` +
+      `<path d="M6 1.2v2.3M10 1.2v2.3M6 12.5v2.3M10 12.5v2.3M1.2 6h2.3M1.2 10h2.3M12.5 6h2.3M12.5 10h2.3"/>`,
+    list: `<path d="M5.5 4h8M5.5 8h8M5.5 12h8"/><circle cx="2.8" cy="4" r=".9" ${F}/><circle cx="2.8" cy="8" r=".9" ${F}/><circle cx="2.8" cy="12" r=".9" ${F}/>`,
   };
 
   window.iconPaths = ICONS;

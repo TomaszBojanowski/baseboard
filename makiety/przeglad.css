@@ -1,0 +1,42 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* The Overview of D67 (przeglad.js): the status sentence, the cards
+   (karta.css), the tiles and the row "All sensors"; up to 1320 px. */
+
+.o-page { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; padding: 0 12px; }
+
+.o-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.o-cards.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.o-cards.n1 { grid-template-columns: minmax(0, 1fr); }
+
+/* the tiles under the cards */
+.o-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.o-tiles.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tile { display: flex; align-items: center; gap: 12px; min-height: 120px; padding: 16px;
+  border-radius: 12px; background: var(--card-bg); box-shadow: var(--card-shadow); }
+.tile.warn { background: color-mix(in srgb, var(--warning-bg) 18%, var(--card-bg)); }
+.tile .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.tile-t { font-weight: 600; opacity: .65; }
+.tile-v { font-size: 140%; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tile-s { font-size: 88%; opacity: .62; }
+.tile.warn .tile-s { color: var(--warning); opacity: 1; }
+.bars { display: flex; align-items: flex-end; gap: 4px; width: 82px; height: 40px; flex: none; }
+.bars span { flex: 1; border-radius: 3px; background: var(--accent-bg); }
+.bars span.off { background: currentColor; opacity: .15; }
+.bars span.warn { background: var(--warning-bg); }
+
+.o-all .n-row { min-height: 58px; }
+.o-all svg.ic:first-child { opacity: .7; }
+
+/* one card and one tile a row */
+@container (max-width: 879px) {
+  .o-cards, .o-cards.n2, .o-tiles, .o-tiles.n2 { grid-template-columns: minmax(0, 1fr); }
+  .tile { min-height: 84px; }
+}
+@container (max-width: 599px) {
+  .o-page { gap: 16px; padding: 0; }
+  .o-cards { gap: 12px; }
+  .o-tiles { gap: 10px; }
+  .tile-v { font-size: 120%; }
+  .bars { width: 64px; }
+}

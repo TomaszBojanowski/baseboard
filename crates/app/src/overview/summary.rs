@@ -1,19 +1,27 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The top of the Overview page (docs/PROJEKT.md §5.1, D64), from
-//! `core::summary`: a warning about a rail outside its tolerance, three
-//! large numbers in the style of the Fans page, and a short list (power,
-//! fans, memory, disks, every reading). A number or a row opens the page
-//! "All Sensors" on its group; the fans row opens the Fans page.
+//! The Overview page (docs/PROJEKT.md §5.1, D67), from `core::summary`:
+//! the status sentence on top, a card for the processor, the graphics card
+//! and the board, tiles for the fans, the memory and the disks, and the
+//! row "All sensors". A card or a tile opens the page "All Sensors" on its
+//! group, the fans tile the Fans page, the status sentence the place of
+//! its problem. Wide, the cards stand in one row and the tiles in another;
+//! narrower, one under another (`layout`).
+
+use std::cell::{Cell, RefCell};
 
 use adw::prelude::*;
+use baseboard_core::history::{Histories, Trend};
 use baseboard_core::overview::GroupKind;
 use baseboard_core::sensors::Kind;
-use baseboard_core::summary::{HeroKind, OutsideRail, Summary, Warmest};
+use baseboard_core::summary::{Hero, HeroKind, OutsideRail, Problem, State, Summary, Warmest};
 use baseboard_core::units::Numbers;
 use gettextrs::{gettext, ngettext, pgettext};
 
-use crate::alert::{self, Alert};
+use crate::alert;
+use crate::history_chart::{self, degrees};
+use crate::layout::Width;
+use crate::part_card::{CardView, Fact, PartCard};
 
 /// The key of a group in the action `win.show-sensors`; an empty key opens
 /// the page at its top.
@@ -46,7 +54,7 @@ pub fn group_of_key(key: &str) -> Option<GroupKind> {
     .find(|kind| group_key(*kind) == key)
 }
 
-fn hero_name(kind: HeroKind) -> String {
+pub fn hero_name(kind: HeroKind) -> String {
     match kind {
         HeroKind::Cpu => gettext("Processor"),
         HeroKind::Gpu => gettext("Graphics card"),
@@ -54,282 +62,580 @@ fn hero_name(kind: HeroKind) -> String {
     }
 }
 
-/// A temperature in whole degrees, as the large number of the Fans page.
-fn whole_degrees(value: f64) -> String {
-    if value.is_finite() {
-        format!("{}", value.round() as i64)
-    } else {
-        "–".to_owned()
+fn hero_icon(kind: HeroKind) -> &'static str {
+    match kind {
+        HeroKind::Cpu => "baseboard-processor-symbolic",
+        HeroKind::Gpu => "baseboard-graphics-card-symbolic",
+        HeroKind::Board => "baseboard-board-symbolic",
     }
 }
 
-/// One large number: a flat button over its name, value and unit.
-struct HeroWidgets {
-    kind: HeroKind,
-    button: gtk::Button,
-    value: gtk::Label,
+/// A part close to its limit: a temperature of its group is.
+fn is_hot(kind: HeroKind, state: &State) -> bool {
+    matches!(state, State::Problems(problems) if problems.iter().any(|problem| {
+        matches!(problem, Problem::Hot(part) if part.group == kind.group())
+    }))
 }
 
-impl HeroWidgets {
-    fn new(kind: HeroKind) -> Self {
+/// What the card of `hero` shows: its temperature and history, one number
+/// of the part, and the highest temperature since the app started.
+pub fn card_view(
+    hero: &Hero,
+    summary: &Summary,
+    state: &State,
+    histories: &Histories,
+    numbers: &Numbers,
+) -> CardView {
+    let mut facts = Vec::new();
+    match hero.kind {
+        HeroKind::Cpu => facts.extend(summary.cpu_fan.map(|fan| Fact {
+            // Translators: a fact on the processor's card, followed by the
+            // speed of the CPU fan, e.g. "890 rpm".
+            title: gettext("CPU fan"),
+            value: if fan.stopped {
+                pgettext("fan state", "Stopped")
+            } else {
+                numbers.value(Kind::Fan, fan.value)
+            },
+            warn: fan.stopped,
+        })),
+        HeroKind::Gpu => facts.extend(summary.gpu_power.map(|watts| Fact {
+            // Translators: a fact on the graphics card's card, followed by
+            // the power it draws, e.g. "12.0 W".
+            title: gettext("Power draw"),
+            value: numbers.value(Kind::Power, watts),
+            warn: false,
+        })),
+        HeroKind::Board => {
+            facts.extend(summary.power.as_deref().map(|rails| power(rails, numbers)))
+        }
+    }
+    facts.push(Fact {
+        // Translators: a fact on a card, followed by a temperature.
+        title: gettext("Highest since the app started"),
+        value: degrees(hero.highest),
+        warn: false,
+    });
+    let history = histories.get(&hero.id);
+    CardView {
+        value: hero.value,
+        points: history.map(history_chart::points).unwrap_or_default(),
+        trend: history.map_or(Trend::Steady, |h| h.trend()),
+        hot: is_hot(hero.kind, state),
+        facts,
+        note: None,
+    }
+}
+
+/// The rated rails on the board's card.
+fn power(rails: &[OutsideRail], numbers: &Numbers) -> Fact {
+    let title = gettext("Power");
+    match rails {
+        [] => Fact {
+            title,
+            // Translators: on the board's card when every rated rail is
+            // within its tolerance.
+            value: gettext("Normal"),
+            warn: false,
+        },
+        [rail] => Fact {
+            title,
+            // Translators: on the board's card for a rail outside its
+            // tolerance: the rail and what the board reads, e.g.
+            // "+12 V: 11.20 V".
+            value: gettext("{rail}: {value}")
+                .replace("{rail}", &super::name(&rail.name, numbers))
+                .replace(
+                    "{value}",
+                    &numbers.value_of(Kind::Voltage, rail.value, Some(rail.nominal)),
+                ),
+            warn: true,
+        },
+        more => {
+            let count = u32::try_from(more.len()).unwrap_or(u32::MAX);
+            Fact {
+                title,
+                value: ngettext(
+                    "{} voltage outside the normal range",
+                    "{} voltages outside the normal range",
+                    count,
+                )
+                .replace("{}", &count.to_string()),
+                warn: true,
+            }
+        }
+    }
+}
+
+/// The status sentence: its icon, title and text, and what its row opens
+/// (an action and its target), only when it warns.
+pub struct StatusText {
+    pub icon: &'static str,
+    pub class: &'static str,
+    pub title: String,
+    pub text: String,
+    pub opens: Option<(&'static str, Option<String>)>,
+}
+
+/// The status sentence of `state` (D67): the most important problem, with
+/// how many more there are; the readings working without a profile; or
+/// all fine.
+pub fn status_text(state: &State, summary: &Summary, numbers: &Numbers) -> StatusText {
+    let problems = match state {
+        State::Fine => {
+            let speeding = summary.fans.as_ref().is_some_and(|fans| fans.speeding);
+            return StatusText {
+                icon: "baseboard-ok-symbolic",
+                class: "success",
+                title: alert::everything_fine(),
+                text: if speeding {
+                    // Translators: under "Everything is fine" on the Overview
+                    // while the duty cycle of a fan rises.
+                    gettext("Fans are speeding up.")
+                } else {
+                    gettext("Temperatures, fans and power are fine.")
+                },
+                opens: None,
+            };
+        }
+        State::NoProfile => {
+            return StatusText {
+                icon: "help-about-symbolic",
+                class: "dimmed",
+                title: alert::readings_work(),
+                text: gettext(
+                    "This board has no profile yet, so some readings have no names or ratings.",
+                ),
+                opens: None,
+            };
+        }
+        State::Problems(problems) => problems,
+    };
+    let Some(first) = problems.first() else {
+        return status_text(&State::Fine, summary, numbers);
+    };
+    let at_full = summary.cpu_fan.is_some_and(|fan| fan.at_full());
+    let (title, mut text) = alert::problem(first, at_full, numbers);
+    let more = u32::try_from(problems.len() - 1).unwrap_or(u32::MAX);
+    if more > 0 {
+        text.push('\n');
+        text.push_str(&alert::more_problems(more));
+    }
+    let opens = match first {
+        Problem::CpuFanStopped => ("win.show-fans", None),
+        Problem::Hot(part) => ("win.show-sensors", Some(group_key(part.group).to_owned())),
+        Problem::Rail(_) => (
+            "win.show-sensors",
+            Some(group_key(GroupKind::Voltages).to_owned()),
+        ),
+    };
+    StatusText {
+        icon: "dialog-warning-symbolic",
+        class: "warning",
+        title,
+        text,
+        opens: Some(opens),
+    }
+}
+
+/// The row of the status sentence.
+struct StatusRow {
+    list: gtk::ListBox,
+    row: adw::ActionRow,
+    icon: gtk::Image,
+    chevron: gtk::Image,
+}
+
+impl StatusRow {
+    fn new() -> Self {
+        let list = gtk::ListBox::builder()
+            .selection_mode(gtk::SelectionMode::None)
+            .css_classes(["boxed-list", "status-list"])
+            .build();
+        let row = adw::ActionRow::builder()
+            .use_markup(false)
+            .css_classes(["status-row"])
+            .build();
+        let icon = gtk::Image::builder()
+            .valign(gtk::Align::Start)
+            .accessible_role(gtk::AccessibleRole::Presentation)
+            .css_classes(["status-icon"])
+            .build();
+        let chevron = gtk::Image::builder()
+            .icon_name("go-next-symbolic")
+            .valign(gtk::Align::Center)
+            .accessible_role(gtk::AccessibleRole::Presentation)
+            .css_classes(["dimmed"])
+            .build();
+        row.add_prefix(&icon);
+        row.add_suffix(&chevron);
+        list.append(&row);
+        Self {
+            list,
+            row,
+            icon,
+            chevron,
+        }
+    }
+
+    fn show(&self, status: &StatusText) {
+        if self.row.title() != status.title {
+            self.row.set_title(&status.title);
+        }
+        if self.row.subtitle().as_deref() != Some(status.text.as_str()) {
+            self.row.set_subtitle(&status.text);
+        }
+        self.icon.set_icon_name(Some(status.icon));
+        self.icon.set_css_classes(&["status-icon", status.class]);
+        let warning = status.opens.is_some();
+        if warning {
+            self.list.add_css_class("warning-status");
+        } else {
+            self.list.remove_css_class("warning-status");
+        }
+        self.chevron.set_visible(warning);
+        self.row.set_activatable(warning);
+        match &status.opens {
+            Some((action, target)) => {
+                // The target before the name (see `PartCard::new`).
+                self.row
+                    .set_action_target_value(target.as_ref().map(|t| t.to_variant()).as_ref());
+                self.row.set_action_name(Some(action));
+            }
+            None => self.row.set_action_name(None),
+        }
+        let role = if warning {
+            gtk::AccessibleRole::Alert
+        } else {
+            gtk::AccessibleRole::Status
+        };
+        if self.list.accessible_role() != role {
+            self.list.set_accessible_role(role);
+        }
+    }
+}
+
+/// A tile under the cards: an icon, a title, a value and a line under it,
+/// and for the fans their speeds as bars.
+struct Tile {
+    button: gtk::Button,
+    badge: gtk::Image,
+    icon: &'static str,
+    value: gtk::Label,
+    sub: gtk::Label,
+    bars: Option<gtk::Box>,
+}
+
+impl Tile {
+    fn new(icon: &'static str, title: &str, bars: bool) -> Self {
+        let badge = gtk::Image::builder()
+            .icon_name(icon)
+            .valign(gtk::Align::Center)
+            .accessible_role(gtk::AccessibleRole::Presentation)
+            .css_classes(["part-badge"])
+            .build();
         let name = gtk::Label::builder()
-            .label(hero_name(kind))
-            .wrap(true)
-            .justify(gtk::Justification::Center)
-            .css_classes(["hero-label"])
+            .label(title)
+            .xalign(0.0)
+            .css_classes(["tile-title"])
             .build();
         let value = gtk::Label::builder()
-            .css_classes(["hero-value", "numeric"])
+            .xalign(0.0)
+            .css_classes(["tile-value", "numeric"])
             .build();
-        let unit = gtk::Label::builder()
-            .label("°C")
-            .valign(gtk::Align::Start)
-            .css_classes(["hero-unit"])
+        let sub = gtk::Label::builder()
+            .xalign(0.0)
+            .wrap(true)
+            .natural_wrap_mode(gtk::NaturalWrapMode::Word)
+            .css_classes(["tile-sub"])
             .build();
-        let number = gtk::Box::builder().halign(gtk::Align::Center).build();
-        number.append(&value);
-        number.append(&unit);
-        let content = gtk::Box::builder()
+        let texts = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
-            .valign(gtk::Align::Start)
+            .hexpand(true)
+            .valign(gtk::Align::Center)
             .build();
-        content.append(&name);
-        content.append(&number);
+        texts.append(&name);
+        texts.append(&value);
+        texts.append(&sub);
+        let content = gtk::Box::builder().spacing(12).build();
+        content.append(&badge);
+        content.append(&texts);
+        let bars = bars.then(|| {
+            let bars = gtk::Box::builder()
+                .spacing(BARS_GAP)
+                .valign(gtk::Align::Center)
+                .height_request(BARS_HEIGHT)
+                .accessible_role(gtk::AccessibleRole::Presentation)
+                .build();
+            content.append(&bars);
+            bars
+        });
         let button = gtk::Button::builder()
             .child(&content)
             .visible(false)
-            .css_classes(["flat", "hero-button"])
+            .css_classes(["card", "tile"])
             .build();
-        button.update_property(&[gtk::accessible::Property::Description(&gettext(
-            // Translators: read by screen readers for a large number on the
-            // Overview, which opens the page "All Sensors" on its group.
-            "Shows every reading of the group",
-        ))]);
         Self {
-            kind,
             button,
+            badge,
+            icon,
             value,
+            sub,
+            bars,
         }
-    }
-}
-
-/// A row of the short list: a title, a value and an arrow, and an icon
-/// before them for the power rails and the fans.
-struct SummaryRow {
-    row: adw::ActionRow,
-    icon: Option<gtk::Image>,
-    value: gtk::Label,
-}
-
-impl SummaryRow {
-    fn new(list: &gtk::ListBox, title: &str, icon: bool) -> Self {
-        let row = adw::ActionRow::builder()
-            .use_markup(false)
-            .title(title)
-            .activatable(true)
-            .visible(false)
-            .build();
-        // Put before the title only while it shows: a hidden prefix would
-        // still move the title.
-        let icon = icon.then(|| {
-            gtk::Image::builder()
-                .valign(gtk::Align::Center)
-                .accessible_role(gtk::AccessibleRole::Presentation)
-                .build()
-        });
-        let value = gtk::Label::builder()
-            .valign(gtk::Align::Center)
-            .css_classes(["numeric"])
-            .build();
-        row.add_suffix(&value);
-        row.add_suffix(&chevron());
-        list.append(&row);
-        Self { row, icon, value }
     }
 
     fn opens(self, action: &str, target: Option<&str>) -> Self {
-        // The target before the name (see `SummaryWidgets::update`).
+        // The target before the name (see `PartCard::new`).
         if let Some(target) = target {
-            self.row.set_action_target_value(Some(&target.to_variant()));
+            self.button
+                .set_action_target_value(Some(&target.to_variant()));
         }
-        self.row.set_action_name(Some(action));
+        self.button.set_action_name(Some(action));
         self
     }
 
-    /// Shows `value` and `subtitle` (none when empty); the icon warns or
-    /// says that all is well, or is not there.
-    fn show(&self, value: &str, subtitle: &str, icon: Option<bool>) {
+    fn show(&self, value: &str, sub: &str, warn: bool) {
         if self.value.label() != value {
             self.value.set_label(value);
         }
-        if self.row.subtitle().as_deref().unwrap_or_default() != subtitle {
-            self.row.set_subtitle(subtitle);
+        if self.sub.label() != sub {
+            self.sub.set_label(sub);
         }
-        if let Some(image) = &self.icon {
-            match (icon.is_some(), image.parent().is_some()) {
-                (true, false) => self.row.add_prefix(image),
-                (false, true) => self.row.remove(image),
-                _ => {}
-            }
-            match icon {
-                Some(true) => {
-                    image.set_icon_name(Some("dialog-warning-symbolic"));
-                    image.set_css_classes(&["warning"]);
-                }
-                Some(false) => {
-                    image.set_icon_name(Some("object-select-symbolic"));
-                    image.set_css_classes(&["success"]);
-                }
-                None => {}
+        self.sub.set_visible(!sub.is_empty());
+        let warning: [&gtk::Widget; 3] = [
+            self.sub.upcast_ref(),
+            self.badge.upcast_ref(),
+            self.button.upcast_ref(),
+        ];
+        for (widget, class) in warning.into_iter().zip(["warning", "hot", "warning-tile"]) {
+            if warn {
+                widget.add_css_class(class);
+            } else {
+                widget.remove_css_class(class);
             }
         }
-        // The title with the value; the subtitle is the description.
-        let label = if value.is_empty() {
-            self.row.title().to_string()
+        self.badge.set_icon_name(Some(if warn {
+            "dialog-warning-symbolic"
         } else {
-            format!("{}: {value}", self.row.title())
+            self.icon
+        }));
+        let title = self
+            .button
+            .child()
+            .and_then(|content| content.first_child())
+            .and_then(|badge| badge.next_sibling())
+            .and_then(|texts| texts.first_child())
+            .and_downcast::<gtk::Label>()
+            .map(|label| label.label().to_string())
+            .unwrap_or_default();
+        self.button.update_property(&[
+            gtk::accessible::Property::Label(&format!("{title}: {value}")),
+            gtk::accessible::Property::Description(sub),
+        ]);
+        self.button.set_visible(true);
+    }
+
+    /// The speeds of the fans, a bar each; a stopped CPU fan in the color
+    /// of warnings, a fan that does not spin faint.
+    fn show_bars(&self, fans: &[(f64, bool)]) {
+        let Some(bars) = &self.bars else {
+            return;
         };
-        self.row
-            .upcast_ref::<gtk::Widget>()
-            .update_property(&[gtk::accessible::Property::Label(&label)]);
-        self.row.set_visible(true);
+        let width = bar_width(fans.len());
+        let mut bar = bars.first_child();
+        let mut count = 0;
+        for &(rpm, stopped) in fans {
+            let current = bar.clone().unwrap_or_else(|| {
+                let new = gtk::Box::builder()
+                    .valign(gtk::Align::End)
+                    .css_classes(["fan-bar"])
+                    .build();
+                bars.append(&new);
+                new.upcast()
+            });
+            let share = if rpm.is_finite() { rpm / BARS_RPM } else { 0.0 };
+            let height = (share.clamp(0.1, 1.0) * f64::from(BARS_HEIGHT)).round() as i32;
+            current.set_size_request(width, height);
+            let class = if stopped {
+                "warn"
+            } else if rpm > 0.0 {
+                "on"
+            } else {
+                "off"
+            };
+            current.set_css_classes(&["fan-bar", class]);
+            bar = current.next_sibling();
+            count += 1;
+        }
+        while let Some(extra) = bars.last_child().filter(|_| count < count_children(bars)) {
+            bars.remove(&extra);
+        }
     }
 }
 
-fn chevron() -> gtk::Image {
-    gtk::Image::builder()
-        .icon_name("go-next-symbolic")
-        .valign(gtk::Align::Center)
-        .accessible_role(gtk::AccessibleRole::Presentation)
-        .css_classes(["dimmed"])
-        .build()
+fn count_children(widget: &gtk::Box) -> usize {
+    let mut count = 0;
+    let mut child = widget.first_child();
+    while let Some(current) = child {
+        count += 1;
+        child = current.next_sibling();
+    }
+    count
 }
 
-/// The widgets of the top of the page.
+/// The bars of the fans tile: their height, and the speed of a full bar;
+/// together as wide as six bars of 10 px, however many fans there are,
+/// so that three tiles fit side by side in a window of about 1200 px.
+const BARS_HEIGHT: i32 = 40;
+const BARS_RPM: f64 = 1600.0;
+const BARS_WIDTH: i32 = 82;
+const BARS_GAP: i32 = 4;
+
+/// The width of each of `count` bars.
+fn bar_width(count: usize) -> i32 {
+    let count = i32::try_from(count.max(1)).unwrap_or(i32::MAX);
+    ((BARS_WIDTH - BARS_GAP * (count - 1)) / count).max(3)
+}
+
+/// The widgets of the page.
 pub struct SummaryWidgets {
-    alert: Alert,
-    heroes_box: gtk::Box,
-    heroes: Vec<HeroWidgets>,
-    power: SummaryRow,
-    fans: SummaryRow,
-    memory: SummaryRow,
-    disks: SummaryRow,
+    status: StatusRow,
+    cards_grid: gtk::Grid,
+    cards: Vec<(HeroKind, PartCard)>,
+    tiles_grid: gtk::Grid,
+    fans: Tile,
+    memory: Tile,
+    disks: Tile,
+    width: Cell<Width>,
+    /// The cards and tiles shown, as the grids hold them.
+    shown: RefCell<(Vec<bool>, Vec<bool>, Option<Width>)>,
 }
 
 impl SummaryWidgets {
-    /// Fills `column` (the warning on top), `heroes`, `list` and `all`.
-    pub fn new(
-        column: &gtk::Box,
-        heroes: &gtk::Box,
-        list: &gtk::ListBox,
-        all: &gtk::ListBox,
-    ) -> Self {
-        let alert = Alert::new();
-        column.prepend(&alert.widget);
-        let heroes_widgets: Vec<HeroWidgets> = [HeroKind::Cpu, HeroKind::Gpu, HeroKind::Board]
+    /// Fills `column` from the top.
+    pub fn new(column: &gtk::Box) -> Self {
+        let status = StatusRow::new();
+        column.append(&status.list);
+        let cards_grid = gtk::Grid::builder()
+            .column_spacing(16)
+            .row_spacing(16)
+            .column_homogeneous(true)
+            .build();
+        column.append(&cards_grid);
+        let cards = [HeroKind::Cpu, HeroKind::Gpu, HeroKind::Board]
             .into_iter()
-            .map(HeroWidgets::new)
+            .map(|kind| {
+                let card = PartCard::new(
+                    hero_icon(kind),
+                    &hero_name(kind),
+                    Some(group_key(kind.group())),
+                );
+                card.widget.set_visible(false);
+                (kind, card)
+            })
             .collect();
-        for hero in &heroes_widgets {
-            heroes.append(&hero.button);
-        }
+        let tiles_grid = gtk::Grid::builder()
+            .column_spacing(14)
+            .row_spacing(14)
+            .column_homogeneous(true)
+            .build();
+        column.append(&tiles_grid);
         let show = "win.show-sensors";
-        let power = SummaryRow::new(list, &gettext("Power"), true)
-            .opens(show, Some(group_key(GroupKind::Voltages)));
-        let fans = SummaryRow::new(list, &gettext("Fans"), true).opens("win.show-fans", None);
-        let memory = SummaryRow::new(list, &pgettext("system memory", "Memory"), false)
-            .opens(show, Some(group_key(GroupKind::Memory)));
-        let disks = SummaryRow::new(list, &gettext("Disks"), false)
+        let fans = Tile::new("baseboard-fan-symbolic", &gettext("Fans"), true)
+            .opens("win.show-fans", None);
+        let memory = Tile::new(
+            "baseboard-memory-symbolic",
+            &pgettext("system memory", "Memory"),
+            false,
+        )
+        .opens(show, Some(group_key(GroupKind::Memory)));
+        let disks = Tile::new("baseboard-disk-symbolic", &gettext("Disks"), false)
             .opens(show, Some(group_key(GroupKind::Disks)));
-        let every = SummaryRow::new(all, &gettext("All sensors"), false).opens(show, Some(""));
-        every.show(
-            "",
-            &gettext("Every reading with its source and range since the app started"),
-            None,
+
+        let all = gtk::ListBox::builder()
+            .selection_mode(gtk::SelectionMode::None)
+            .css_classes(["boxed-list"])
+            .build();
+        let every = adw::ActionRow::builder()
+            .use_markup(false)
+            .title(gettext("All sensors"))
+            .subtitle(gettext(
+                "Every reading with its source and range since the app started",
+            ))
+            .activatable(true)
+            .build();
+        every.add_prefix(
+            &gtk::Image::builder()
+                .icon_name("view-list-bullet-symbolic")
+                .accessible_role(gtk::AccessibleRole::Presentation)
+                .css_classes(["dimmed"])
+                .build(),
         );
-        list.update_property(&[gtk::accessible::Property::Label(&gettext(
-            // Translators: read by screen readers for the short list of the
-            // Overview.
-            "Summary",
-        ))]);
+        every.add_suffix(
+            &gtk::Image::builder()
+                .icon_name("go-next-symbolic")
+                .accessible_role(gtk::AccessibleRole::Presentation)
+                .css_classes(["dimmed"])
+                .build(),
+        );
+        every.set_action_target_value(Some(&"".to_variant()));
+        every.set_action_name(Some(show));
+        all.append(&every);
+        column.append(&all);
         Self {
-            alert,
-            heroes_box: heroes.clone(),
-            heroes: heroes_widgets,
-            power,
+            status,
+            cards_grid,
+            cards,
+            tiles_grid,
             fans,
             memory,
             disks,
+            width: Cell::new(Width::Wide),
+            shown: RefCell::new((Vec::new(), Vec::new(), None)),
         }
     }
 
-    /// Smaller numbers in a narrow window.
-    pub fn set_narrow(&self, narrow: bool) {
-        if narrow {
-            self.heroes_box.add_css_class("narrow");
-        } else {
-            self.heroes_box.remove_css_class("narrow");
-        }
+    pub fn set_width(&self, width: Width) {
+        self.width.set(width);
+        self.arrange();
     }
 
-    pub fn update(&self, summary: &Summary, numbers: &Numbers) {
-        for widgets in &self.heroes {
-            let hero = summary.heroes.iter().find(|h| h.kind == widgets.kind);
-            widgets.button.set_visible(hero.is_some());
-            let Some(hero) = hero else {
-                continue;
-            };
-            let value = whole_degrees(hero.value);
-            if widgets.value.label() != value {
-                widgets.value.set_label(&value);
-                let text = numbers.value(Kind::Temp, hero.value.round());
-                widgets
-                    .button
-                    .update_property(&[gtk::accessible::Property::Label(&format!(
-                        "{}: {text}",
-                        hero_name(hero.kind)
-                    ))]);
-            }
-            let key = group_key(hero.group).to_variant();
-            if widgets.button.action_target_value().as_ref() != Some(&key) {
-                // The target before the name: GTK checks the action as soon
-                // as it has a name, and without its parameter turns it off
-                // with a warning.
-                widgets.button.set_action_target_value(Some(&key));
-                widgets.button.set_action_name(Some("win.show-sensors"));
+    pub fn update(
+        &self,
+        summary: &Summary,
+        state: &State,
+        histories: &Histories,
+        numbers: &Numbers,
+    ) {
+        self.status.show(&status_text(state, summary, numbers));
+        for (kind, card) in &self.cards {
+            let hero = summary.heroes.iter().find(|h| h.kind == *kind);
+            card.widget.set_visible(hero.is_some());
+            if let Some(hero) = hero {
+                card.update(&card_view(hero, summary, state, histories, numbers));
             }
         }
-        self.heroes_box.set_visible(!summary.heroes.is_empty());
-
-        match &summary.power {
-            None => self.power.row.set_visible(false),
-            Some(rails) => self.show_power(rails, numbers),
-        }
-        let first = summary.power.as_deref().and_then(<[_]>::first);
-        match first {
-            Some(rail) => {
-                let (title, text) = alert::rail_warning(rail, numbers);
-                self.alert.set(Some((&title, &text)));
-            }
-            None => self.alert.set(None),
-        }
-
-        match summary.fans {
-            None => self.fans.row.set_visible(false),
+        match &summary.fans {
             Some(fans) => {
                 let count = u32::try_from(fans.spinning).unwrap_or(u32::MAX);
                 // Translators: how many fans spin, on the Overview.
                 let value =
                     ngettext("{} spinning", "{} spinning", count).replace("{}", &count.to_string());
-                if fans.cpu_stopped {
-                    self.fans
-                        .show(&value, &alert::cpu_fan_stopped(), Some(true));
+                let sub = if fans.cpu_stopped {
+                    alert::cpu_fan_stopped()
+                } else if fans.speeding {
+                    // Translators: under the number of fans that spin on the
+                    // Overview while the duty cycle of one of them rises.
+                    pgettext("fans", "Speeding up")
                 } else {
-                    self.fans.show(&value, "", None);
-                }
+                    fans.speeds.map(speeds).unwrap_or_default()
+                };
+                self.fans.show(&value, &sub, fans.cpu_stopped);
+                self.fans.show_bars(&fans.bars);
             }
+            None => self.fans.button.set_visible(false),
         }
-
         show_warmest(&self.memory, summary.memory, numbers, |count| {
             // Translators: under the warmest memory module on the Overview.
             ngettext("Warmest of {} module", "Warmest of {} modules", count)
@@ -338,66 +644,114 @@ impl SummaryWidgets {
             // Translators: under the warmest disk on the Overview.
             ngettext("Warmest of {} disk", "Warmest of {} disks", count)
         });
+        self.arrange();
     }
 
-    fn show_power(&self, rails: &[OutsideRail], numbers: &Numbers) {
-        match rails {
-            [] => self.power.show(
-                // Translators: the value of the power row of the Overview when
-                // every rated rail is within its tolerance.
-                &gettext("Normal"),
-                "",
-                Some(false),
-            ),
-            [rail] => self.power.show(
-                &numbers.value_of(Kind::Voltage, rail.value, Some(rail.nominal)),
-                &alert::rail_outside(rail, numbers),
-                Some(true),
-            ),
-            more => {
-                let count = u32::try_from(more.len()).unwrap_or(u32::MAX);
-                let text = ngettext(
-                    "{} voltage outside the normal range",
-                    "{} voltages outside the normal range",
-                    count,
-                )
-                .replace("{}", &count.to_string());
-                self.power.show("", &text, Some(true));
-            }
+    /// Puts the cards and tiles shown into their grids: in one row each
+    /// when there is room, one under another otherwise.
+    fn arrange(&self) {
+        let width = self.width.get();
+        let cards: Vec<bool> = self
+            .cards
+            .iter()
+            .map(|(_, c)| c.widget.get_visible())
+            .collect();
+        let tiles: Vec<bool> = self
+            .tiles()
+            .iter()
+            .map(|t| t.button.get_visible())
+            .collect();
+        let shape = (cards, tiles, Some(width));
+        if *self.shown.borrow() == shape {
+            return;
         }
+        let place = |grid: &gtk::Grid, widgets: Vec<gtk::Widget>| {
+            for widget in &widgets {
+                if widget.parent().is_some() {
+                    grid.remove(widget);
+                }
+            }
+            let shown: Vec<&gtk::Widget> = widgets.iter().filter(|w| w.get_visible()).collect();
+            let columns = if width.columns() {
+                shown.len().max(1)
+            } else {
+                1
+            };
+            for (i, widget) in shown.into_iter().enumerate() {
+                let (column, row) = (i % columns, i / columns);
+                grid.attach(widget, column as i32, row as i32, 1, 1);
+            }
+        };
+        for (_, card) in &self.cards {
+            card.set_width(width);
+        }
+        place(
+            &self.cards_grid,
+            self.cards.iter().map(|(_, c)| c.widget.clone()).collect(),
+        );
+        place(
+            &self.tiles_grid,
+            self.tiles()
+                .iter()
+                .map(|t| t.button.clone().upcast())
+                .collect(),
+        );
+        self.shown.replace(shape);
     }
 
-    /// The warning shown on top, if any (tests).
+    fn tiles(&self) -> [&Tile; 3] {
+        [&self.fans, &self.memory, &self.disks]
+    }
+
+    /// The status sentence shown (tests).
     #[cfg(test)]
-    pub fn alert(&self) -> Option<(String, String)> {
-        self.alert.shown()
+    pub fn status(&self) -> (String, String) {
+        (
+            self.status.row.title().into(),
+            self.status.row.subtitle().unwrap_or_default().into(),
+        )
+    }
+}
+
+/// "From 750 to 1010 rpm", or one speed.
+fn speeds((low, high): (f64, f64)) -> String {
+    let (low, high) = (low.round() as i64, high.round() as i64);
+    if low == high {
+        // Translators: the speed of the only fan that spins, e.g. "890 rpm".
+        gettext("{} rpm").replace("{}", &high.to_string())
+    } else {
+        // Translators: under the number of fans that spin on the Overview,
+        // e.g. "From 750 to 1010 rpm".
+        gettext("From {low} to {high} rpm")
+            .replace("{low}", &low.to_string())
+            .replace("{high}", &high.to_string())
     }
 }
 
 fn show_warmest(
-    row: &SummaryRow,
+    tile: &Tile,
     warmest: Option<Warmest>,
     numbers: &Numbers,
     of: impl Fn(u32) -> String,
 ) {
     let Some(warmest) = warmest else {
-        row.row.set_visible(false);
+        tile.button.set_visible(false);
         return;
     };
     let count = u32::try_from(warmest.count).unwrap_or(u32::MAX);
-    let subtitle = if count > 1 {
+    let sub = if count > 1 {
         of(count).replace("{}", &count.to_string())
     } else {
         String::new()
     };
-    row.show(&numbers.value(Kind::Temp, warmest.value), &subtitle, None);
+    tile.show(&numbers.value(Kind::Temp, warmest.value), &sub, false);
 }
 
 #[cfg(test)]
 mod tests {
-    use baseboard_core::overview::Name;
+    use baseboard_core::overview::{Name, RowId};
     use baseboard_core::profile::VoltageRole;
-    use baseboard_core::summary::{Fans, Hero};
+    use baseboard_core::summary::{CpuFan, Fans, HotPart};
 
     use super::*;
 
@@ -407,17 +761,138 @@ mod tests {
             assert_eq!(group_of_key(group_key(kind)), Some(kind));
         }
         assert_eq!(group_of_key(""), None);
-        assert_eq!(whole_degrees(68.2), "68");
-        assert_eq!(whole_degrees(f64::NAN), "–");
+        assert_eq!(speeds((750.4, 1013.0)), "From 750 to 1013 rpm");
+        assert_eq!(speeds((890.0, 890.2)), "890 rpm");
+        // Six bars of 10 px as on the render, eight narrower in the same room.
+        assert_eq!(bar_width(6), 10);
+        assert_eq!(bar_width(8), 6);
+        assert_eq!(bar_width(30), 3);
     }
 
-    /// The numbers, the rows and the warning for a sample with a low
-    /// +12 V rail and a stopped CPU fan, in a window with the actions; a
-    /// large number opens its group. Needs a display.
+    fn rail() -> OutsideRail {
+        OutsideRail {
+            name: Name::Voltage(VoltageRole::P12v),
+            value: 11.2,
+            nominal: 12.0,
+            low: 11.4,
+            high: 12.6,
+        }
+    }
+
+    fn summary() -> Summary {
+        Summary {
+            heroes: vec![Hero {
+                kind: HeroKind::Cpu,
+                id: RowId {
+                    chip: "k10temp".into(),
+                    device: None,
+                    channel: "temp1".into(),
+                },
+                value: 93.2,
+                highest: 93.4,
+            }],
+            power: Some(vec![rail()]),
+            cpu_fan: Some(CpuFan {
+                value: 1880.0,
+                duty: Some(255.0),
+                stopped: false,
+            }),
+            gpu_power: None,
+            fans: Some(Fans {
+                spinning: 5,
+                speeds: Some((750.0, 1880.0)),
+                bars: vec![(1880.0, false), (0.0, false)],
+                cpu_stopped: false,
+                speeding: false,
+            }),
+            memory: Some(Warmest {
+                value: 30.0,
+                count: 2,
+            }),
+            disks: None,
+        }
+    }
+
+    /// The board's card: "Normal", a rail with its value as on the render,
+    /// or how many rails are outside their range.
+    #[test]
+    fn power_on_the_board_card() {
+        let numbers = Numbers::new(",");
+        assert_eq!(power(&[], &numbers).value, "Normal");
+        let one = power(&[rail()], &numbers);
+        assert_eq!(
+            (one.value.as_str(), one.warn),
+            ("+12\u{a0}V: 11,20\u{a0}V", true)
+        );
+        assert_eq!(
+            power(&[rail(), rail()], &numbers).value,
+            "2 voltages outside the normal range"
+        );
+    }
+
+    fn hot_cpu() -> Problem {
+        Problem::Hot(HotPart {
+            name: Name::Temp(baseboard_core::profile::TempRole::Cpu),
+            group: GroupKind::Cpu,
+            processor: true,
+            value: 93.2,
+            limit: 95.0,
+        })
+    }
+
+    /// The status sentence by the rule of D67: the text of the 93 °C
+    /// render, how many more problems there are, and what the row opens;
+    /// the readings working without a profile; all fine.
+    #[test]
+    fn status_sentences() {
+        let numbers = Numbers::new(",");
+        let summary = summary();
+        let state = State::Problems(vec![hot_cpu(), Problem::Rail(rail())]);
+        let status = status_text(&state, &summary, &numbers);
+        assert_eq!(status.title, "Processor is very hot: 93\u{a0}°C");
+        assert_eq!(
+            status.text,
+            "At 95\u{a0}°C it starts to slow down so as not to overheat. The fans run at full \
+             speed.\nAnd 1 more problem"
+        );
+        assert_eq!(
+            status.opens,
+            Some(("win.show-sensors", Some("cpu".to_owned())))
+        );
+        let stopped = status_text(
+            &State::Problems(vec![Problem::CpuFanStopped]),
+            &summary,
+            &numbers,
+        );
+        assert_eq!(stopped.title, "CPU fan stopped");
+        assert_eq!(stopped.opens, Some(("win.show-fans", None)));
+        assert_eq!(
+            status_text(&State::NoProfile, &summary, &numbers).title,
+            "Readings work"
+        );
+        let fine = status_text(&State::Fine, &summary, &numbers);
+        assert_eq!(fine.title, "Everything is fine");
+        assert_eq!(fine.text, "Temperatures, fans and power are fine.");
+        assert_eq!(fine.opens, None);
+        // Under load, as on the render of 85 °C.
+        let mut speeding = summary.clone();
+        if let Some(fans) = &mut speeding.fans {
+            fans.speeding = true;
+        }
+        let fine = status_text(&State::Fine, &speeding, &numbers);
+        assert_eq!(
+            (fine.title.as_str(), fine.text.as_str()),
+            ("Everything is fine", "Fans are speeding up.")
+        );
+    }
+
+    /// The cards, the tiles and the status row for a hot processor with a
+    /// low rail, in a window with the actions: a card opens its group;
+    /// three cards in a row when wide, one a row when narrower. Needs a
+    /// display.
     #[test]
     fn top_of_the_page() {
         crate::gtk_test::run("top_of_the_page", || {
-            use std::cell::RefCell;
             use std::rc::Rc;
 
             use gtk::{gio, glib};
@@ -435,79 +910,122 @@ mod tests {
 
             let numbers = Numbers::new(",");
             let column = gtk::Box::new(gtk::Orientation::Vertical, 0);
-            let heroes = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-            let list = gtk::ListBox::new();
-            let all = gtk::ListBox::new();
-            column.append(&heroes);
-            column.append(&list);
-            column.append(&all);
             let window = gtk::Window::new();
             window.insert_action_group("win", Some(&group));
             window.set_child(Some(&column));
-            let widgets = SummaryWidgets::new(&column, &heroes, &list, &all);
-            let rail = OutsideRail {
-                name: Name::Voltage(VoltageRole::P12v),
-                value: 11.2,
-                nominal: 12.0,
-                low: 11.4,
-                high: 12.6,
-            };
-            let summary = Summary {
-                heroes: vec![Hero {
-                    kind: HeroKind::Cpu,
-                    value: 68.2,
-                    group: GroupKind::Cpu,
-                }],
-                power: Some(vec![rail]),
-                fans: Some(Fans {
-                    spinning: 5,
-                    cpu_stopped: true,
-                }),
-                memory: Some(Warmest {
-                    value: 30.0,
-                    count: 2,
-                }),
-                disks: None,
-            };
-            widgets.update(&summary, &numbers);
-            assert_eq!(widgets.heroes[0].value.label(), "68");
-            // The window is not shown: whether each one is set visible.
-            assert!(widgets.heroes[0].button.get_visible());
-            assert!(!widgets.heroes[1].button.get_visible());
-            widgets.heroes[0].button.emit_clicked();
+            let widgets = SummaryWidgets::new(&column);
+            let summary = summary();
+            let state = State::Problems(vec![hot_cpu(), Problem::Rail(rail())]);
+            widgets.update(&summary, &state, &Histories::default(), &numbers);
+            assert_eq!(widgets.status().0, "Processor is very hot: 93\u{a0}°C");
+            let (_, cpu) = &widgets.cards[0];
+            assert!(cpu.widget.get_visible() && cpu.widget.has_css_class("hot"));
+            assert!(!widgets.cards[1].1.widget.get_visible());
+            assert_eq!(
+                cpu.facts(),
+                [
+                    ("CPU fan".to_owned(), "1880\u{a0}rpm".to_owned()),
+                    (
+                        "Highest since the app started".to_owned(),
+                        "93\u{a0}°C".to_owned()
+                    ),
+                ]
+            );
+            cpu.widget
+                .downcast_ref::<gtk::Button>()
+                .unwrap()
+                .emit_clicked();
             assert_eq!(*opened.borrow(), ["cpu"]);
-            // The texts of the warning: alert.rs.
-            assert!(widgets.alert().is_some());
-            assert_eq!(widgets.power.value.label(), "11,20\u{a0}V");
-            assert_eq!(
-                widgets.power.row.subtitle().as_deref(),
-                Some("+12\u{a0}V below normal")
-            );
             assert_eq!(widgets.fans.value.label(), "5 spinning");
-            assert_eq!(
-                widgets.fans.row.subtitle().as_deref(),
-                Some("CPU fan stopped")
-            );
-            assert_eq!(
-                widgets.memory.row.subtitle().as_deref(),
-                Some("Warmest of 2 modules")
-            );
-            assert!(!widgets.disks.row.get_visible());
+            assert_eq!(widgets.fans.sub.label(), "From 750 to 1880 rpm");
+            assert!(!widgets.disks.button.get_visible());
 
-            // All well: no warning, power normal, no fan subtitle.
-            let calm = Summary {
-                power: Some(Vec::new()),
-                fans: Some(Fans {
-                    spinning: 5,
-                    cpu_stopped: false,
-                }),
-                ..summary
-            };
-            widgets.update(&calm, &numbers);
-            assert_eq!(widgets.alert(), None);
-            assert_eq!(widgets.power.value.label(), "Normal");
-            assert_eq!(widgets.fans.row.subtitle().as_deref(), Some(""));
+            // The fans tile while they speed up, and with a stopped CPU fan
+            // in the color of warnings, as on the renders.
+            let mut changed = summary.clone();
+            if let Some(fans) = &mut changed.fans {
+                fans.speeding = true;
+            }
+            widgets.update(&changed, &state, &Histories::default(), &numbers);
+            assert_eq!(widgets.fans.sub.label(), "Speeding up");
+            assert!(!widgets.fans.button.has_css_class("warning-tile"));
+            if let Some(fans) = &mut changed.fans {
+                fans.cpu_stopped = true;
+            }
+            widgets.update(&changed, &state, &Histories::default(), &numbers);
+            assert_eq!(widgets.fans.sub.label(), "CPU fan stopped");
+            assert!(widgets.fans.button.has_css_class("warning-tile"));
+            widgets.update(&summary, &state, &Histories::default(), &numbers);
+            assert!(!widgets.fans.button.has_css_class("warning-tile"));
+
+            // Two tiles in a row when wide, one a row when narrow.
+            let row_of = |tile: &Tile| widgets.tiles_grid.query_child(&tile.button).1;
+            widgets.set_width(Width::Wide);
+            assert_eq!(row_of(&widgets.memory), 0);
+            widgets.set_width(Width::Narrow);
+            assert_eq!(row_of(&widgets.memory), 1);
             window.destroy();
+        });
+    }
+
+    /// All three cards and tiles, eight fans, fit the narrowest page of
+    /// each width (layout.rs) with the margins of the page, in the styles
+    /// of the app: 1100, 880 and 600 sp, and the narrowest window of 360
+    /// px. Needs a display.
+    #[test]
+    fn fits_every_width() {
+        crate::gtk_test::run("fits_every_width", || {
+            let css = gtk::CssProvider::new();
+            css.load_from_string(include_str!("../style.css"));
+            let display = gtk::gdk::Display::default().unwrap();
+            gtk::style_context_add_provider_for_display(
+                &display,
+                &css,
+                gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+            );
+            let numbers = Numbers::new(",");
+            let column = gtk::Box::new(gtk::Orientation::Vertical, 0);
+            let widgets = SummaryWidgets::new(&column);
+            let mut summary = summary();
+            let hero = summary.heroes[0].clone();
+            for kind in [HeroKind::Gpu, HeroKind::Board] {
+                summary.heroes.push(Hero {
+                    kind,
+                    ..hero.clone()
+                });
+            }
+            summary.gpu_power = Some(120.0);
+            summary.disks = summary.memory;
+            if let Some(fans) = &mut summary.fans {
+                fans.spinning = 8;
+                fans.bars = vec![(1880.0, false); 8];
+            }
+            let state = State::Problems(vec![hot_cpu(), Problem::Rail(rail())]);
+            widgets.update(&summary, &state, &Histories::default(), &numbers);
+            let margins = 24;
+            for (width, page) in [
+                (Width::Wide, 1100),
+                (Width::Compact, 880),
+                (Width::Medium, 600),
+                (Width::Narrow, 360),
+            ] {
+                widgets.set_width(width);
+                let (cards, tiles) = (
+                    widgets
+                        .cards_grid
+                        .measure(gtk::Orientation::Horizontal, -1)
+                        .0,
+                    widgets
+                        .tiles_grid
+                        .measure(gtk::Orientation::Horizontal, -1)
+                        .0,
+                );
+                assert!(
+                    cards.max(tiles) + margins <= page,
+                    "{width:?}: cards {cards} px, tiles {tiles} px, page {page} px"
+                );
+            }
+            gtk::style_context_remove_provider_for_display(&display, &css);
         });
     }
 }

@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The System page (docs/PROJEKT.md §5.4, D64), read only. On top one
-//! status row ("Everything works", or what needs attention), then a short
-//! list of the computer in plain words. Two pages the window pushes over
-//! it hold the rest: "Diagnostics" (the drivers and programs around the
-//! sensors and fans, the board profile, skipped files, warnings of the
+//! The System page (docs/PROJEKT.md §5.4, D64, D67), read only. On top one
+//! status row in the words of the status sentence of the Overview, then a
+//! short list of the computer in plain words. Two pages the window pushes
+//! over it hold the rest: "Diagnostics" (the drivers and programs around
+//! the sensors and fans, the board profile, skipped files, warnings of the
 //! readings) and "Technical Details" (the board, BIOS, processor and
 //! system, memory, graphics cards, disks and network cards with their
-//! codes and versions). The data comes from a worker thread
+//! codes and versions). In a wide window the groups of each are in two
+//! columns (layout.rs). The data comes from a worker thread
 //! (`system_reader`); the text of "Copy system information" from
 //! `core::report`, always in English.
 
@@ -28,7 +29,9 @@ use baseboard_core::system::{
 use gettextrs::{gettext, ngettext, pgettext};
 use gtk::{gio, glib};
 
+use crate::alert;
 use crate::config;
+use crate::layout::{self, Columns, Place, Width};
 use crate::sensors::Choice;
 use crate::system_reader::Worker;
 
@@ -98,6 +101,8 @@ pub struct Section {
     pub description: Option<String>,
     /// Never empty: a section without data has a "No data" line.
     pub lines: Vec<Line>,
+    /// Its column in a wide window.
+    pub place: Place,
 }
 
 /// One row: a name and its value, both read by screen readers.
@@ -109,6 +114,8 @@ pub struct Line {
     pub status: Option<Status>,
     /// A path or a command, set in a monospace font.
     pub monospace: bool,
+    /// The icon of a part of the computer in the short list (D67).
+    pub icon: Option<&'static str>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -142,6 +149,7 @@ impl Line {
             style: Style::Property,
             status: None,
             monospace: false,
+            icon: None,
         }
     }
 
@@ -166,11 +174,19 @@ impl Line {
             style: Style::NoData,
             status: None,
             monospace: false,
+            icon: None,
         }
     }
 
     fn status(self, status: Option<Status>) -> Self {
         Self { status, ..self }
+    }
+
+    fn icon(self, icon: &'static str) -> Self {
+        Self {
+            icon: Some(icon),
+            ..self
+        }
     }
 
     fn monospace(self) -> Self {
@@ -185,14 +201,22 @@ fn no_data() -> String {
     gettext("No data")
 }
 
+/// A group in the column with fewer rows so far; its title counts as one.
 fn section(title: String, description: Option<String>, mut lines: Vec<Line>) -> Section {
     if lines.is_empty() {
         lines.push(Line::no_data());
     }
     Section {
+        place: Place::Balanced(lines.len() + 1),
         title,
         description,
         lines,
+    }
+}
+
+impl Section {
+    fn at(self, place: Place) -> Self {
+        Self { place, ..self }
     }
 }
 
@@ -258,25 +282,30 @@ fn readings(alerts: &[String]) -> Section {
     )
 }
 
-/// The short list on top of the page: the computer in plain words, its
-/// disks and network cards, and the system (D64).
+/// The short list on top of the page (D64, D67): the computer in plain
+/// words, each part with its icon, and the system on the left; its disks
+/// and network cards on the right in a wide window.
 fn summary(dmi: &Dmi, profile: Option<&Profile>, info: &SystemInfo) -> Vec<Section> {
+    const GRAPHICS: &str = "baseboard-graphics-card-symbolic";
     let mut computer = vec![
-        Line::value(gettext("Motherboard"), board_name(dmi, profile)),
-        Line::value(gettext("BIOS"), bios_version(&info.bios)),
+        Line::value(gettext("Motherboard"), board_name(dmi, profile))
+            .icon("baseboard-board-symbolic"),
+        Line::value(gettext("BIOS"), bios_version(&info.bios)).icon("package-x-generic-symbolic"),
         Line::value(
             gettext("Processor"),
             info.cpu
                 .as_deref()
                 .map(|cpu| short_cpu_name(cpu).to_owned()),
-        ),
+        )
+        .icon("baseboard-processor-symbolic"),
         Line::value(
             pgettext("system memory", "Memory"),
             memory_total(info.memory.as_deref()),
-        ),
+        )
+        .icon("baseboard-memory-symbolic"),
     ];
     if info.graphics.is_empty() {
-        computer.push(Line::value(gettext("Graphics card"), None));
+        computer.push(Line::value(gettext("Graphics card"), None).icon(GRAPHICS));
     }
     computer.extend(info.graphics.iter().map(|card| {
         Line::value(
@@ -285,6 +314,7 @@ fn summary(dmi: &Dmi, profile: Option<&Profile>, info: &SystemInfo) -> Vec<Secti
                 .as_deref()
                 .map(|name| marketing_name(name).to_owned()),
         )
+        .icon(GRAPHICS)
     }));
     let disks = info
         .disks
@@ -314,15 +344,16 @@ fn summary(dmi: &Dmi, profile: Option<&Profile>, info: &SystemInfo) -> Vec<Secti
     vec![
         // Translators: the group of the board, processor, memory and
         // graphics on the System page.
-        section(gettext("This computer"), None, computer),
-        section(gettext("Disks"), None, disks),
+        section(gettext("This computer"), None, computer).at(Place::Left),
+        section(gettext("Disks"), None, disks).at(Place::Right),
         // Translators: the group of the network cards on the System page.
-        section(gettext("Network"), None, network),
+        section(gettext("Network"), None, network).at(Place::Right),
         section(
             String::new(),
             None,
             vec![Line::value(gettext("System"), info.os.clone())],
-        ),
+        )
+        .at(Place::Left),
     ]
 }
 
@@ -402,50 +433,39 @@ pub fn health(
     }
 }
 
-/// The status row: icon, title and the line under it.
+/// The status row: its icon and style, title and the line under it, in the
+/// words of the status sentence of the Overview (D67): the most important
+/// problem with how many more there are.
 fn status_texts(health: &Health) -> (&'static str, &'static str, String, String) {
     match health {
         Health::Fine => (
-            "object-select-symbolic",
+            "baseboard-ok-symbolic",
             "success",
-            gettext("Everything works"),
+            alert::everything_fine(),
             gettext("Sensors, driver and configuration are in order"),
         ),
         Health::Limited(why) => (
             "help-about-symbolic",
             "dimmed",
-            gettext("Sensors work"),
+            alert::readings_work(),
             why.clone(),
         ),
         Health::Attention(problems) => {
             let first = problems.first().cloned().unwrap_or_default();
             let more = u32::try_from(problems.len().saturating_sub(1)).unwrap_or(u32::MAX);
             let line = if more == 0 {
-                first
+                String::new()
             } else {
-                ngettext(
-                    // Translators: under "Needs attention" on the System page:
-                    // the first thing, e.g. "CPU fan stopped", and how many
-                    // more there are.
-                    "{problem}, and {count} more",
-                    "{problem}, and {count} more",
-                    more,
-                )
-                .replace("{problem}", &first)
-                .replace("{count}", &more.to_string())
+                alert::more_problems(more)
             };
-            (
-                "dialog-warning-symbolic",
-                "warning",
-                gettext("Needs attention"),
-                line,
-            )
+            ("dialog-warning-symbolic", "warning", first, line)
         }
     }
 }
 
-/// The row on top of the page, which opens "Diagnostics".
-fn status_row(health: &Health) -> adw::ActionRow {
+/// The row on top of the page, which opens "Diagnostics", in its own list
+/// with the background of a warning when it warns, as on the Overview.
+fn status_group(health: &Health) -> adw::PreferencesGroup {
     let (icon, class, title, subtitle) = status_texts(health);
     let row = adw::ActionRow::builder()
         .use_markup(false)
@@ -454,16 +474,24 @@ fn status_row(health: &Health) -> adw::ActionRow {
         .activatable(true)
         .action_name("win.show-system-view")
         .action_target(&"diagnostics".to_variant())
+        .css_classes(["status-row"])
         .build();
     let image = gtk::Image::builder()
         .icon_name(icon)
-        .css_classes([class])
-        .valign(gtk::Align::Center)
+        .css_classes(["status-icon", class])
+        .valign(gtk::Align::Start)
         .accessible_role(gtk::AccessibleRole::Presentation)
         .build();
     row.add_prefix(&image);
     row.add_suffix(&chevron());
-    row
+    let group = adw::PreferencesGroup::builder()
+        .css_classes(["status-list"])
+        .build();
+    if matches!(health, Health::Attention(_)) {
+        group.add_css_class("warning-status");
+    }
+    group.add(&row);
+    group
 }
 
 /// The row that opens "Technical Details".
@@ -1059,7 +1087,7 @@ fn row(line: &Line) -> adw::ActionRow {
     }
     if let Some(status) = line.status {
         let (icon, class) = match status {
-            Status::Ok => ("object-select-symbolic", "success"),
+            Status::Ok => ("baseboard-ok-symbolic", "success"),
             Status::Warning => ("dialog-warning-symbolic", "warning"),
             Status::Info => ("help-about-symbolic", "dimmed"),
         };
@@ -1070,6 +1098,17 @@ fn row(line: &Line) -> adw::ActionRow {
             .build();
         // The text says the same.
         image.update_state(&[gtk::accessible::State::Hidden(true)]);
+        row.add_prefix(&image);
+    }
+    if let Some(icon) = line.icon {
+        // In a light circle, as on the cards of the Overview; the title
+        // says what it is.
+        let image = gtk::Image::builder()
+            .icon_name(icon)
+            .valign(gtk::Align::Center)
+            .accessible_role(gtk::AccessibleRole::Presentation)
+            .css_classes(["part-badge", "row-badge"])
+            .build();
         row.add_prefix(&image);
     }
     // The title is the row's name; its value is read after it.
@@ -1085,20 +1124,41 @@ mod imp {
     #[template(resource = "/me/bojanowski/Baseboard/system.ui")]
     pub struct SystemPage {
         #[template_child]
+        pub bin: TemplateChild<adw::BreakpointBin>,
+        #[template_child]
         pub stack: TemplateChild<gtk::Stack>,
         #[template_child]
-        pub page: TemplateChild<adw::PreferencesPage>,
+        pub scrolled: TemplateChild<gtk::ScrolledWindow>,
+        #[template_child]
+        pub clamp: TemplateChild<adw::Clamp>,
+        #[template_child]
+        pub page: TemplateChild<gtk::Box>,
         #[template_child]
         pub diagnostics_page: TemplateChild<adw::NavigationPage>,
         #[template_child]
-        pub diagnostics: TemplateChild<adw::PreferencesPage>,
+        pub diagnostics_bin: TemplateChild<adw::BreakpointBin>,
+        #[template_child]
+        pub diagnostics_clamp: TemplateChild<adw::Clamp>,
+        #[template_child]
+        pub diagnostics_copy: TemplateChild<adw::ButtonContent>,
+        #[template_child]
+        pub diagnostics: TemplateChild<gtk::Box>,
         #[template_child]
         pub details_page: TemplateChild<adw::NavigationPage>,
         #[template_child]
-        pub details: TemplateChild<adw::PreferencesPage>,
-        /// The groups on the page and on its two views, to take them off
-        /// again.
-        pub(super) groups: RefCell<Vec<(adw::PreferencesPage, adw::PreferencesGroup)>>,
+        pub details_bin: TemplateChild<adw::BreakpointBin>,
+        #[template_child]
+        pub details_clamp: TemplateChild<adw::Clamp>,
+        #[template_child]
+        pub details_copy: TemplateChild<adw::ButtonContent>,
+        #[template_child]
+        pub details: TemplateChild<gtk::Box>,
+        /// The status row on top of the page, to take it off again.
+        pub(super) status: RefCell<Option<adw::PreferencesGroup>>,
+        /// The groups of the page and of its two views.
+        pub(super) columns: Columns,
+        pub(super) diagnostics_columns: Columns,
+        pub(super) details_columns: Columns,
         /// Warnings of the readings from the Overview, in words.
         pub(super) alerts: RefCell<Vec<String>>,
         pub(super) board: OnceCell<(Dmi, Detection)>,
@@ -1124,7 +1184,46 @@ mod imp {
         }
     }
 
-    impl ObjectImpl for SystemPage {}
+    impl ObjectImpl for SystemPage {
+        fn constructed(&self) {
+            self.parent_constructed();
+            self.page.append(&self.columns.widget);
+            self.diagnostics.append(&self.diagnostics_columns.widget);
+            self.details.append(&self.details_columns.widget);
+            let views = [
+                (&self.bin, &self.clamp, None),
+                (
+                    &self.diagnostics_bin,
+                    &self.diagnostics_clamp,
+                    Some(&self.diagnostics_copy),
+                ),
+                (
+                    &self.details_bin,
+                    &self.details_clamp,
+                    Some(&self.details_copy),
+                ),
+            ];
+            for (index, (bin, clamp, copy)) in views.into_iter().enumerate() {
+                layout::limit(clamp);
+                let page = self.obj().downgrade();
+                // The copy button of a narrow view shows only its icon, as
+                // the one of the window does.
+                let copy = copy.map(|copy| ((**copy).clone(), copy.label()));
+                layout::watch(bin, move |width| {
+                    if let Some((copy, label)) = &copy {
+                        copy.set_label(if width == Width::Narrow { "" } else { label });
+                    }
+                    if let Some(page) = page.upgrade() {
+                        let imp = page.imp();
+                        let columns =
+                            [&imp.columns, &imp.diagnostics_columns, &imp.details_columns];
+                        columns[index].set_two(width.columns());
+                    }
+                });
+            }
+        }
+    }
+
     impl WidgetImpl for SystemPage {}
     impl BinImpl for SystemPage {}
 }
@@ -1188,15 +1287,8 @@ impl SystemPage {
     /// groups.
     #[cfg(debug_assertions)]
     pub fn scroll_to_end(&self) {
-        let mut widget = Some(self.imp().page.clone().upcast::<gtk::Widget>());
-        while let Some(current) = widget {
-            if let Some(scrolled) = current.downcast_ref::<gtk::ScrolledWindow>() {
-                let adjustment = scrolled.vadjustment();
-                adjustment.set_value(adjustment.upper() - adjustment.page_size());
-                return;
-            }
-            widget = current.first_child();
-        }
+        let adjustment = self.imp().scrolled.vadjustment();
+        adjustment.set_value(adjustment.upper() - adjustment.page_size());
     }
 
     /// How the Overview reads the sensors (libsensors or raw sysfs), for
@@ -1259,29 +1351,25 @@ impl SystemPage {
         };
         let alerts = imp.alerts.borrow();
         let views = views(dmi, detection, info, extras, &alerts);
-        let mut groups = imp.groups.borrow_mut();
-        for (page, group) in groups.drain(..) {
-            page.remove(&group);
+        let status = status_group(&health(detection, info, extras, &alerts));
+        imp.page.prepend(&status);
+        if let Some(old) = imp.status.replace(Some(status)) {
+            imp.page.remove(&old);
         }
-        let mut add = |page: &adw::PreferencesPage, group: adw::PreferencesGroup| {
-            page.add(&group);
-            groups.push((page.clone(), group));
-        };
-        let status = adw::PreferencesGroup::new();
-        status.add(&status_row(&health(detection, info, extras, &alerts)));
-        add(&imp.page, status);
-        for section in &views.summary {
-            add(&imp.page, group_widget(section));
+        let all = [
+            (&imp.columns, &views.summary),
+            (&imp.diagnostics_columns, &views.diagnostics),
+            (&imp.details_columns, &views.details),
+        ];
+        for (columns, sections) in all {
+            columns.clear();
+            for section in sections {
+                columns.push(&group_widget(section), section.place);
+            }
         }
         let details = adw::PreferencesGroup::new();
         details.add(&details_row());
-        add(&imp.page, details);
-        for section in &views.diagnostics {
-            add(&imp.diagnostics, group_widget(section));
-        }
-        for section in &views.details {
-            add(&imp.details, group_widget(section));
-        }
+        imp.columns.push(&details, Place::Right);
         imp.stack.set_visible_child_name("info");
         if let Some(copy) = imp.copy.get() {
             copy.set_enabled(true);
@@ -1921,8 +2009,18 @@ mod tests {
             titles(&views.summary),
             ["This computer", "Disks", "Network", ""]
         );
+        // The computer and the system on the left in a wide window, the
+        // devices on the right (D67).
+        let places: Vec<Place> = views.summary.iter().map(|s| s.place).collect();
+        assert_eq!(
+            places,
+            [Place::Left, Place::Right, Place::Right, Place::Left]
+        );
         let computer = &views.summary[0].lines;
         assert!(computer.iter().all(|l| l.style == Style::Value));
+        assert!(computer.iter().all(|l| l.icon.is_some()), "{computer:?}");
+        assert!(views.summary[3].lines[0].icon.is_none());
+        assert!(matches!(views.details[0].place, Place::Balanced(4)));
         assert_eq!(computer[0].title, "Motherboard");
         assert_eq!(computer[0].value, "MAG B850M MORTAR WIFI (MS-7E61)");
         assert_eq!(computer[2].value, "AMD Ryzen 7 9700X");
@@ -1942,9 +2040,10 @@ mod tests {
         );
     }
 
-    /// The status row (D64): what needs attention first, with how many more;
-    /// a system that only reads the fans and a board without a profile are
-    /// information; warnings of the readings go to "Diagnostics" too.
+    /// The status row (D64, D67), in the words of the Overview: the most
+    /// important problem first, with how many more; a system that only
+    /// reads the fans and a board without a profile are information;
+    /// warnings of the readings go to "Diagnostics" too.
     #[test]
     fn status_of_the_page() {
         let fine = SystemInfo {
@@ -1966,7 +2065,7 @@ mod tests {
         assert_eq!(
             (title.as_str(), line.as_str()),
             (
-                "Everything works",
+                "Everything is fine",
                 "Sensors, driver and configuration are in order"
             )
         );
@@ -1987,10 +2086,12 @@ mod tests {
                     .into()
             )
         );
+        let no_profile = health(&Detection::Generic, &fine, Extras::default(), &[]);
         assert_eq!(
-            health(&Detection::Generic, &fine, Extras::default(), &[]),
+            no_profile,
             Health::Limited("No profile for this board".into())
         );
+        assert_eq!(status_texts(&no_profile).2, "Readings work");
 
         let alerts = ["CPU fan stopped".to_owned()];
         let unloaded = SystemInfo {
@@ -2007,8 +2108,10 @@ mod tests {
         );
         let (_, class, title, line) = status_texts(&health);
         assert_eq!(class, "warning");
-        assert_eq!(title, "Needs attention");
-        assert_eq!(line, "CPU fan stopped, and 1 more");
+        assert_eq!(title, "CPU fan stopped");
+        assert_eq!(line, "And 1 more problem");
+        let one = health_of(&fine, &alerts);
+        assert_eq!(status_texts(&one).3, "", "nothing under one problem");
 
         let views = views(
             &Dmi::default(),

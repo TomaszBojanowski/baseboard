@@ -13,10 +13,13 @@ mod fan_chart;
 mod fans;
 #[cfg(test)]
 mod gtk_test;
+mod history_chart;
 mod i18n;
+mod layout;
 mod libsensors;
 mod libudev;
 mod overview;
+mod part_card;
 mod preferences;
 mod sampler;
 mod sensors;

@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// The Fans page of D62: the temperature of the curves' source large on top,
-// under it a list of the fans as wide as in GNOME Settings (600 px).
+// The Fans page of D62 and D67: the processor's card of the Overview
+// (karta.js) and a list of the fans as wide as in GNOME Settings (600 px);
+// from 880 px of content the card on the left and the list on the right,
+// narrower the card above the list.
 // ?stan=spoczynek (default), 85, reczny, fabryczny, stoi (the CPU fan
-// turned and stands now, D65: a warning above the list). Values as in the test
+// spun and stands now, D65: a warning above both). Values as in the test
 // tree of the app: MS-7E61, BIOS curves of the owner; the manual 45 % of
 // SYS_FAN2 is illustrative. ?w=1024 sets the window width, ?h=1100 a
 // fixed window height (one screen), ?bare=1 draws the window alone.
@@ -42,28 +44,31 @@
   // duty cycle (pwm4, 153 = 60 %).
   const AUX = { key: "jaf1", name: "Wentylator dodatkowy 1", header: "JAF_1", min: 0, unchecked: true, readOnly: true };
 
-  // [rpm, duty 0–255, mode]; "manual" only where the board says so.
+  // [rpm, duty 0–255, mode]; "manual" only where the board says so. `temp`
+  // is the source of the curves (the CPU sensor of the board), `cpu` the
+  // processor's temperature on its card (Tctl, as on the Overview) with
+  // the highest since the app started.
   const STATES = {
     spoczynek: {
-      temp: 50, curves: true,
+      temp: 50, cpu: 68.2, highest: 78, curves: true,
       fans: { cpu1: [890, 124], pump1: [0, 255], sys1: [948, 98], sys2: [777, 108], sys3: [753, 76], sys4: [1013, 102] },
     },
     85: {
-      temp: 85, curves: true,
+      temp: 85, cpu: 85.3, highest: 86, curves: true,
       fans: { cpu1: [1520, 200], pump1: [0, 255], sys1: [1480, 180], sys2: [1390, 190], sys3: [753, 76], sys4: [1013, 102] },
     },
     reczny: {
-      temp: 50, curves: true,
+      temp: 50, cpu: 68.2, highest: 78, curves: true,
       fans: { cpu1: [890, 124], pump1: [0, 255], sys1: [948, 98], sys2: [905, 115, "manual"], sys3: [753, 76], sys4: [1013, 102] },
     },
     // Driver of the Fedora kernel: speeds; duty cycles only of the CPU fan,
     // the pump and the extra header; no curves.
     fabryczny: {
-      temp: 50, curves: false,
+      temp: 50, cpu: 68.2, highest: 78, curves: false,
       fans: { cpu1: [890, 124], pump1: [0, 255], sys1: [948, null], sys2: [777, null], sys3: [753, null], sys4: [1013, null] },
     },
     stoi: {
-      temp: 50, curves: true,
+      temp: 50, cpu: 69.6, highest: 78, curves: true,
       fans: { cpu1: [0, 124, "stopped"], pump1: [0, 255], sys1: [948, 98], sys2: [777, 108], sys3: [753, 76], sys4: [1013, 102] },
     },
   };
@@ -195,26 +200,30 @@
 
   // ---------- page ----------
 
-  // The line under the temperature keeps its room, so that the list does
-  // not move when it shows; the text about the kernel is a lasting state
-  // and may take more.
+  // The processor's card of the Overview (karta.js, D67). The sentence
+  // under its facts keeps its room, so that nothing moves when it shows;
+  // the text about the kernel is a lasting state and stands under the card.
   const speedingUp = fans.some(f => f.shown && f.target > f.duty);
-  const under = !S.curves
-    ? `<p class="h-kernel">Ten system na razie tylko odczytuje wentylatory. Sterowanie pojawi się w jednej z przyszłych wersji Linuksa. <span class="link">Stan w jądrze<i data-ic="external"></i></span></p>`
-    : `<div class="h-sent${speedingUp ? "" : " reserved"}"${speedingUp ? "" : ' aria-hidden="true"'}>Wentylatory przyspieszają</div>`;
+  const stopped = fans.some(f => f.stopped);
+  const cpu = window.Karta.card({
+    name: "Procesor", icon: "cpu", value: S.cpu, highest: S.highest,
+    values: window.Karta.processor(S.cpu, { load: S.temp > 80, stopped }),
+    facts: [["Wentylator procesora", stopped ? "Stoi" : `${fans[0].rpm}${NB}rpm`, stopped]],
+    note: S.curves ? { text: "Wentylatory przyspieszają", shown: speedingUp } : null,
+  });
+  const kernel = S.curves ? ""
+    : `<p class="h-kernel">Ten system na razie tylko odczytuje wentylatory. Sterowanie pojawi się w jednej z przyszłych wersji Linuksa. <span class="link">Stan w jądrze<i data-ic="external"></i></span></p>`;
   document.getElementById("content").innerHTML = `
     <div class="w-page">
-      <div class="h-hero">
-        <div class="h-label">Procesor</div>
-        <div class="h-temp">${S.temp}<span class="h-unit">${NB}°C</span></div>
-        ${under}
-      </div>
-      <div class="w-clamp">
-        ${fans.some(f => f.stopped) ? `<div class="w-alert" role="alert"><i data-ic="warning"></i>
-          <div><div class="t">Wentylator procesora stoi</div>
-          <div class="s">Kręcił się wcześniej, a od co najmniej 10${NB}s ma 0${NB}rpm.</div></div></div>` : ""}
-        <div class="boxed-list w-list">${all.map(row).join("")}</div>
-        ${S.curves ? `<p class="quiet">Baseboard na razie tylko pokazuje ustawienia wentylatorów${NB}z${NB}BIOS-u.</p>` : ""}
+      ${stopped ? `<div class="w-alert" role="alert"><i data-ic="warning"></i>
+        <div><div class="t">Wentylator procesora stoi</div>
+        <div class="s">Kręcił się wcześniej, a od co najmniej 10${NB}s ma 0${NB}rpm.</div></div></div>` : ""}
+      <div class="w-cols">
+        <div class="w-side">${cpu}${kernel}</div>
+        <div class="w-clamp">
+          <div class="boxed-list w-list">${all.map(row).join("")}</div>
+          ${S.curves ? `<p class="quiet">Baseboard na razie tylko pokazuje ustawienia wentylatorów${NB}z${NB}BIOS-u.</p>` : ""}
+        </div>
       </div>
     </div>`;
 

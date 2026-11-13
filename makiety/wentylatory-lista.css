@@ -1,23 +1,27 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 
-/* The Fans page of D62: large temperature, a list as wide as in Settings. */
+/* The Fans page of D62 and D67: the processor's card (karta.css) and a
+   list as wide as in Settings; side by side from 880 px of content, the
+   whole page up to 1320 px. */
 
 :root[data-bare="1"], :root[data-bare="1"] body { background: transparent; }
 :root[data-bare="1"] body { padding: 0; }
 :root[data-bare="1"] .window { box-shadow: none; }
 
-.w-page { display: flex; flex-direction: column; gap: 8px; }
+.w-page { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; padding: 0 12px; }
+.w-cols { display: flex; flex-direction: column; gap: 18px; }
+.w-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 /* AdwClamp as in AdwPreferencesPage: at most 600 px, centered */
 .w-clamp { width: 100%; max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+@container (min-width: 880px) {
+  .w-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+}
+@container (max-width: 599px) {
+  .w-page { padding: 0; }
+}
 
-.h-hero { text-align: center; padding: 26px 0 22px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.h-label { font-weight: 600; opacity: .65; }
-.h-temp { font-size: 72px; font-weight: 300; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.h-unit { font-size: 40%; font-weight: 400; opacity: .55; vertical-align: 120%; margin-left: 2px; }
-/* plain dimmed text: the link next to it is the only accent */
-.h-sent { opacity: var(--dim); margin-top: 6px; }
-.h-sent.reserved { visibility: hidden; }
-.h-kernel { margin: 10px 0 0; max-width: 560px; line-height: 1.45; opacity: .85; }
+/* plain dimmed text: the link in it is the only accent */
+.h-kernel { margin: 0 6px; line-height: 1.45; opacity: .85; }
 .link { color: var(--accent); font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; margin-left: 2px; }
 .link svg.ic { width: 14px; height: 14px; }
 .quiet { margin: 0; font-size: 88%; opacity: .55; text-align: center; }
@@ -37,7 +41,7 @@
 /* a stopped CPU fan (D65): its state in the color of warnings, and a
    warning above the list */
 .r-sub.warn { color: var(--warning); opacity: 1; }
-.w-alert { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; margin-bottom: 18px; border-radius: 12px;
+.w-alert { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 12px;
   background: color-mix(in srgb, var(--warning-bg) 18%, transparent); }
 .w-alert .t { font-weight: 700; }
 .w-alert svg.ic { color: var(--warning); flex: none; margin-top: 2px; }

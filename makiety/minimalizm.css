@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 
-/* The pages of D63 and D64 (Overview, System, Preferences): plain words
-   first, technical details one click further, one column as wide as in
-   GNOME Settings (600 px). */
+/* The pages of D63, D64 and D67 (Overview, System, Preferences): plain
+   words first, technical details one click further; lists as in GNOME
+   Settings, a column of 600 px in the Preferences. */
 
 :root[data-bare="1"], :root[data-bare="1"] body { background: transparent; }
 :root[data-bare="1"] body { padding: 0; }
@@ -29,19 +29,15 @@
 .n-row a.link { color: var(--accent); text-decoration: underline; }
 .n-row .mono { font-family: "Adwaita Mono", monospace; font-size: 85%; }
 
-/* three large numbers without frames, in the style of the large
-   temperature of the Fans page; each opens its group */
-.n-hero { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.n-hero-item { padding: 6px 4px 2px; border-radius: 12px; text-align: center; }
-.n-hero-item .l { font-weight: 600; opacity: .65; }
-.n-hero-item .n { font-size: 72px; font-weight: 300; line-height: 1.05; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.n-hero-item .n .u { font-size: 28px; opacity: .55; vertical-align: 100%; margin-left: 4px; }
-
-/* the warning on top of a page */
-.n-banner { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--warning-bg) 18%, transparent); }
-.n-banner .grow { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.n-banner .t { font-weight: 700; }
-.n-banner svg.ic { color: var(--warning); flex: none; margin-top: 2px; }
+/* the System page (D67): up to 1320 px, the groups in two columns from
+   880 px of content */
+.n-clamp.wide { max-width: 1320px; }
+.n-cols { display: flex; flex-direction: column; gap: 24px; }
+.n-cols > div { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.n-cols .n-row .badge { margin-left: -2px; }
+@container (min-width: 880px) {
+  .n-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; align-items: start; }
+}
 
 @container (max-width: 640px) {
   /* a value goes under its title, as in GNOME Settings; readings keep
@@ -49,8 +45,6 @@
   .n-row.prop:not(.reading) { flex-wrap: wrap; row-gap: 1px; }
   .n-row.prop:not(.reading) .v { flex-basis: 100%; order: 3; text-align: left; font-size: 92%; opacity: .65; white-space: normal; }
   .n-row.reading .s { white-space: normal; }
-  .n-hero-item .n { font-size: 60px; }
-  .n-hero-item .n .u { font-size: 24px; }
 }
 
 /* dialogs (AdwPreferencesDialog) over the window */
@@ -66,6 +60,6 @@
 .n-dialog .page-desc { margin: 0 2px; opacity: .7; }
 .window { position: relative; }
 
-/* as in the app: below 500 sp the copy button keeps only its icon */
+/* as in the app: below 600 sp the copy button keeps only its icon */
 :root[data-width="narrow"] .headerbar .end .btn > span { display: none; }
 :root[data-width="narrow"] .headerbar .end .btn { width: 34px; padding: 0; justify-content: center; background: none; }

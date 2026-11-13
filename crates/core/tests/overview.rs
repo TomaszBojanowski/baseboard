@@ -745,7 +745,7 @@ fn summary_does_not_go_by_names() {
             &Database,
             labels,
         );
-        let top = summary::summary(&groups, &[]);
+        let top = summary::summary(&groups, &[], false);
         assert!(
             top.heroes.iter().any(|h| h.kind == HeroKind::Board),
             "no number for the board with names {labels:?}, lm-sensors {sensors_labels}"
