@@ -59,8 +59,15 @@ tour() {
     [ -d "$root" ] || root=$work/sysfs-ms7e61-$1
     hot=
     [ "$1" = hot ] && hot=1
-    mkdir -p "$home/runtime" "$home/config" "$home/data" "$home/cache" "$home/state"
+    mkdir -p "$home/runtime" "$home/config/gtk-4.0" "$home/data" "$home/cache" "$home/state"
     chmod 700 "$home/runtime"
+    # The font of a GNOME session (its default, Adwaita Sans 11, with
+    # grayscale antialiasing and slight hinting): without a session GTK on
+    # X11 takes "Sans 10", and texts that break or are cut on the desktop
+    # would fit here.
+    printf '%s\n' '[Settings]' 'gtk-font-name=Adwaita Sans 11' 'gtk-xft-antialias=1' \
+        'gtk-xft-hinting=1' 'gtk-xft-hintstyle=hintslight' 'gtk-xft-rgba=none' \
+        > "$home/config/gtk-4.0/settings.ini"
     status=0
     env -u WAYLAND_DISPLAY -u DBUS_SESSION_BUS_ADDRESS \
         GDK_BACKEND=x11 GTK_A11Y=none NO_AT_BRIDGE=1 \

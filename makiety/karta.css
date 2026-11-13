@@ -52,8 +52,10 @@
 .pc-num .n .u { font-size: 36%; opacity: .55; vertical-align: 120%; margin-left: 4px; font-weight: 400; }
 .pc-hist { grid-area: hist; }
 .facts { grid-area: facts; display: flex; flex-direction: column; }
-.fact { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--card-shade); }
-.fact span { opacity: .65; }
+/* the title of a fact never breaks; without room the value goes under it
+   (the app does it for all facts of a card at once, D67) */
+.fact { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; column-gap: 12px; row-gap: 2px; padding: 8px 0; border-top: 1px solid var(--card-shade); }
+.fact span { opacity: .65; white-space: nowrap; }
 .fact b { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; display: inline-flex; gap: 6px; align-items: center; }
 .fact.warn b { color: var(--warning); }
 .pc-note { opacity: .55; margin-top: -4px; }

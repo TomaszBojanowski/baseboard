@@ -9,12 +9,17 @@
 //! line in the color of warnings.
 //!
 //! In a window of one card a row (`Width::Medium`) the temperature and the
-//! facts stand beside the line; otherwise they are above and under it.
+//! facts stand beside the line; otherwise they are above and under it. The
+//! title of a fact never breaks: where the widest fact of the card does not
+//! fit on one line, every value of the card goes under its title
+//! (`FactLine`).
 
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, OnceCell, RefCell};
 
 use adw::prelude::*;
+use adw::subclass::prelude::*;
 use gettextrs::gettext;
+use gtk::{glib, graphene, gsk};
 
 use crate::history_chart::{self, HistoryChart, Points};
 use crate::layout::Width;
@@ -43,10 +48,187 @@ pub struct CardView {
 
 /// One row of facts.
 struct FactRow {
-    row: gtk::Box,
+    row: FactLine,
     title: gtk::Label,
     icon: gtk::Image,
     value: gtk::Label,
+}
+
+/// Between the title and the value of a fact, and before the value's
+/// warning icon.
+const FACT_SPACING: i32 = 12;
+/// Between a title and the value under it.
+const FACT_STACKED_GAP: i32 = 2;
+
+mod fact_imp {
+    use super::*;
+
+    #[derive(Default)]
+    pub struct FactLine {
+        pub(super) title: OnceCell<gtk::Label>,
+        pub(super) icon: OnceCell<gtk::Image>,
+        pub(super) value: OnceCell<gtk::Label>,
+    }
+
+    #[glib::object_subclass]
+    impl ObjectSubclass for FactLine {
+        const NAME: &'static str = "BaseboardFactLine";
+        type Type = super::FactLine;
+        type ParentType = gtk::Widget;
+    }
+
+    impl ObjectImpl for FactLine {
+        fn dispose(&self) {
+            let obj = self.obj();
+            while let Some(child) = obj.first_child() {
+                child.unparent();
+            }
+        }
+    }
+
+    impl WidgetImpl for FactLine {
+        // Its height depends on the width it gets.
+        fn request_mode(&self) -> gtk::SizeRequestMode {
+            gtk::SizeRequestMode::HeightForWidth
+        }
+
+        fn measure(&self, orientation: gtk::Orientation, for_size: i32) -> (i32, i32, i32, i32) {
+            let obj = self.obj();
+            let (title, value) = (obj.title_size(), obj.value_size());
+            if orientation == gtk::Orientation::Horizontal {
+                // At least the title or the value, one under the other; at
+                // best both on one line.
+                let least = title.0.max(value.0);
+                return (least, obj.line_width().max(least), -1, -1);
+            }
+            let height = if obj.stacked(for_size) {
+                title.1 + FACT_STACKED_GAP + value.1
+            } else {
+                title.1.max(value.1)
+            };
+            (height, height, -1, -1)
+        }
+
+        fn size_allocate(&self, width: i32, height: i32, _baseline: i32) {
+            let obj = self.obj();
+            let (Some(title), Some(icon), Some(value)) =
+                (self.title.get(), self.icon.get(), self.value.get())
+            else {
+                return;
+            };
+            let (title_size, value_size) = (obj.title_size(), obj.value_size());
+            let at = |x: i32, y: i32| {
+                Some(gsk::Transform::new().translate(&graphene::Point::new(x as f32, y as f32)))
+            };
+            let (x, y, line) = if obj.stacked(width) {
+                title.allocate(width, title_size.1, -1, None);
+                (0, title_size.1 + FACT_STACKED_GAP, value_size.1)
+            } else {
+                title.allocate(width - value_size.0 - FACT_SPACING, height, -1, None);
+                (width - value_size.0, 0, height)
+            };
+            let mut x = x;
+            if icon.get_visible() {
+                let (_, icon_width, _, _) = icon.measure(gtk::Orientation::Horizontal, -1);
+                icon.allocate(icon_width, line, -1, at(x, y));
+                x += icon_width + FACT_SPACING;
+            }
+            let (_, value_width, _, _) = value.measure(gtk::Orientation::Horizontal, -1);
+            value.allocate(value_width, line, -1, at(x, y));
+        }
+    }
+}
+
+glib::wrapper! {
+    /// A fact: its title and its value, with a warning icon before the
+    /// value when it is one. On one line, the value on the right, while the
+    /// widest fact of the card fits on one line at this width; otherwise
+    /// the value under its title. The title never breaks.
+    pub struct FactLine(ObjectSubclass<fact_imp::FactLine>)
+        @extends gtk::Widget,
+        @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
+}
+
+impl FactLine {
+    fn new() -> Self {
+        let line: Self = glib::Object::new();
+        line.add_css_class("part-fact");
+        let title = gtk::Label::builder()
+            .xalign(0.0)
+            .css_classes(["dimmed"])
+            .build();
+        let icon = gtk::Image::builder()
+            .icon_name("dialog-warning-symbolic")
+            .visible(false)
+            .accessible_role(gtk::AccessibleRole::Presentation)
+            .css_classes(["warning"])
+            .build();
+        let value = gtk::Label::builder()
+            .xalign(0.0)
+            .css_classes(["heading", "numeric"])
+            .build();
+        for child in [
+            title.upcast_ref::<gtk::Widget>(),
+            icon.upcast_ref(),
+            value.upcast_ref(),
+        ] {
+            child.set_parent(&line);
+        }
+        let imp = line.imp();
+        let _ = imp.title.set(title);
+        let _ = imp.icon.set(icon);
+        let _ = imp.value.set(value);
+        line
+    }
+
+    /// The natural width and height of the title on one line.
+    fn title_size(&self) -> (i32, i32) {
+        self.imp().title.get().map_or((0, 0), natural)
+    }
+
+    /// The natural width and height of the value with its icon.
+    fn value_size(&self) -> (i32, i32) {
+        let imp = self.imp();
+        let (Some(icon), Some(value)) = (imp.icon.get(), imp.value.get()) else {
+            return (0, 0);
+        };
+        let (width, height) = natural(value);
+        if !icon.get_visible() {
+            return (width, height);
+        }
+        let (icon_width, icon_height) = natural(icon);
+        (icon_width + FACT_SPACING + width, height.max(icon_height))
+    }
+
+    /// The width of the fact on one line.
+    fn line_width(&self) -> i32 {
+        self.title_size().0 + FACT_SPACING + self.value_size().0
+    }
+
+    /// Whether at `width` the value goes under the title: when the widest
+    /// fact of the card does not fit on one line, so that all facts of a
+    /// card are laid out alike.
+    fn stacked(&self, width: i32) -> bool {
+        if width < 0 {
+            return false;
+        }
+        let mut widest = self.line_width();
+        let mut sibling = self.parent().and_then(|parent| parent.first_child());
+        while let Some(widget) = sibling {
+            if let Some(line) = widget.downcast_ref::<Self>() {
+                widest = widest.max(line.line_width());
+            }
+            sibling = widget.next_sibling();
+        }
+        width < widest
+    }
+}
+
+/// The natural width and height of `widget`.
+fn natural(widget: &impl IsA<gtk::Widget>) -> (i32, i32) {
+    let (_, width, _, _) = widget.measure(gtk::Orientation::Horizontal, -1);
+    let (_, height, _, _) = widget.measure(gtk::Orientation::Vertical, width);
+    (width, height)
 }
 
 pub struct PartCard {
@@ -333,6 +515,16 @@ impl PartCard {
     }
 
     fn show_facts(&self, facts: &[Fact]) {
+        // The view shown so far: the facts change far less often than the
+        // temperature.
+        if self
+            .shown
+            .borrow()
+            .as_ref()
+            .is_some_and(|old| old.facts == facts)
+        {
+            return;
+        }
         let mut rows = self.rows.borrow_mut();
         while rows.len() > facts.len() {
             if let Some(old) = rows.pop() {
@@ -340,31 +532,15 @@ impl PartCard {
             }
         }
         while rows.len() < facts.len() {
-            let row = gtk::Box::builder()
-                .spacing(12)
-                .css_classes(["part-fact"])
-                .build();
-            let title = gtk::Label::builder()
-                .xalign(0.0)
-                .hexpand(true)
-                .wrap(true)
-                .natural_wrap_mode(gtk::NaturalWrapMode::Word)
-                .css_classes(["dimmed"])
-                .build();
-            let icon = gtk::Image::builder()
-                .icon_name("dialog-warning-symbolic")
-                .visible(false)
-                .accessible_role(gtk::AccessibleRole::Presentation)
-                .css_classes(["warning"])
-                .build();
-            let value = gtk::Label::builder()
-                .xalign(1.0)
-                .css_classes(["heading", "numeric"])
-                .build();
-            row.append(&title);
-            row.append(&icon);
-            row.append(&value);
+            let row = FactLine::new();
             self.facts.append(&row);
+            let imp = row.imp();
+            let (Some(title), Some(icon), Some(value)) =
+                (imp.title.get(), imp.icon.get(), imp.value.get())
+            else {
+                continue;
+            };
+            let (title, icon, value) = (title.clone(), icon.clone(), value.clone());
             rows.push(FactRow {
                 row,
                 title,
@@ -385,6 +561,11 @@ impl PartCard {
             } else {
                 row.value.remove_css_class("warning");
             }
+        }
+        // Whether a fact goes under its title depends on the widest fact of
+        // the card, so a change of one is a change of all.
+        for row in rows.iter() {
+            row.row.queue_resize();
         }
     }
 
@@ -497,6 +678,75 @@ mod tests {
                     }
                     assert!(card.facts.width() >= SIDE);
                     assert!(card.history.width() >= 200, "{}", card.history.width());
+                }
+            });
+        });
+    }
+
+    /// The titles of the facts never break, at any width a card can get in
+    /// any layout, in English and in Polish: where the widest fact does not
+    /// fit on one line, the values of the card go under their titles. The
+    /// facts of the board's card (its widest value) and the processor's.
+    /// Needs a display.
+    #[test]
+    fn fact_titles_never_break() {
+        crate::gtk_test::run("fact_titles_never_break", || {
+            crate::gtk_test::in_app_style(|| {
+                for facts in [
+                    [
+                        ("Power", "Normal"),
+                        ("Highest since the app started", "38\u{a0}°C"),
+                    ],
+                    [
+                        ("Zasilanie", "W normie"),
+                        ("Najwyższa od uruchomienia", "38\u{a0}°C"),
+                    ],
+                    [
+                        ("CPU fan", "1880\u{a0}rpm"),
+                        ("Highest since the app started", "93\u{a0}°C"),
+                    ],
+                    [
+                        ("Wentylator procesora", "1880\u{a0}rpm"),
+                        ("Najwyższa od uruchomienia", "93\u{a0}°C"),
+                    ],
+                ] {
+                    let card = PartCard::new("baseboard-board-symbolic", "Board", Some("board"));
+                    let mut view = view(false);
+                    for (fact, (title, value)) in view.facts.iter_mut().zip(facts) {
+                        fact.title = title.into();
+                        fact.value = value.into();
+                    }
+                    card.update(&view);
+                    // Both layouts of the facts are seen: under each other
+                    // in the narrowest cards, on one line in wide ones.
+                    let (mut under, mut beside) = (false, false);
+                    for layout in [Width::Wide, Width::Compact, Width::Medium, Width::Narrow] {
+                        card.set_width(layout);
+                        let (least, _, _, _) =
+                            card.widget.measure(gtk::Orientation::Horizontal, -1);
+                        for width in (least..least + 400).step_by(3) {
+                            let (_, height, _, _) =
+                                card.widget.measure(gtk::Orientation::Vertical, width);
+                            card.widget.allocate(width, height, -1, None);
+                            for row in card.rows.borrow().iter() {
+                                let (_, whole, _, _) =
+                                    row.title.measure(gtk::Orientation::Horizontal, -1);
+                                assert!(
+                                    row.title.layout().line_count() == 1
+                                        && row.title.width() >= whole,
+                                    "{layout:?}, {width} px: {:?} broken or cut",
+                                    row.title.label()
+                                );
+                                let below = row
+                                    .value
+                                    .compute_point(&row.row, &graphene::Point::zero())
+                                    .is_some_and(|point| point.y() > 0.0);
+                                under |= below;
+                                beside |= !below;
+                            }
+                        }
+                    }
+                    assert!(under && beside, "{facts:?}: under {under}, beside {beside}");
                 }
             });
         });

@@ -61,7 +61,9 @@ struct HeaderRows {
 pub(super) struct CurvePage {
     pub(super) key: String,
     pub(super) page: adw::NavigationPage,
-    title: adw::WindowTitle,
+    /// The fan's name and its header in the header bar.
+    title: gtk::Label,
+    subtitle: gtk::Label,
     /// The chart with its legends.
     chart_card: gtk::Box,
     /// In place of the chart: the curve could not be read.
@@ -360,8 +362,24 @@ fn how_group() -> adw::PreferencesGroup {
 
 impl CurvePage {
     pub(super) fn new(key: &str) -> Self {
-        let title = adw::WindowTitle::new("", "");
-        let header = adw::HeaderBar::builder().title_widget(&title).build();
+        // The fan's name over its header, as a window title, but in a
+        // narrow window the name breaks between words rather than being cut.
+        let title = gtk::Label::builder()
+            .wrap(true)
+            .natural_wrap_mode(gtk::NaturalWrapMode::Word)
+            .justify(gtk::Justification::Center)
+            .css_classes(["heading"])
+            .build();
+        let subtitle = gtk::Label::builder()
+            .css_classes(["caption", "dimmed"])
+            .build();
+        let heading = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .valign(gtk::Align::Center)
+            .build();
+        heading.append(&title);
+        heading.append(&subtitle);
+        let header = adw::HeaderBar::builder().title_widget(&heading).build();
 
         let content = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
@@ -477,6 +495,7 @@ impl CurvePage {
             key: key.to_owned(),
             page,
             title,
+            subtitle,
             chart_card,
             unreadable,
             chart,
@@ -542,8 +561,8 @@ impl CurvePage {
         let numbers = context.numbers;
         let name = overview::name(&fan.row.name, numbers);
         self.page.set_title(&name);
-        self.title.set_title(&name);
-        self.title.set_subtitle(&fan.header);
+        self.title.set_label(&name);
+        self.subtitle.set_label(&fan.header);
 
         let data = fan.curve();
         self.chart_card.set_visible(data.is_some());
@@ -872,7 +891,7 @@ mod tests {
             assert!(page.unreadable.get_visible());
             assert!(!page.chart_card.get_visible());
             assert!(!page.columns.points.get_visible());
-            assert_eq!(page.title.subtitle(), "PUMP_SYS1");
+            assert_eq!(page.subtitle.label(), "PUMP_SYS1");
             assert!(page.header.unverified.get_visible());
             assert_eq!(page.header.minimum.label(), "30\u{a0}%");
 

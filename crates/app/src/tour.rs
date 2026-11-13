@@ -576,9 +576,11 @@ fn clickables(root: &gtk::Widget) -> Vec<gtk::Widget> {
 }
 
 /// The texts on screen under `root` that do not show whole: a label cut
-/// with an ellipsis, or an inscription whose text needs more lines than it
-/// has room for (D67: no text ends in an ellipsis). A few pixels of the
-/// metrics of the font are no missing line.
+/// with an ellipsis, an inscription whose text needs more lines than it has
+/// room for (D67: no text ends in an ellipsis), or the title of a fact on a
+/// card (its first label) broken or narrower than on one line (D67: the
+/// card changes its layout instead). A few pixels of the metrics of the
+/// font are no missing line.
 fn cut_texts(root: &gtk::Widget) -> Vec<String> {
     let mut cut = Vec::new();
     let mut child = root.first_child();
@@ -588,6 +590,14 @@ fn cut_texts(root: &gtk::Widget) -> Vec<String> {
                 && label.layout().is_ellipsized()
             {
                 cut.push(label.label().to_string());
+            }
+            if widget.has_css_class("part-fact")
+                && let Some(title) = widget.first_child().and_downcast::<gtk::Label>()
+            {
+                let (_, whole, _, _) = title.measure(gtk::Orientation::Horizontal, -1);
+                if title.layout().line_count() > 1 || title.width() < whole {
+                    cut.push(title.label().to_string());
+                }
             }
             if let Some(line) = widget.downcast_ref::<gtk::Inscription>()
                 && let Some(text) = line.text()
