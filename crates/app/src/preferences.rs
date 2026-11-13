@@ -105,7 +105,7 @@ pub struct DialogSetup<'a> {
     /// The latest sample of the Overview, with the hidden rows.
     pub groups: &'a [Group],
     pub numbers: &'a Numbers,
-    /// The file with the user's own names for the board (D22), when a
+    /// The file with the user's custom names for the board (D22), when a
     /// profile matches.
     pub labels_file: Option<PathBuf>,
 }
@@ -180,7 +180,7 @@ fn main_page(
     // The readings to show, one click further (D64).
     let visible = adw::ActionRow::builder()
         .title(gettext("Visible readings"))
-        .subtitle(gettext("Choose what the Overview shows"))
+        .subtitle(gettext("Choose which readings Baseboard shows"))
         .activatable(true)
         .build();
     visible.add_suffix(
@@ -220,7 +220,7 @@ fn main_page(
     group.add(&names);
 
     if let Some(file) = &setup.labels_file {
-        group.add(&own_names_row(file));
+        group.add(&custom_names_row(file));
     }
     page.add(&group);
     page
@@ -237,10 +237,10 @@ fn parse_seconds(text: &str) -> Option<u32> {
     number.parse().ok()
 }
 
-/// The user's own names (D22), with a button that opens their file in the
-/// default app, or its folder when there is no file yet. The path is in
+/// The user's custom names (D22), with a button that opens their file in
+/// the default app, or its folder when there is no file yet. The path is in
 /// the tooltip (D64).
-fn own_names_row(file: &Path) -> adw::ActionRow {
+fn custom_names_row(file: &Path) -> adw::ActionRow {
     let row = adw::ActionRow::builder()
         .use_markup(false)
         .title(gettext("Custom names"))
@@ -283,7 +283,7 @@ fn open(button: &gtk::Button, path: &Path) {
         gio::Cancellable::NONE,
         |result| {
             if let Err(e) = result {
-                eprintln!("baseboard: cannot open the own names: {e}");
+                eprintln!("baseboard: cannot open the custom names: {e}");
             }
         },
     );
@@ -315,9 +315,9 @@ fn readings_list(setup: &DialogSetup) -> adw::PreferencesPage {
     let page = adw::PreferencesPage::builder()
         .name("readings")
         .description(gettext(
-            "Readings that are turned off are not shown on the Overview page, \
-             for example headers without a fan. The numbered temperature \
-             sensors of disks are off until turned on.",
+            "Readings that are turned off are not shown on any page, for \
+             example headers without a fan. The numbered temperature sensors \
+             of disks are off until turned on.",
         ))
         .build();
     if setup.groups.is_empty() {

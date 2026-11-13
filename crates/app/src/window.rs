@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
-use baseboard_core::board::{Detection, Dmi};
+use baseboard_core::board::{self, Detection, Dmi};
 use gettextrs::{gettext, ngettext};
 use gtk::{gio, glib};
 
@@ -97,7 +97,7 @@ mod imp {
         pub system: TemplateChild<SystemPage>,
         pub settings: OnceCell<gio::Settings>,
         pub copy_action: OnceCell<gio::SimpleAction>,
-        /// The file with the user's own names for the board (D22).
+        /// The file with the user's custom names for the board (D22).
         pub labels_file: RefCell<Option<PathBuf>>,
         /// The sensor reader of the Overview and Fans pages.
         pub worker: RefCell<Option<Worker>>,
@@ -490,7 +490,7 @@ impl BaseboardWindow {
         self.imp().toasts.add_toast(toast);
     }
 
-    /// The file with the user's own names for the board, shown in the
+    /// The file with the user's custom names for the board, shown in the
     /// Preferences dialog.
     pub fn set_labels_file(&self, file: Option<PathBuf>) {
         self.imp().labels_file.replace(file);
@@ -563,21 +563,9 @@ impl BaseboardWindow {
     /// System page, which also says when the revision is not verified.
     pub fn show_board(&self, dmi: &Dmi, detection: &Detection) {
         let imp = self.imp();
-        let model = match detection.profile() {
-            Some(profile) => profile.model.clone(),
-            None => dmi
-                .board_name
-                .clone()
-                .or_else(|| dmi.product_name.clone())
-                .unwrap_or_else(|| gettext("Unknown board")),
-        };
-        // The Fans page needs a profile; without one it says why, as the
-        // System page does.
-        let no_profile = match detection {
-            Detection::OtherModel { code, .. } => system::other_model(code),
-            _ => system::no_profile(),
-        };
-        imp.fans.set_board(detection.profile().cloned(), no_profile);
+        let model =
+            board::board_name(dmi, detection.profile()).unwrap_or_else(|| gettext("Unknown board"));
+        imp.fans.set_board(detection.profile().cloned());
         imp.board_model.set_label(&model);
         imp.board_model.set_tooltip_text(Some(&model));
     }

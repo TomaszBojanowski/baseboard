@@ -54,9 +54,9 @@ impl OutsideRail {
 /// The fans in one row.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Fans {
-    /// Fans of the list that turn now.
-    pub turning: usize,
-    /// A CPU fan stands (D65).
+    /// Fans of the list that spin now.
+    pub spinning: usize,
+    /// A CPU fan stopped spinning (D65).
     pub cpu_stopped: bool,
 }
 
@@ -84,7 +84,8 @@ pub struct Summary {
 }
 
 /// The top of the page from the groups it shows; `stopped` are the CPU
-/// fans that stand ([`FanWatch`]), also when their rows are hidden.
+/// fans that stopped spinning ([`FanWatch`]), also when their rows are
+/// hidden.
 pub fn summary(groups: &[Group], stopped: &[RowId]) -> Summary {
     let group = |kind: GroupKind| groups.iter().find(|g| g.kind == kind);
     let first_temp = |group: &Group| {
@@ -135,13 +136,13 @@ pub fn summary(groups: &[Group], stopped: &[RowId]) -> Summary {
                 .filter(|r| r.value.is_finite() && r.value > 0.0)
                 .count()
         })
-        .map(|turning| Fans {
-            turning,
+        .map(|spinning| Fans {
+            spinning,
             cpu_stopped: !stopped.is_empty(),
         })
         .or_else(|| {
             (!stopped.is_empty()).then_some(Fans {
-                turning: 0,
+                spinning: 0,
                 cpu_stopped: true,
             })
         });
@@ -152,7 +153,7 @@ pub fn summary(groups: &[Group], stopped: &[RowId]) -> Summary {
         fans,
         memory: group(GroupKind::Memory).and_then(|g| warmest(&g.rows, |_| true)),
         disks: group(GroupKind::Disks).and_then(|g| {
-            // A drive once, by its composite temperature, not its sensors.
+            // A disk once, by its composite temperature, not its sensors.
             warmest(&g.rows, |r| {
                 matches!(r.role, Name::Disk { sensor: None, .. })
             })
@@ -201,28 +202,28 @@ fn warmest(rows: &[Row], counted: impl Fn(&Row) -> bool) -> Option<Warmest> {
     })
 }
 
-/// How long a stopped CPU fan has to stand before the app says so (D65).
+/// How long a CPU fan has to be stopped before the app says so (D65).
 pub const STOPPED_FOR: Duration = Duration::from_secs(10);
 
 /// A longer pause between samples (the window was hidden) starts the count
 /// again: nothing is known of the time in between.
 const LONGEST_GAP: Duration = Duration::from_secs(20);
 
-/// Watches the CPU fans across samples for D65: a fan stands when its
-/// header is checked in the board profile, it turned earlier since the app
+/// Watches the CPU fans across samples for D65: a fan stopped when its
+/// header is checked in the board profile, it spun earlier since the app
 /// started, its duty cycle is above zero, and it shows 0 rpm for at least
-/// [`STOPPED_FOR`]. An empty header (never turned) and a fan the curve
+/// [`STOPPED_FOR`]. An empty header (never spun) and a fan the curve
 /// stopped (0 %) are no alarm.
 #[derive(Debug, Clone, Default)]
 pub struct FanWatch {
-    /// Since when each CPU fan stands.
+    /// Since when each CPU fan does not spin.
     since: HashMap<RowId, Instant>,
     last: Option<Instant>,
 }
 
 impl FanWatch {
     /// Takes the sample of `now` (every row, also the hidden ones, with
-    /// their ranges since the start) and gives the CPU fans that stand.
+    /// their ranges since the start) and gives the CPU fans that stopped.
     pub fn update(&mut self, groups: &[Group], now: Instant) -> Vec<RowId> {
         if self
             .last
@@ -236,7 +237,7 @@ impl FanWatch {
             .iter()
             .flat_map(|g| g.rows.iter().chain(&g.auxiliary));
         for row in rows.filter(|r| watched(r)) {
-            if !stands(row) {
+            if !not_spinning(row) {
                 self.since.remove(&row.id);
                 continue;
             }
@@ -262,14 +263,14 @@ fn watched(row: &Row) -> bool {
         && matches!(row.subtitle, Subtitle::Header { verified: true, .. })
 }
 
-/// 0 rpm now at a duty cycle above zero, after turning earlier.
-fn stands(row: &Row) -> bool {
+/// 0 rpm now at a duty cycle above zero, after spinning earlier.
+fn not_spinning(row: &Row) -> bool {
     let duty = match row.subtitle {
         Subtitle::Header { duty: Some(d), .. } => d,
         _ => return false,
     };
-    let turned = row.range.is_some_and(|(_, max)| max > 0.0);
-    row.value == 0.0 && duty > 0.0 && turned
+    let spun = row.range.is_some_and(|(_, max)| max > 0.0);
+    row.value == 0.0 && duty > 0.0 && spun
 }
 
 #[cfg(test)]
@@ -496,7 +497,7 @@ mod tests {
         assert_eq!(summary(&groups, &[]).power, None);
     }
 
-    /// Fans that turn; the warmest module and drive, a drive once by its
+    /// Fans that spin; the warmest module and disk, a disk once by its
     /// composite temperature.
     #[test]
     fn fans_memory_and_disks() {
@@ -504,7 +505,7 @@ mod tests {
         assert_eq!(
             summary.fans,
             Some(Fans {
-                turning: 1,
+                spinning: 1,
                 cpu_stopped: false
             })
         );
@@ -530,27 +531,27 @@ mod tests {
         watch.update(&[group(GroupKind::Fans, vec![fan])], at)
     }
 
-    /// D65: a CPU fan that turned and stands at a duty cycle above zero is
-    /// stopped after 10 s, not before; it turning again ends it.
+    /// D65: a CPU fan that spun and does not spin at a duty cycle above zero
+    /// is stopped after 10 s, not before; spinning again ends it.
     #[test]
     fn stopped_cpu_fan() {
         let start = Instant::now();
         let at = |s: u64| start + Duration::from_secs(s);
         let mut w = FanWatch::default();
-        let stands = || cpu_fan(0.0, 900.0, Some(124.0), true);
+        let still = || cpu_fan(0.0, 900.0, Some(124.0), true);
         assert!(watch(cpu_fan(890.0, 900.0, Some(124.0), true), &mut w, at(0)).is_empty());
-        assert!(watch(stands(), &mut w, at(1)).is_empty());
-        assert!(watch(stands(), &mut w, at(6)).is_empty());
-        assert_eq!(watch(stands(), &mut w, at(11)), [id("fan1")]);
-        assert_eq!(watch(stands(), &mut w, at(12)), [id("fan1")]);
-        // It turns again: no alarm, and the count starts over.
+        assert!(watch(still(), &mut w, at(1)).is_empty());
+        assert!(watch(still(), &mut w, at(6)).is_empty());
+        assert_eq!(watch(still(), &mut w, at(11)), [id("fan1")]);
+        assert_eq!(watch(still(), &mut w, at(12)), [id("fan1")]);
+        // It spins again: no alarm, and the count starts over.
         assert!(watch(cpu_fan(700.0, 900.0, Some(124.0), true), &mut w, at(13)).is_empty());
-        assert!(watch(stands(), &mut w, at(14)).is_empty());
-        assert!(watch(stands(), &mut w, at(23)).is_empty());
-        assert_eq!(watch(stands(), &mut w, at(24)), [id("fan1")]);
+        assert!(watch(still(), &mut w, at(14)).is_empty());
+        assert!(watch(still(), &mut w, at(23)).is_empty());
+        assert_eq!(watch(still(), &mut w, at(24)), [id("fan1")]);
     }
 
-    /// No false alarms (D65): an empty header that never turned, a fan the
+    /// No false alarms (D65): an empty header that never spun, a fan the
     /// curve stopped at 0 %, a header nobody checked, no duty cycle, and a
     /// long pause between samples, which starts the count again.
     #[test]
@@ -561,10 +562,7 @@ mod tests {
             let mut w = FanWatch::default();
             (0..=30).all(|s| watch(fan(), &mut w, at(s)).is_empty())
         };
-        assert!(
-            quiet(|| cpu_fan(0.0, 0.0, Some(124.0), true)),
-            "never turned"
-        );
+        assert!(quiet(|| cpu_fan(0.0, 0.0, Some(124.0), true)), "never spun");
         assert!(quiet(|| cpu_fan(0.0, 900.0, Some(0.0), true)), "0 %");
         assert!(
             quiet(|| cpu_fan(0.0, 900.0, Some(124.0), false)),
@@ -582,9 +580,9 @@ mod tests {
         // Hidden for a minute: the two samples say nothing of the time in
         // between.
         let mut w = FanWatch::default();
-        let stands = || cpu_fan(0.0, 900.0, Some(124.0), true);
-        assert!(watch(stands(), &mut w, at(0)).is_empty());
-        assert!(watch(stands(), &mut w, at(60)).is_empty());
-        assert_eq!(watch(stands(), &mut w, at(70)), [id("fan1")]);
+        let still = || cpu_fan(0.0, 900.0, Some(124.0), true);
+        assert!(watch(still(), &mut w, at(0)).is_empty());
+        assert!(watch(still(), &mut w, at(60)).is_empty());
+        assert_eq!(watch(still(), &mut w, at(70)), [id("fan1")]);
     }
 }

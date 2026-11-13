@@ -86,7 +86,7 @@ pub fn installation() -> baseboard_core::system::Installation {
     }
 }
 
-/// The folder with the user's own names for readings (D22, §6.2):
+/// The folder with the user's custom names for readings (D22, §6.2):
 /// `$XDG_DATA_HOME/baseboard/boards`, usually
 /// `~/.local/share/baseboard/boards`. Only the app reads it.
 pub fn user_labels_dir() -> PathBuf {

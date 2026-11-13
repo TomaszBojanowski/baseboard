@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The Fans page as a model (docs/PROJEKT.md §5.5.3, §5.5.4, §7 M2,
-//! M2.4, D62), without text: the note, the temperature on top and the
-//! source of the curves, the cards of the headers (rows of the list in the
-//! app) and the headers without control, for what the driver allows and
-//! reports. Version 0.2.0 shows the settings only: nothing changes
-//! anything.
+//! M2.4, D62), without text: the temperature on top and the source of the
+//! curves, the fans (rows of the list in the app) and the headers without
+//! control, for what the driver allows and reports. Version 0.2.0 shows
+//! the settings only: nothing changes anything.
 //!
 //! The speeds, duty cycles and temperatures come from the Overview's model
 //! of the same sample, so both pages show the same values; the modes,
@@ -17,7 +16,7 @@ use crate::fans::driver::{
     self, Capabilities, Channel, CurvePoint, DriverLevel, FanDriver, Mode, ReadError, Source,
 };
 use crate::overview::{Group, Row, Subtitle, Visibility};
-use crate::profile::{Fan, FanRole, Profile, Temp, TempRole};
+use crate::profile::{self, FanRole, Profile, Temp, TempRole};
 
 /// What the app reads for one fan channel while the page is shown.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,14 +80,14 @@ pub struct Page {
     /// With `ReadOnly` the page says that the fans cannot be controlled
     /// yet (§5.5.3).
     pub level: DriverLevel,
-    /// The temperature the curves follow, once for all cards; `None`
+    /// The temperature the curves follow, once for all fans; `None`
     /// without a curve source.
     pub source: Option<SourceRow>,
     /// The temperature on top of the page (D62): the source the curves
     /// follow, or without one the processor's temperature of the profile.
     pub temperature: Option<SourceRow>,
     /// In the order of the headers on the board.
-    pub cards: Vec<Card>,
+    pub fans: Vec<Fan>,
     /// Headers the driver does not control (the auxiliary fan on MS-7E61),
     /// as the Overview shows them.
     pub read_only: Vec<Row>,
@@ -115,9 +114,9 @@ impl SourceRow {
     }
 }
 
-/// The card of one header.
+/// One header of the list.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Card {
+pub struct Fan {
     pub key: String,
     pub role: FanRole,
     /// Its row of the Overview: the name, the speed and its range since
@@ -131,18 +130,19 @@ pub struct Card {
     pub min_percent: u8,
     /// The duty cycle the driver reports, 0–255.
     pub duty: Option<u8>,
-    pub kind: CardKind,
+    pub kind: FanKind,
 }
 
-impl Card {
-    /// Whether the fan turned at any sample since the start.
+impl Fan {
+    /// Whether the fan spun at any sample since the start.
     pub fn spun(&self) -> bool {
         let max = self.row.range.map_or(self.row.value, |(_, max)| max);
         max > 0.0 || self.row.value > 0.0
     }
 
     /// No speed since the start although the duty cycle is not 0: the
-    /// header may be empty (§7 M2, M2.4). A fan at 0 % stands on purpose.
+    /// header may be empty (§7 M2, M2.4). A fan at 0 % does not spin on
+    /// purpose.
     pub fn maybe_empty(&self) -> bool {
         !self.spun() && self.duty != Some(0)
     }
@@ -150,9 +150,9 @@ impl Card {
     /// The chart, when the curve sets the fan's duty cycle.
     pub fn chart(&self) -> Option<&Chart> {
         match &self.kind {
-            CardKind::Full {
+            FanKind::Full {
+                manual: false,
                 body: Body::Chart(chart),
-                ..
             } => Some(chart.as_ref()),
             _ => None,
         }
@@ -163,12 +163,29 @@ impl Card {
     /// "Curve Details" shows.
     pub fn curve(&self) -> Option<&Chart> {
         match &self.kind {
-            CardKind::Full {
-                body: Body::Chart(chart) | Body::Manual(Some(chart)),
+            FanKind::Full {
+                body: Body::Chart(chart),
                 ..
             } => Some(chart.as_ref()),
             _ => None,
         }
+    }
+
+    /// The driver has the curve, but reading it failed.
+    pub fn curve_unreadable(&self) -> bool {
+        matches!(
+            self.kind,
+            FanKind::Full {
+                body: Body::CurveUnreadable,
+                ..
+            }
+        )
+    }
+
+    /// Whether the page "Curve Details" has something to show: the curve,
+    /// or that it could not be read.
+    pub fn has_details(&self) -> bool {
+        self.curve().is_some() || self.curve_unreadable()
     }
 
     /// The duty cycle the curve gives now, when the fan is still moving to
@@ -184,21 +201,20 @@ impl Card {
 
 /// What the page knows of a header beyond its row.
 #[derive(Debug, Clone, PartialEq)]
-pub enum CardKind {
+pub enum FanKind {
     /// The driver controls nothing: the speed, and the duty cycle where
     /// the driver reports it.
     Low,
-    /// The driver controls the header: its curve.
-    Full { body: Body },
+    /// The driver controls the header: its curve. In manual mode the fan
+    /// holds a fixed duty cycle and the curve stays in the board's
+    /// controller.
+    Full { manual: bool, body: Body },
 }
 
-/// The main part of a card.
+/// The curve of a header the driver controls.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Body {
     Chart(Box<Chart>),
-    /// Manual mode: a fixed duty cycle; the curve stays in the board's
-    /// controller and is here when it could be read.
-    Manual(Option<Box<Chart>>),
     /// The driver reports no curve (level `manual`).
     NoCurve,
     /// The driver has the curve, but reading it failed.
@@ -280,7 +296,7 @@ pub fn build(input: &Input) -> Page {
         })
         .copied();
 
-    let mut cards = Vec::new();
+    let mut fans = Vec::new();
     let mut read_only = Vec::new();
     for fan in &profile.fans {
         let Some(row) = row_of(format!("fan{}", fan.fan_index)) else {
@@ -293,14 +309,14 @@ pub fn build(input: &Input) -> Page {
             .pwm_index
             .and_then(|pwm| input.channels.iter().find(|c| c.pwm == pwm));
         let kind = match reading {
-            _ if level == DriverLevel::ReadOnly => CardKind::Low,
+            _ if level == DriverLevel::ReadOnly => FanKind::Low,
             Some(reading) if reading.controllable => full(fan, reading, common, &source_row),
             _ => {
                 read_only.push(row.clone());
                 continue;
             }
         };
-        cards.push(Card {
+        fans.push(Fan {
             key: fan.key.clone(),
             role: fan.role,
             row: row.clone(),
@@ -323,18 +339,18 @@ pub fn build(input: &Input) -> Page {
         level,
         temperature: source.clone().or(cpu),
         source,
-        cards,
+        fans,
         read_only,
     }
 }
 
-/// The card of a header the driver controls.
+/// A header the driver controls.
 fn full(
-    fan: &Fan,
+    fan: &profile::Fan,
     reading: &ChannelReading,
     common: Option<Source>,
     source_row: &dyn Fn(Source) -> SourceRow,
-) -> CardKind {
+) -> FanKind {
     let mode = reading.mode.clone().and_then(Result::ok);
     let chart = |points: &Vec<CurvePoint>| {
         let source = reading.source.clone().and_then(Result::ok);
@@ -351,15 +367,15 @@ fn full(
             own_source: row.filter(|r| Some(r.source) != common),
         })
     };
-    let body = match (&mode, &reading.curve) {
-        (Some(Mode::Manual), curve) => {
-            Body::Manual(curve.as_ref().and_then(|c| c.as_ref().ok()).map(chart))
-        }
-        (_, None) => Body::NoCurve,
-        (_, Some(Err(_))) => Body::CurveUnreadable,
-        (_, Some(Ok(points))) => Body::Chart(chart(points)),
+    let body = match &reading.curve {
+        None => Body::NoCurve,
+        Some(Err(_)) => Body::CurveUnreadable,
+        Some(Ok(points)) => Body::Chart(chart(points)),
     };
-    CardKind::Full { body }
+    FanKind::Full {
+        manual: mode == Some(Mode::Manual),
+        body,
+    }
 }
 
 /// The duty cycle of a fan's row, 0–255.
@@ -547,24 +563,24 @@ mod tests {
         page_of(&driver(level), &Visibility::default())
     }
 
-    fn keys(cards: &[Card]) -> Vec<&str> {
-        cards.iter().map(|c| c.key.as_str()).collect()
+    fn keys(fans: &[Fan]) -> Vec<&str> {
+        fans.iter().map(|c| c.key.as_str()).collect()
     }
 
-    fn card<'a>(page: &'a Page, key: &str) -> &'a Card {
-        page.cards.iter().find(|c| c.key == key).unwrap()
+    fn fan<'a>(page: &'a Page, key: &str) -> &'a Fan {
+        page.fans.iter().find(|c| c.key == key).unwrap()
     }
 
     #[test]
     fn driver_without_control() {
         let page = page(DriverLevel::ReadOnly);
         assert_eq!(page.level, DriverLevel::ReadOnly);
-        // Every header as a low card, the auxiliary fan too; no source.
+        // Every header without control, the auxiliary fan too; no source.
         assert_eq!(
-            keys(&page.cards),
+            keys(&page.fans),
             ["cpu1", "pump1", "sys1", "sys2", "sys3", "sys4", "ezconn"]
         );
-        assert!(page.cards.iter().all(|c| c.kind == CardKind::Low));
+        assert!(page.fans.iter().all(|c| c.kind == FanKind::Low));
         assert!(page.read_only.is_empty());
         assert_eq!(page.source, None);
         // On top the processor's temperature of the profile (D62).
@@ -572,16 +588,16 @@ mod tests {
         assert_eq!(temperature.source, Source::Temp(1));
         assert_eq!(temperature.temp.as_ref().unwrap().role, TempRole::Cpu);
         assert_eq!(temperature.millidegrees(), Some(46_000));
-        assert_eq!(card(&page, "cpu1").duty, Some(100));
-        assert_eq!(card(&page, "sys1").duty, None);
+        assert_eq!(fan(&page, "cpu1").duty, Some(100));
+        assert_eq!(fan(&page, "sys1").duty, None);
     }
 
     #[test]
     fn curves_to_read() {
         let page = page(DriverLevel::ManualCurveView);
-        // The auxiliary fan has no control: a row, not a card.
+        // The auxiliary fan has no control: a row of its own.
         assert_eq!(
-            keys(&page.cards),
+            keys(&page.fans),
             ["cpu1", "pump1", "sys1", "sys2", "sys3", "sys4"]
         );
         assert_eq!(page.read_only.len(), 1);
@@ -592,8 +608,12 @@ mod tests {
         assert_eq!(source.millidegrees(), Some(46_000));
         // On top the source of the curves.
         assert_eq!(page.temperature.as_ref(), Some(source));
-        let cpu = card(&page, "cpu1");
-        let CardKind::Full { body } = &cpu.kind else {
+        let cpu = fan(&page, "cpu1");
+        let FanKind::Full {
+            manual: false,
+            body,
+        } = &cpu.kind
+        else {
             panic!("{cpu:?}");
         };
         let Body::Chart(chart) = body else {
@@ -607,15 +627,17 @@ mod tests {
         assert_eq!(chart.target, Some(124));
         assert_eq!(cpu.min_percent, 30);
         // The pump, not checked on this board, shows its curve too.
-        let pump = card(&page, "pump1");
+        let pump = fan(&page, "pump1");
         assert!(!pump.verified);
         assert!(matches!(
             pump.kind,
-            CardKind::Full {
-                body: Body::Chart(_)
+            FanKind::Full {
+                body: Body::Chart(_),
+                ..
             }
         ));
-        assert!(!card(&page, "sys1").chart().unwrap().needs_full);
+        assert!(!fan(&page, "sys1").chart().unwrap().needs_full);
+        assert!(page.fans.iter().all(Fan::has_details));
     }
 
     #[test]
@@ -628,23 +650,26 @@ mod tests {
             page.temperature.as_ref().map(|t| t.source),
             Some(Source::Temp(1))
         );
+        let sys3 = fan(&page, "sys3");
         assert!(matches!(
-            card(&page, "sys3").kind,
-            CardKind::Full {
+            sys3.kind,
+            FanKind::Full {
+                manual: false,
                 body: Body::NoCurve,
-                ..
             }
         ));
+        assert!(!sys3.has_details());
         // A channel in manual mode: the curve sets nothing, but it stays in
         // the controller, so its details can be shown.
         let mut driver = driver(DriverLevel::Curves);
         driver.channel_mut(14).unwrap().mode = Some(Mode::Manual);
         let page = page_of(&driver, &Visibility::default());
-        let sys3 = card(&page, "sys3");
+        let sys3 = fan(&page, "sys3");
         assert!(matches!(
             sys3.kind,
-            CardKind::Full {
-                body: Body::Manual(Some(_)),
+            FanKind::Full {
+                manual: true,
+                body: Body::Chart(_),
             }
         ));
         assert_eq!(sys3.chart(), None);
@@ -659,15 +684,15 @@ mod tests {
         let mut driver = self::driver(DriverLevel::Manual);
         driver.channel_mut(14).unwrap().mode = Some(Mode::Manual);
         let page = page_of(&driver, &Visibility::default());
-        let sys3 = card(&page, "sys3");
+        let sys3 = fan(&page, "sys3");
         assert!(matches!(
             sys3.kind,
-            CardKind::Full {
-                body: Body::Manual(None),
-                ..
+            FanKind::Full {
+                manual: true,
+                body: Body::NoCurve,
             }
         ));
-        assert_eq!(sys3.curve(), None);
+        assert!(!sys3.has_details());
     }
 
     #[test]
@@ -676,35 +701,35 @@ mod tests {
         let mut driver = driver(DriverLevel::ManualCurveView);
         driver.channel_mut(16).unwrap().duty = Some(76);
         let page = page_of(&driver, &Visibility::default());
-        assert_eq!(card(&page, "sys1").moving_to(), Some(98));
+        assert_eq!(fan(&page, "sys1").moving_to(), Some(98));
         // Settled: the same in whole percent.
         driver.channel_mut(16).unwrap().duty = Some(98);
         let page = page_of(&driver, &Visibility::default());
-        assert_eq!(card(&page, "sys1").moving_to(), None);
+        assert_eq!(fan(&page, "sys1").moving_to(), None);
         // In manual mode the curve sets nothing.
         driver.channel_mut(16).unwrap().mode = Some(Mode::Manual);
         driver.channel_mut(16).unwrap().duty = Some(76);
         let page = page_of(&driver, &Visibility::default());
-        assert_eq!(card(&page, "sys1").moving_to(), None);
+        assert_eq!(fan(&page, "sys1").moving_to(), None);
     }
 
     #[test]
-    fn empty_header_and_standing_fan() {
+    fn empty_header_and_fan_that_does_not_spin() {
         let mut driver = driver(DriverLevel::ManualCurveView);
         // The pump: 0 rpm since the start at 100/255.
         let page = page_of(&driver, &Visibility::default());
-        assert!(card(&page, "pump1").maybe_empty());
-        assert!(!card(&page, "sys1").maybe_empty());
-        // At 0 % a fan stands on purpose.
+        assert!(fan(&page, "pump1").maybe_empty());
+        assert!(!fan(&page, "sys1").maybe_empty());
+        // At 0 % a fan does not spin on purpose.
         driver.channel_mut(2).unwrap().duty = Some(0);
         let page = page_of(&driver, &Visibility::default());
-        assert!(!card(&page, "pump1").maybe_empty());
-        // A fan that turned earlier is not an empty header.
-        let mut card = card(&page, "sys1").clone();
-        card.row.value = 0.0;
-        card.row.range = Some((0.0, 880.0));
-        card.duty = Some(100);
-        assert!(card.spun() && !card.maybe_empty());
+        assert!(!fan(&page, "pump1").maybe_empty());
+        // A fan that spun earlier is not an empty header.
+        let mut fan = fan(&page, "sys1").clone();
+        fan.row.value = 0.0;
+        fan.row.range = Some((0.0, 880.0));
+        fan.duty = Some(100);
+        assert!(fan.spun() && !fan.maybe_empty());
     }
 
     #[test]
@@ -714,12 +739,12 @@ mod tests {
         let page = page_of(&driver, &Visibility::default());
         // Most curves follow temp1, so the page's source stays temp1.
         assert_eq!(page.source.as_ref().unwrap().source, Source::Temp(1));
-        let own = card(&page, "sys4").chart().unwrap().own_source.as_ref();
+        let own = fan(&page, "sys4").chart().unwrap().own_source.as_ref();
         let own = own.unwrap();
         assert_eq!(own.source, Source::Temp(2));
         // The system temperature has its own threshold (80 °C).
-        assert_eq!(card(&page, "sys4").chart().unwrap().threshold, Some(80));
-        assert_eq!(card(&page, "sys1").chart().unwrap().own_source, None);
+        assert_eq!(fan(&page, "sys4").chart().unwrap().threshold, Some(80));
+        assert_eq!(fan(&page, "sys1").chart().unwrap().own_source, None);
     }
 
     #[test]
@@ -738,19 +763,28 @@ mod tests {
         let mut visibility = Visibility::default();
         visibility.hidden.insert("nct6687/fan13".into());
         let page = page_of(&driver, &visibility);
+        // The read error is kept apart from a driver without curves, and
+        // the details say it.
+        let sys2 = fan(&page, "sys2");
         assert!(matches!(
-            card(&page, "sys2").kind,
-            CardKind::Full {
+            sys2.kind,
+            FanKind::Full {
                 body: Body::CurveUnreadable,
                 ..
             }
         ));
+        assert!(sys2.curve_unreadable() && sys2.has_details());
+        assert_eq!(sys2.curve(), None);
         // A mode that cannot be read: the curve shows, but without a
         // target.
-        let sys3 = card(&page, "sys3");
+        let sys3 = fan(&page, "sys3");
         assert_eq!(sys3.chart().unwrap().target, None);
-        // Turned off in the preferences: no card.
-        assert!(!keys(&page.cards).contains(&"sys4"));
+        // Turned off in the preferences: no row.
+        assert!(!keys(&page.fans).contains(&"sys4"));
+        // In manual mode too, the read error stays.
+        driver.channel_mut(15).unwrap().mode = Some(Mode::Manual);
+        let page = page_of(&driver, &visibility);
+        assert!(fan(&page, "sys2").curve_unreadable());
     }
 
     #[test]

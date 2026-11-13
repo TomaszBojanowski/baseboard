@@ -37,7 +37,7 @@ pub fn run() -> glib::ExitCode {
         let (dmi, detection, mut skipped) = crate::board::detect();
         window.show_board(&dmi, &detection);
         let profile = detection.profile().cloned();
-        // The user's own names; a wrong file is skipped like a profile.
+        // The user's custom names; a wrong file is skipped like a profile.
         let labels = profile.as_ref().and_then(|profile| {
             let dir = config::user_labels_dir();
             let path = labels::path(&dir, profile);
@@ -56,10 +56,7 @@ pub fn run() -> glib::ExitCode {
         });
         window.start_readings(Setup {
             root: config::sysfs_root(),
-            board_name: dmi
-                .board_name
-                .clone()
-                .or_else(|| profile.as_ref().map(|p| p.model.clone())),
+            board_name: baseboard_core::board::board_name(&dmi, profile.as_ref()),
             profile,
             labels,
             cpu: baseboard_core::system::cpu_model(std::path::Path::new("/proc")),

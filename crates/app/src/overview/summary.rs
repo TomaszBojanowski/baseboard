@@ -50,7 +50,7 @@ fn hero_name(kind: HeroKind) -> String {
     match kind {
         HeroKind::Cpu => gettext("Processor"),
         HeroKind::Gpu => gettext("Graphics card"),
-        HeroKind::Board => gettext("Mainboard"),
+        HeroKind::Board => gettext("Motherboard"),
     }
 }
 
@@ -317,7 +317,7 @@ impl SummaryWidgets {
         match summary.fans {
             None => self.fans.row.set_visible(false),
             Some(fans) => {
-                let count = u32::try_from(fans.turning).unwrap_or(u32::MAX);
+                let count = u32::try_from(fans.spinning).unwrap_or(u32::MAX);
                 // Translators: how many fans spin, on the Overview.
                 let value =
                     ngettext("{} spinning", "{} spinning", count).replace("{}", &count.to_string());
@@ -460,7 +460,7 @@ mod tests {
                 }],
                 power: Some(vec![rail]),
                 fans: Some(Fans {
-                    turning: 5,
+                    spinning: 5,
                     cpu_stopped: true,
                 }),
                 memory: Some(Warmest {
@@ -498,7 +498,7 @@ mod tests {
             let calm = Summary {
                 power: Some(Vec::new()),
                 fans: Some(Fans {
-                    turning: 5,
+                    spinning: 5,
                     cpu_stopped: false,
                 }),
                 ..summary

@@ -33,7 +33,7 @@ use summary::SummaryWidgets;
 pub fn group_title(kind: GroupKind) -> String {
     match kind {
         GroupKind::Cpu => gettext("Processor"),
-        GroupKind::Board => gettext("Mainboard"),
+        GroupKind::Board => gettext("Motherboard"),
         GroupKind::Fans => gettext("Fans"),
         GroupKind::Voltages => gettext("Voltages"),
         GroupKind::Gpu => gettext("Graphics card"),
@@ -345,9 +345,9 @@ impl RowWidgets {
             gettext("{subtitle}. Now {value}")
         } else {
             // Translators: read by screen readers after the name of a
-            // reading, e.g. "nct6687 · temp2. Now 37.5 °C, since start
-            // 36.0–38.0 °C".
-            gettext("{subtitle}. Now {value}, since start {range}")
+            // reading, e.g. "nct6687 · temp2. Now 37.5 °C, 36.0–38.0 °C
+            // since the app started".
+            gettext("{subtitle}. Now {value}, {range} since the app started")
         }
         .replace("{subtitle}", &subtitle)
         .replace("{value}", &value)
@@ -582,7 +582,7 @@ mod imp {
         pub(super) numbers: OnceCell<Numbers>,
         /// The latest sample with every row; `None` before the first one.
         pub(super) last: RefCell<Option<Vec<Group>>>,
-        /// The CPU fans that stand in the latest sample (D65).
+        /// The CPU fans that stopped spinning in the latest sample (D65).
         pub(super) stopped: RefCell<Vec<RowId>>,
         /// The warnings of the latest sample in words (`alerts`).
         pub(super) alerts: RefCell<Vec<String>>,

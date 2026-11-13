@@ -680,9 +680,9 @@ fn labels_from_lm_sensors_when_the_option_is_on() {
         ]
     );
 
-    // The user's own names come before both (D22); switching the option
+    // The user's custom names come before both (D22); switching the option
     // back and forth changes the other names only.
-    let own = labels::parse(
+    let custom = labels::parse(
         "schema = 1\n[fan]\nsys1 = \"Front\"\n[temp]\ncpu = \"Socket\"\n",
         &profile,
     )
@@ -694,7 +694,7 @@ fn labels_from_lm_sensors_when_the_option_is_on() {
             &chips,
             sensors_labels,
             &Database,
-            Some(&own),
+            Some(&custom),
         );
         let fans = group(&groups, GroupKind::Fans);
         assert_eq!(fans.rows[2].name, Name::Label("Front".into()));
@@ -712,7 +712,7 @@ fn labels_from_lm_sensors_when_the_option_is_on() {
 }
 
 /// The Overview and its warnings go by what a row is, not by its name
-/// (B1): with the user's own names, and with the names of lm-sensors, a
+/// (B1): with the user's custom names, and with the names of lm-sensors, a
 /// stopped CPU fan still warns (D65), "Board" keeps its number and the
 /// disks are counted one each, by their composite temperature.
 #[test]
@@ -731,12 +731,12 @@ fn summary_does_not_go_by_names() {
             reading.sensors_label = label.map(str::to_owned);
         }
     }
-    let own = labels::parse(
+    let custom = labels::parse(
         "schema = 1\n[fan]\ncpu1 = \"Tower cooler\"\n[temp]\nsystem = \"Case\"\n",
         &profile,
     )
     .unwrap();
-    for (labels, sensors_labels) in [(Some(&own), false), (None, true)] {
+    for (labels, sensors_labels) in [(Some(&custom), false), (None, true)] {
         let mut groups = build_with(
             tree,
             Some(&profile),
@@ -752,7 +752,7 @@ fn summary_does_not_go_by_names() {
         );
         assert_eq!(top.disks.map(|d| d.count), Some(2));
 
-        // The CPU fan turned earlier and stands for 11 s.
+        // The CPU fan spun earlier and has not spun for 11 s.
         let cpu_fan = group_mut(&mut groups, GroupKind::Fans)
             .rows
             .iter_mut()

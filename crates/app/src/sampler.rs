@@ -54,7 +54,7 @@ pub struct Setup {
     pub root: PathBuf,
     /// The board profile, if one matches the board.
     pub profile: Option<Profile>,
-    /// The user's own names for the profile's readings (D22).
+    /// The user's custom names for the profile's readings (D22).
     pub labels: Option<UserLabels>,
     /// The board's name for its group.
     pub board_name: Option<String>,
@@ -90,7 +90,7 @@ pub struct Sampler {
     devices: Vec<Device>,
     reader: Option<Reader>,
     extremes: Extremes,
-    /// How long the CPU fans stand (D65).
+    /// How long the CPU fans have not been spinning (D65).
     watch: FanWatch,
     /// What to read of the fan channels.
     reads: FanReads,
@@ -118,7 +118,8 @@ pub struct Sample {
     /// The fan channels of the profile, while the Fans page is shown and
     /// the board's device is there.
     pub fans: Option<Vec<ChannelReading>>,
-    /// The CPU fans that stand (D65), also when their rows are hidden.
+    /// The CPU fans that stopped spinning (D65), also when their rows are
+    /// hidden.
     pub stopped: Vec<RowId>,
 }
 

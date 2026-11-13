@@ -102,6 +102,16 @@ pub fn code_label(code: &str) -> String {
     format!("MS-{code}")
 }
 
+/// The board's name wherever the app shows it (D66): the model of its
+/// profile, else `board_name` from DMI, else `product_name`. The copied
+/// system information keeps the DMI fields as read.
+pub fn board_name(dmi: &Dmi, profile: Option<&Profile>) -> Option<String> {
+    profile
+        .map(|p| p.model.clone())
+        .or_else(|| dmi.board_name.clone())
+        .or_else(|| dmi.product_name.clone())
+}
+
 fn clean(value: &str) -> Option<String> {
     let value = value.trim();
     (!value.is_empty()).then(|| value.to_owned())
@@ -257,6 +267,31 @@ mod tests {
         let code = this_board().board_code().unwrap();
         assert_eq!(code, "7E61");
         assert_eq!(code_label(&code), "MS-7E61");
+    }
+
+    /// One rule for the board's name: the profile, then DMI.
+    #[test]
+    fn name_of_the_board() {
+        let profile = profile::parse(&MS_7E61.replace(
+            "model = \"MAG B850M MORTAR WIFI\"",
+            "model = \"From the profile\"",
+        ))
+        .unwrap();
+        let dmi = this_board();
+        assert_eq!(
+            board_name(&dmi, Some(&profile)).as_deref(),
+            Some("From the profile")
+        );
+        assert_eq!(
+            board_name(&dmi, None).as_deref(),
+            Some("MAG B850M MORTAR WIFI (MS-7E61)")
+        );
+        let product = Dmi {
+            board_name: None,
+            ..dmi
+        };
+        assert_eq!(board_name(&product, None).as_deref(), Some("MS-7E61"));
+        assert_eq!(board_name(&Dmi::default(), None), None);
     }
 
     /// A fresh folder in the system temporary directory for one test.

@@ -101,12 +101,6 @@ row.monospace-value .subtitle {
 
 /* ---------- curve page ---------- */
 
-.fan-notice {
-  padding: 10px 12px;
-  border-radius: 9px;
-  background-color: color-mix(in srgb, currentColor 6%, transparent);
-}
-
 .fan-chart-card {
   padding: 14px 14px 10px;
 }

@@ -51,12 +51,14 @@ pub(super) struct FanLine {
     pub min_percent: u8,
     /// The duty cycle the curve gives, while the fan moves to it.
     pub target: Option<u8>,
-    /// Nobody checked the header on this board.
-    pub unchecked: bool,
+    /// The header was checked on this board.
+    pub verified: bool,
     /// No speed since the start at a duty cycle above 0.
     pub maybe_empty: bool,
-    /// A CPU fan that was spinning and stands now (D65).
+    /// A CPU fan that was spinning and does not spin now (D65).
     pub stopped: bool,
+    /// The driver has the curve, but reading it failed.
+    pub curve_unreadable: bool,
     /// The line of the small chart, in °C and 0–255; empty without one.
     pub chart: Vec<(f64, f64)>,
     /// The point now, in °C and 0–255.
@@ -77,17 +79,21 @@ impl FanLine {
     }
 
     /// The state in plain words, when there is one: a stopped CPU fan, an
-    /// empty header, manual mode, or a visible move to the target.
+    /// empty header, a curve that could not be read, manual mode, or a
+    /// visible move to the target.
     pub(super) fn state(&self) -> Option<String> {
         if self.stopped {
             // Translators: under the CPU fan on the Fans page when it was
-            // spinning before and stands now.
+            // spinning before and does not spin now.
             return Some(pgettext("fan state", "Stopped"));
         }
         if self.maybe_empty {
             // Translators: under a fan on the Fans page when it has not
             // spun since Baseboard started; one sentence.
             return Some(gettext("Not spinning – the header may be empty."));
+        }
+        if self.curve_unreadable {
+            return Some(gettext("The curve could not be read"));
         }
         if self.mode == Some(Mode::Manual) {
             // Translators: under a fan on the Fans page, its mode.
@@ -151,12 +157,15 @@ impl FanLine {
         }
         // The sentences of the page "Curve Details", without a full stop in
         // the middle of the list (B3).
-        if self.unchecked {
+        if !self.verified {
             parts.push(gettext("This header was not checked on this board"));
         }
         if self.maybe_empty {
             parts.push(gettext("Not spinning since the app started"));
             parts.push(gettext("The header may be empty."));
+        }
+        if self.curve_unreadable {
+            parts.push(gettext("The curve could not be read"));
         }
         parts.join(", ")
     }
@@ -370,7 +379,7 @@ impl FanRow {
             .icon_name("go-next-symbolic")
             .valign(gtk::Align::Center)
             .accessible_role(gtk::AccessibleRole::Presentation)
-            .css_classes(["fan-soft"])
+            .css_classes(["dimmed"])
             .build();
 
         let row = gtk::ListBoxRow::builder().child(&grid).build();
@@ -545,9 +554,10 @@ mod tests {
             mode: Some(Mode::Auto),
             min_percent: 50,
             target: None,
-            unchecked: true,
+            verified: false,
             maybe_empty: true,
             stopped: false,
+            curve_unreadable: false,
             chart: vec![(40.0, 255.0)],
             now: Some((50.0, 255.0)),
             chart_description: None,
@@ -564,7 +574,7 @@ mod tests {
             rpm: 1520.0,
             duty: Some(200),
             target: Some(255),
-            unchecked: false,
+            verified: true,
             maybe_empty: false,
             min_percent: 30,
             ..pump()
@@ -598,6 +608,22 @@ mod tests {
             ..cpu()
         };
         assert_eq!(manual.state().as_deref(), Some("Manual"));
+        // A curve that could not be read says so, also in manual mode.
+        let unreadable = FanLine {
+            curve_unreadable: true,
+            chart: Vec::new(),
+            now: None,
+            ..manual
+        };
+        assert_eq!(
+            unreadable.state().as_deref(),
+            Some("The curve could not be read")
+        );
+        assert!(
+            unreadable
+                .description(&Numbers::new("."))
+                .ends_with("mode: Manual, minimum 30\u{a0}%, The curve could not be read")
+        );
         // A stopped CPU fan comes first (D65).
         let stopped = FanLine {
             rpm: 0.0,

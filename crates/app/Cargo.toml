@@ -2,7 +2,7 @@
 
 [package]
 name = "baseboard"
-description = "Monitor and control mainboard hardware on GNOME"
+description = "Monitor and control motherboard hardware on GNOME"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

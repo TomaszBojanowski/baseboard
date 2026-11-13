@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The curve of one header as a subpage of the Fans page, in the preview
-//! of version 0.2.0 (docs/PROJEKT.md §7 M2, M2.4, D62, makiety
-//! `wentylatory-szczegoly.html`): the large chart with the legend of its
-//! marks, and a legend for what the chart could not label; the points as
-//! read from the board's controller; what the list of fans does not show
+//! The curve details of one header, a subpage of the Fans page
+//! (docs/PROJEKT.md §7 M2, M2.4, D62, makiety `wentylatory-szczegoly.html`):
+//! the large chart with the legend of its marks, and a legend for what the
+//! chart could not label, or that the curve could not be read; the points
+//! as read from the board's controller; what the list of fans does not show
 //! about the header (its mode, minimum, and whether it was checked and
 //! spins); the temperature source and how a curve works.
 
@@ -14,14 +14,14 @@ use std::rc::Rc;
 use adw::prelude::*;
 use baseboard_core::fans::curve;
 use baseboard_core::fans::driver::{CurvePoint, Mode, Source};
-use baseboard_core::fans::page::{Card, SourceRow};
+use baseboard_core::fans::page::{Chart, Fan, SourceRow};
 use baseboard_core::overview::Subtitle;
 use baseboard_core::sensors::Kind;
-use baseboard_core::units::{UNIT_SPACE, duty_to_percent};
+use baseboard_core::units::{Numbers, UNIT_SPACE, duty_to_percent};
 use gettextrs::gettext;
 use gtk::{glib, pango};
 
-use super::{Layout, PageContext, legend_items, percent, source_name};
+use super::{Layout, PageContext, footer_text, legend_items, percent, source_name};
 use crate::fan_chart::swatch::Swatch;
 use crate::fan_chart::{ChartCurve, FanChart, Reading};
 use crate::overview;
@@ -53,7 +53,7 @@ struct HeaderRows {
     manual: adw::ActionRow,
     minimum_row: adw::ActionRow,
     minimum: gtk::Label,
-    unchecked: adw::ActionRow,
+    unverified: adw::ActionRow,
     empty: adw::ActionRow,
 }
 
@@ -61,7 +61,10 @@ pub(super) struct CurvePage {
     pub(super) key: String,
     pub(super) page: adw::NavigationPage,
     title: adw::WindowTitle,
-    notice: gtk::Label,
+    /// The chart with its legends.
+    chart_card: gtk::Box,
+    /// In place of the chart: the curve could not be read.
+    unreadable: gtk::ListBox,
     chart: FanChart,
     legend: gtk::Box,
     legend_now: gtk::Label,
@@ -147,8 +150,8 @@ fn set_label(label: &gtk::Label, text: &str) {
 }
 
 /// The mode of a header, as its row has it.
-pub(super) fn card_mode(card: &Card) -> Option<Mode> {
-    match &card.row.subtitle {
+pub(super) fn fan_mode(fan: &Fan) -> Option<Mode> {
+    match &fan.row.subtitle {
         Subtitle::Header { mode, .. } => *mode,
         _ => None,
     }
@@ -258,23 +261,6 @@ impl CurvePage {
             .margin_end(12)
             .build();
 
-        // What this version does with curves.
-        let notice_box = gtk::Box::builder()
-            .spacing(10)
-            .margin_bottom(14)
-            .css_classes(["fan-notice"])
-            .build();
-        let icon = gtk::Image::from_icon_name("help-about-symbolic");
-        icon.set_accessible_role(gtk::AccessibleRole::Presentation);
-        let notice = gtk::Label::builder()
-            .xalign(0.0)
-            .wrap(true)
-            .hexpand(true)
-            .build();
-        notice_box.append(&icon);
-        notice_box.append(&notice);
-        content.append(&notice_box);
-
         // The chart and its legend.
         let chart_card = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
@@ -305,6 +291,18 @@ impl CurvePage {
         chart_card.append(&legend);
         content.append(&chart_card);
 
+        // In place of the chart, when the curve could not be read.
+        let unreadable = boxed_list();
+        unreadable.append(&info_row(
+            "help-about-symbolic",
+            // Translators: on a fan's row and on its curve page when the
+            // board's controller did not give the curve.
+            &gettext("The curve could not be read"),
+            &gettext("Baseboard tries again every 10 seconds."),
+        ));
+        unreadable.set_visible(false);
+        content.append(&unreadable);
+
         // Points on the left; source and how it works on the right, or
         // under them in a narrow window (`set_layout`).
         let columns = gtk::Grid::builder()
@@ -316,7 +314,7 @@ impl CurvePage {
         let points_header = list_header(
             &points,
             &gettext("Points"),
-            // Translators: under "Points" on the curve page in the preview.
+            // Translators: under "Points" on the curve page.
             Some(&gettext("Values read from the board's controller.")),
         );
         let points_body = gtk::Box::builder()
@@ -355,7 +353,7 @@ impl CurvePage {
             &gettext("Minimum"),
             Some(&gettext("The lowest duty cycle Baseboard allows")),
         );
-        let unchecked = info_row(
+        let unverified = info_row(
             "help-about-symbolic",
             // Translators: on the curve page of a fan header whose channel
             // nobody has checked on this board.
@@ -369,7 +367,7 @@ impl CurvePage {
             &gettext("Not spinning since the app started"),
             &gettext("The header may be empty."),
         );
-        for row in [&mode_row, &manual, &minimum_row, &unchecked, &empty] {
+        for row in [&mode_row, &manual, &minimum_row, &unverified, &empty] {
             header_list.append(row);
         }
         side.append(&header_list);
@@ -404,10 +402,20 @@ impl CurvePage {
         how.add(&info_row(
             "baseboard-board-symbolic",
             &gettext("The board's controller runs the curve"),
-            &gettext("Neither the app nor the helper has to run for it."),
+            &gettext("Baseboard does not have to run for it."),
         ));
         side.append(&how);
         content.append(&columns);
+        // What this version does, as under the list of fans.
+        content.append(
+            &gtk::Label::builder()
+                .label(footer_text())
+                .wrap(true)
+                .justify(gtk::Justification::Center)
+                .margin_top(24)
+                .css_classes(["caption", "dimmed"])
+                .build(),
+        );
 
         let clamp = adw::Clamp::builder()
             .maximum_size(940)
@@ -442,7 +450,8 @@ impl CurvePage {
             key: key.to_owned(),
             page,
             title,
-            notice,
+            chart_card,
+            unreadable,
             chart,
             legend,
             legend_now,
@@ -464,7 +473,7 @@ impl CurvePage {
                 manual,
                 minimum_row,
                 minimum,
-                unchecked,
+                unverified,
                 empty,
             },
             source_row,
@@ -504,41 +513,46 @@ impl CurvePage {
             .set_margin_top(if wide { 0 } else { 24 });
     }
 
-    /// The values of the header's card; `note` says what this version does
-    /// with curves. In manual mode the curve the controller keeps, with
-    /// the fixed duty cycle as the point now.
-    pub(super) fn update(&self, card: &Card, context: &PageContext, note: &str) {
+    /// The values of the header. In manual mode the curve the controller
+    /// keeps, with the fixed duty cycle as the point now; a curve that
+    /// could not be read, in words.
+    pub(super) fn update(&self, fan: &Fan, context: &PageContext) {
         let numbers = context.numbers;
-        let Some(data) = card.curve() else {
-            return;
-        };
-        let name = overview::name(&card.row.name, numbers);
+        let name = overview::name(&fan.row.name, numbers);
         self.page.set_title(&name);
         self.title.set_title(&name);
-        // Translators: the subtitle of the curve page in the preview,
-        // e.g. "SYS_FAN1 · preview".
-        self.title
-            .set_subtitle(&gettext("{header} · preview").replace("{header}", &card.header));
-        if self.notice.label() != note {
-            self.notice.set_label(note);
-        }
+        self.title.set_subtitle(&fan.header);
 
-        let source = data.own_source.as_ref().or(context.source);
+        let data = fan.curve();
+        self.chart_card.set_visible(data.is_some());
+        self.unreadable.set_visible(data.is_none());
+        self.columns.points_header.set_visible(data.is_some());
+        self.columns.points.set_visible(data.is_some());
+        let source = data.and_then(|d| d.own_source.as_ref()).or(context.source);
         let source_name = source.map(|s| source_name(s, numbers)).unwrap_or_default();
+        if let Some(data) = data {
+            self.show_curve(fan, data, &name, &source_name, numbers);
+        }
+        self.show_header(fan);
+        self.show_source(source, &source_name);
+    }
+
+    /// The chart, its legend and the points.
+    fn show_curve(&self, fan: &Fan, data: &Chart, name: &str, source: &str, numbers: &Numbers) {
         self.chart.set_curve(Some(ChartCurve {
-            name: name.clone(),
-            source: source_name.clone(),
+            name: name.to_owned(),
+            source: source.to_owned(),
             points: data.points.clone(),
-            min_percent: card.min_percent,
+            min_percent: fan.min_percent,
             threshold: data.threshold,
             needs_full: data.needs_full,
             // In manual mode the controller keeps the curve, but it sets
             // nothing.
-            in_effect: card.chart().is_some(),
+            in_effect: fan.chart().is_some(),
         }));
         let reading = data
             .millidegrees
-            .zip(card.duty)
+            .zip(fan.duty)
             .map(|(millidegrees, duty)| Reading { millidegrees, duty });
         self.chart.set_reading(reading);
 
@@ -556,7 +570,7 @@ impl CurvePage {
                 self.legend_now.set_label(&text);
             }
         }
-        let target = card.moving_to();
+        let target = fan.moving_to();
         self.legend_target.set_visible(target.is_some());
         if let Some(target) = target {
             // Translators: in the legend under a fan curve, the duty cycle
@@ -567,25 +581,22 @@ impl CurvePage {
         }
         self.legend
             .set_visible(reading.is_some() && !self.labelled.get());
-
         self.show_points(&data.points);
-        self.show_header(card);
-        self.show_source(source, &source_name);
     }
 
     /// The mode, the minimum and the notes of the header (D62).
-    fn show_header(&self, card: &Card) {
+    fn show_header(&self, fan: &Fan) {
         let rows = &self.header;
-        let mode = card_mode(card);
+        let mode = fan_mode(fan);
         set_label(&rows.mode, &mode_text(mode));
         rows.manual.set_visible(mode == Some(Mode::Manual));
-        let minimum = card.min_percent > 0;
+        let minimum = fan.min_percent > 0;
         rows.minimum_row.set_visible(minimum);
         if minimum {
-            set_label(&rows.minimum, &percent(card.min_percent));
+            set_label(&rows.minimum, &percent(fan.min_percent));
         }
-        rows.unchecked.set_visible(!card.verified);
-        rows.empty.set_visible(card.maybe_empty());
+        rows.unverified.set_visible(!fan.verified);
+        rows.empty.set_visible(fan.maybe_empty());
     }
 
     /// One row per run of equal points: the controller has a fixed number
@@ -676,18 +687,17 @@ impl CurvePage {
 
 #[cfg(test)]
 mod tests {
-    use baseboard_core::fans::page::{Body, CardKind, Chart};
+    use baseboard_core::fans::page::{Body, FanKind};
     use baseboard_core::overview::{Name, Row, RowId};
     use baseboard_core::profile::FanRole;
-    use baseboard_core::units::Numbers;
 
     use super::*;
 
-    /// A header with a curve: verified with its mode on the switch, or not
-    /// checked, with the mode only in its row of the Overview.
-    fn card(verified: bool, rpm: f64, min_percent: u8) -> Card {
+    /// A header with a curve, checked on this board or not, in automatic
+    /// mode.
+    fn fan(verified: bool, rpm: f64, min_percent: u8) -> Fan {
         let mode = Some(Mode::Auto);
-        Card {
+        Fan {
             key: "pump1".into(),
             role: FanRole::Pump,
             row: Row {
@@ -719,7 +729,8 @@ mod tests {
             verified,
             min_percent,
             duty: Some(255),
-            kind: CardKind::Full {
+            kind: FanKind::Full {
+                manual: false,
                 body: Body::Chart(Box::new(Chart {
                     points: vec![
                         CurvePoint {
@@ -765,11 +776,11 @@ mod tests {
                 source: None,
             };
             let page = CurvePage::new("pump1");
-            let mut card = card(true, 900.0, 0);
-            let CardKind::Full {
+            let mut fan = fan(true, 900.0, 0);
+            let FanKind::Full {
                 body: Body::Chart(chart),
                 ..
-            } = &mut card.kind
+            } = &mut fan.kind
             else {
                 unreachable!();
             };
@@ -778,7 +789,7 @@ mod tests {
                 .chain([(85, 255); 3])
                 .map(|(temp, duty)| CurvePoint { temp, duty })
                 .collect();
-            page.update(&card, &context, "");
+            page.update(&fan, &context);
             let rows = page.rows.borrow();
             let numbers: Vec<String> = rows.iter().map(|r| r.number.label().into()).collect();
             assert_eq!(numbers, ["1", "2", "3", "4–7"]);
@@ -800,24 +811,53 @@ mod tests {
                 source: None,
             };
             let page = CurvePage::new("pump1");
-            page.update(&card(true, 900.0, 0), &context, "");
+            page.update(&fan(true, 900.0, 0), &context);
             assert!(!page.header.manual.is_visible());
 
-            let mut card = card(true, 900.0, 0);
-            if let Subtitle::Header { mode, .. } = &mut card.row.subtitle {
+            let mut fan = fan(true, 900.0, 0);
+            if let Subtitle::Header { mode, .. } = &mut fan.row.subtitle {
                 *mode = Some(Mode::Manual);
             }
-            let CardKind::Full { body } = &mut card.kind else {
+            let FanKind::Full { manual, .. } = &mut fan.kind else {
                 unreachable!();
             };
-            let Body::Chart(chart) = body.clone() else {
-                unreachable!();
-            };
-            *body = Body::Manual(Some(chart));
-            page.update(&card, &context, "");
+            *manual = true;
+            page.update(&fan, &context);
             assert_eq!(page.header.mode.label(), "Manual");
             assert!(page.header.manual.is_visible());
             assert_eq!(page.rows.borrow().len(), 1);
+        });
+    }
+
+    /// A curve that could not be read: the page says so in place of the
+    /// chart and the points, and shows the header; once read, the chart
+    /// comes back. Needs a display.
+    #[test]
+    fn curve_that_could_not_be_read() {
+        crate::gtk_test::run("curve_that_could_not_be_read", || {
+            let numbers = Numbers::new(".");
+            let context = PageContext {
+                numbers: &numbers,
+                source: None,
+            };
+            let page = CurvePage::new("pump1");
+            let mut unreadable = fan(false, 900.0, 30);
+            unreadable.kind = FanKind::Full {
+                manual: false,
+                body: Body::CurveUnreadable,
+            };
+            page.update(&unreadable, &context);
+            assert!(page.unreadable.get_visible());
+            assert!(!page.chart_card.get_visible());
+            assert!(!page.columns.points.get_visible());
+            assert_eq!(page.title.subtitle(), "PUMP_SYS1");
+            assert!(page.header.unverified.get_visible());
+            assert_eq!(page.header.minimum.label(), "30\u{a0}%");
+
+            page.update(&fan(true, 900.0, 0), &context);
+            assert!(!page.unreadable.get_visible());
+            assert!(page.chart_card.get_visible());
+            assert!(page.columns.points.get_visible());
         });
     }
 
@@ -826,9 +866,8 @@ mod tests {
         assert_eq!(mode_text(Some(Mode::Auto)), "Automatic BIOS");
         assert_eq!(mode_text(Some(Mode::Manual)), "Manual");
         assert_eq!(mode_text(None), "The mode could not be read");
-        // Without a switch, the mode as the Overview read it.
-        assert_eq!(card_mode(&card(false, 0.0, 50)), Some(Mode::Auto));
-        assert_eq!(card_mode(&card(true, 900.0, 30)), Some(Mode::Auto));
+        // The mode as the Overview read it.
+        assert_eq!(fan_mode(&fan(false, 0.0, 50)), Some(Mode::Auto));
     }
 
     /// The group "Header" says what the list of fans no longer shows
@@ -843,17 +882,17 @@ mod tests {
                 source: None,
             };
             let page = CurvePage::new("pump1");
-            page.update(&card(false, 0.0, 50), &context, "");
+            page.update(&fan(false, 0.0, 50), &context);
             let rows = &page.header;
             assert_eq!(rows.mode.label(), "Automatic BIOS");
             assert!(rows.minimum_row.is_visible());
             assert_eq!(rows.minimum.label(), "50\u{a0}%");
-            assert!(rows.unchecked.is_visible());
+            assert!(rows.unverified.is_visible());
             assert!(rows.empty.is_visible());
 
-            page.update(&card(true, 900.0, 0), &context, "");
+            page.update(&fan(true, 900.0, 0), &context);
             assert!(!rows.minimum_row.is_visible());
-            assert!(!rows.unchecked.is_visible());
+            assert!(!rows.unverified.is_visible());
             assert!(!rows.empty.is_visible());
         });
     }

@@ -151,9 +151,9 @@ pub fn visible(groups: &[Group], visibility: &Visibility) -> Vec<Group> {
 pub struct Row {
     pub id: RowId,
     pub name: Name,
-    /// What the row is: the built-in name, before the user's own names, the
-    /// profile's labels and the labels of lm-sensors replace `name`. The
-    /// Overview and its warnings go by it, never by `name` (B1).
+    /// What the row is: the built-in name, before the user's custom names,
+    /// the profile's labels and the labels of lm-sensors replace `name`.
+    /// The Overview and its warnings go by it, never by `name` (B1).
     pub role: Name,
     pub subtitle: Subtitle,
     /// The kind of the value, which gives its unit.
@@ -284,7 +284,7 @@ pub struct Context<'a> {
     /// The option "labels from lm-sensors" (§5.1): the name `sensors`
     /// shows comes first.
     pub sensors_labels: bool,
-    /// The user's own names for the readings of the board (D22); they come
+    /// The user's custom names for the readings of the board (D22); they come
     /// before everything else.
     pub labels: Option<&'a UserLabels>,
 }
@@ -456,7 +456,7 @@ fn board_rows(chip: &Chip, board: &Board, context: &Context, out: &mut Rows) {
         };
         out.fans.push(Row {
             id: row_id(chip, reading),
-            name: pick_own(
+            name: pick_custom(
                 reading,
                 context,
                 |l| l.fan(&fan.key),
@@ -486,7 +486,7 @@ fn board_rows(chip: &Chip, board: &Board, context: &Context, out: &mut Rows) {
         let role = Name::Temp(temp.role);
         let row = Row {
             id: row_id(chip, reading),
-            name: pick_own(
+            name: pick_custom(
                 reading,
                 context,
                 |l| l.temp(&temp.key),
@@ -517,7 +517,7 @@ fn board_rows(chip: &Chip, board: &Board, context: &Context, out: &mut Rows) {
         let role = Name::Voltage(rail.role);
         out.voltages.push(Row {
             id: row_id(chip, reading),
-            name: pick_own(
+            name: pick_custom(
                 reading,
                 context,
                 |l| l.voltage(&rail.key),
@@ -722,15 +722,15 @@ fn pick(reading: &Reading, context: &Context, default: impl FnOnce() -> Name) ->
     }
 }
 
-/// For the profile's readings: the user's own name first (D22), then as
+/// For the profile's readings: the user's custom name first (D22), then as
 /// [`pick`].
-fn pick_own<'a>(
+fn pick_custom<'a>(
     reading: &Reading,
     context: &Context<'a>,
-    own: impl FnOnce(&'a UserLabels) -> Option<&'a str>,
+    custom: impl FnOnce(&'a UserLabels) -> Option<&'a str>,
     default: impl FnOnce() -> Name,
 ) -> Name {
-    match context.labels.and_then(own) {
+    match context.labels.and_then(custom) {
         Some(label) => Name::Label(label.to_owned()),
         None => pick(reading, context, default),
     }

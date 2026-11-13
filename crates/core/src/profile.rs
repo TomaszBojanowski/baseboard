@@ -934,6 +934,35 @@ tolerance_pct = 5.0
         assert!(reason(&with("nominal = 12.0\n", "")).contains("needs nominal"));
     }
 
+    /// The nominal voltage has two sources: the rail's role, which names
+    /// it ("+12 V"), and `nominal` in the profile, which rates it. In every
+    /// bundled profile they agree, so a rail is never named after one
+    /// voltage and rated against another.
+    #[test]
+    fn nominal_voltages_agree_with_their_names() {
+        let dir = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../data/boards"));
+        let mut checked = 0;
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.extension().is_none_or(|ext| ext != "toml") {
+                continue;
+            }
+            let profile = load(&path).unwrap();
+            for rail in &profile.voltages {
+                if let (Some(named), Some(rated)) = (rail.role.nominal(), rail.nominal) {
+                    assert!(
+                        (named - rated).abs() < 1e-9,
+                        "{}: {} is named {named} V but rated against {rated} V",
+                        profile.id,
+                        rail.key
+                    );
+                    checked += 1;
+                }
+            }
+        }
+        assert!(checked > 0, "no rated rail with a named voltage");
+    }
+
     #[test]
     fn hidden_channels() {
         let hidden = |table: &str| format!("{MINIMAL}\n[hidden]\n{table}\n");

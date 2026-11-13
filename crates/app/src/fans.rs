@@ -20,7 +20,7 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use baseboard_core::fans::driver::DriverLevel;
 use baseboard_core::fans::driver::{Mode, Source};
-use baseboard_core::fans::page::{self, Card, CardKind, Page, SourceRow};
+use baseboard_core::fans::page::{self, Fan, FanKind, Page, SourceRow};
 use baseboard_core::overview::{Name, Row, RowId, Subtitle, Visibility};
 use baseboard_core::profile::{FanRole, Profile, TempRole};
 use baseboard_core::units::{Numbers, UNIT_SPACE};
@@ -33,7 +33,7 @@ use crate::fan_chart::swatch::Mark;
 use crate::fan_chart::{self, ChartCurve, Reading};
 use crate::overview;
 use crate::sampler::Sample;
-use curve_page::{CurvePage, card_mode};
+use curve_page::{CurvePage, fan_mode};
 use row::{FanLine, FanRow};
 
 /// How wide the page is (fans.ui): the curve page in two columns or one;
@@ -46,7 +46,7 @@ pub(crate) enum Layout {
     Narrow,
 }
 
-/// What a card and the curve page need besides their card.
+/// What a row and the curve page need besides their fan.
 pub(crate) struct PageContext<'a> {
     pub numbers: &'a Numbers,
     /// The source most curves follow.
@@ -96,11 +96,6 @@ fn temperature_name(row: &SourceRow, numbers: &Numbers) -> String {
     }
 }
 
-/// The note of the curve page in version 0.2.0.
-fn preview_note() -> String {
-    gettext("This version of Baseboard shows the fan settings without changing them.")
-}
-
 // The section of the project's website on fan control in the kernel, in
 // the language of the app (D60). No doc comment right above: xgettext would
 // take it for translators.
@@ -125,12 +120,7 @@ const LINK_GAP: i32 = 4;
 /// link is bold and never breaks; it ends in a no-break space that keeps
 /// the room for its icon (`reserve_link_icon`).
 fn kernel_markup() -> String {
-    let text = gettext(
-        // Translators: under the large temperature on the Fans page when the
-        // kernel driver can only read the fans.
-        "This system can only read the fans for now. Fan control is coming in a future Linux \
-         version.",
-    );
+    let text = crate::system::read_only_fans();
     let link = gettext(
         // Translators: a link after the sentence about the kernel on the
         // Fans page; it opens the website's section on fan control in the
@@ -232,15 +222,15 @@ fn legend_items() -> [(Mark, String); 4] {
     ]
 }
 
-/// A row of the list for a card of the model. `temp` is the temperature
-/// on top, in °C, for the point of a fan in manual mode; `stopped` are the
-/// CPU fans that stand (D65).
-fn card_line(card: &Card, context: &PageContext, temp: Option<f64>, stopped: &[RowId]) -> FanLine {
+/// A row of the list for a fan of the model. `temp` is the temperature on
+/// top, in °C, for the point of a fan in manual mode; `stopped` are the
+/// CPU fans that stopped spinning (D65).
+fn fan_line(fan: &Fan, context: &PageContext, temp: Option<f64>, stopped: &[RowId]) -> FanLine {
     let numbers = context.numbers;
-    let name = overview::name(&card.row.name, numbers);
-    let has_mode = matches!(card.kind, CardKind::Full { .. });
-    let mode = card_mode(card).filter(|_| has_mode);
-    let (chart, now, chart_description) = match card.chart() {
+    let name = overview::name(&fan.row.name, numbers);
+    let has_mode = matches!(fan.kind, FanKind::Full { .. });
+    let mode = fan_mode(fan).filter(|_| has_mode);
+    let (chart, now, chart_description) = match fan.chart() {
         Some(data) => {
             let points = data
                 .points
@@ -249,7 +239,7 @@ fn card_line(card: &Card, context: &PageContext, temp: Option<f64>, stopped: &[R
                 .collect();
             let reading = data
                 .millidegrees
-                .zip(card.duty)
+                .zip(fan.duty)
                 .map(|(millidegrees, duty)| Reading { millidegrees, duty });
             let now = reading.map(|r| (r.millidegrees as f64 / 1000.0, f64::from(r.duty)));
             let source = data
@@ -262,7 +252,7 @@ fn card_line(card: &Card, context: &PageContext, temp: Option<f64>, stopped: &[R
                 name: name.clone(),
                 source,
                 points: data.points.clone(),
-                min_percent: card.min_percent,
+                min_percent: fan.min_percent,
                 threshold: data.threshold,
                 needs_full: data.needs_full,
                 in_effect: true,
@@ -274,7 +264,7 @@ fn card_line(card: &Card, context: &PageContext, temp: Option<f64>, stopped: &[R
             )
         }
         // Manual mode: the flat line of the duty cycle set.
-        None if mode == Some(Mode::Manual) => match card.duty.map(f64::from) {
+        None if mode == Some(Mode::Manual) => match fan.duty.map(f64::from) {
             Some(duty) => (
                 vec![(0.0, duty), (100.0, duty)],
                 temp.map(|t| (t, duty)),
@@ -285,22 +275,23 @@ fn card_line(card: &Card, context: &PageContext, temp: Option<f64>, stopped: &[R
         None => (Vec::new(), None, None),
     };
     FanLine {
-        key: card.key.clone(),
+        key: fan.key.clone(),
         name,
-        header: card.header.clone(),
-        rpm: card.row.value,
-        duty: card.duty,
+        header: fan.header.clone(),
+        rpm: fan.row.value,
+        duty: fan.duty,
         has_mode,
         mode,
-        min_percent: card.min_percent,
-        target: card.moving_to(),
-        unchecked: !card.verified,
+        min_percent: fan.min_percent,
+        target: fan.moving_to(),
+        verified: fan.verified,
         // The extra header is read only with every driver; as on the
         // Overview, its row says nothing about an empty header.
-        maybe_empty: card.maybe_empty() && card.role != FanRole::Aux,
-        stopped: stopped.contains(&card.row.id),
+        maybe_empty: fan.maybe_empty() && fan.role != FanRole::Aux,
+        stopped: stopped.contains(&fan.row.id),
+        curve_unreadable: fan.curve_unreadable(),
         // Also in manual mode: the curve stays in the controller.
-        opens: card.curve().is_some(),
+        opens: fan.has_details(),
         chart,
         now,
         chart_description,
@@ -334,9 +325,10 @@ fn read_only_line(row: &Row, numbers: &Numbers) -> FanLine {
         mode: None,
         min_percent: 0,
         target: None,
-        unchecked: !verified,
+        verified,
         maybe_empty: false,
         stopped: false,
+        curve_unreadable: false,
         chart: Vec::new(),
         now: None,
         chart_description: None,
@@ -400,10 +392,8 @@ mod imp {
         pub footer: TemplateChild<gtk::Label>,
         /// The warning about a stopped CPU fan (D65).
         pub(super) alert: OnceCell<Alert>,
-        /// The board profile; `None` in generic mode.
+        /// The board profile; `None` without one.
         pub(super) profile: RefCell<Option<Profile>>,
-        /// Why there is no profile, as the System page says it.
-        pub(super) no_profile: RefCell<String>,
         pub(super) visibility: RefCell<Visibility>,
         pub(super) numbers: OnceCell<Numbers>,
         pub(super) layout: Cell<Layout>,
@@ -490,11 +480,9 @@ glib::wrapper! {
 }
 
 impl FansPage {
-    /// The board: its profile, or why there is none (generic mode).
-    pub fn set_board(&self, profile: Option<Profile>, no_profile: String) {
-        let imp = self.imp();
-        imp.profile.replace(profile);
-        imp.no_profile.replace(no_profile);
+    /// The board's profile, if there is one.
+    pub fn set_board(&self, profile: Option<Profile>) {
+        self.imp().profile.replace(profile);
         self.display();
     }
 
@@ -516,25 +504,24 @@ impl FansPage {
     }
 
     /// The curve page of header `key`, which the window pushes; `None`
-    /// when the controller has no curve of the header to show.
+    /// when the header has no curve details to show.
     pub fn curve_page(&self, key: &str) -> Option<adw::NavigationPage> {
         let imp = self.imp();
         let model = imp.model.borrow();
         let model = model.as_ref()?;
-        let card = model
-            .cards
+        let fan = model
+            .fans
             .iter()
-            .find(|c| c.key == key && c.curve().is_some())?;
+            .find(|f| f.key == key && f.has_details())?;
         let curve = CurvePage::new(key);
         curve.set_layout(imp.layout.get());
         let numbers = self.numbers();
         curve.update(
-            card,
+            fan,
             &PageContext {
                 numbers,
                 source: model.source.as_ref(),
             },
-            &preview_note(),
         );
         let page = curve.page.clone();
         // Gone back: the page is not updated any more.
@@ -630,8 +617,7 @@ impl FansPage {
         let profile = imp.profile.borrow();
         let unavailable = gettext("Fan control unavailable");
         let Some(profile) = profile.as_ref() else {
-            let reason = imp.no_profile.borrow().clone();
-            self.show_status(&unavailable, Some(&reason), true);
+            self.show_status(&unavailable, Some(&crate::system::no_profile()), true);
             return;
         };
         let last = imp.last.borrow();
@@ -654,7 +640,7 @@ impl FansPage {
             channels,
             visibility: &imp.visibility.borrow(),
         });
-        if model.cards.is_empty() && model.read_only.is_empty() {
+        if model.fans.is_empty() && model.read_only.is_empty() {
             self.show_status(
                 &gettext("All readings are hidden"),
                 Some(&gettext("Turn them on again in Preferences.")),
@@ -669,7 +655,8 @@ impl FansPage {
         imp.model.replace(Some(model));
     }
 
-    /// The page for `model`; `stopped` are the CPU fans that stand (D65).
+    /// The page for `model`; `stopped` are the CPU fans that stopped
+    /// spinning (D65).
     fn render(&self, model: &Page, stopped: &[RowId]) {
         let imp = self.imp();
         let numbers = self.numbers();
@@ -681,7 +668,7 @@ impl FansPage {
         // A stopped CPU fan: the warning above the list, as on the
         // Overview and the System page.
         if let Some(alert) = imp.alert.get() {
-            let shown = model.cards.iter().any(|c| stopped.contains(&c.row.id));
+            let shown = model.fans.iter().any(|f| stopped.contains(&f.row.id));
             let (title, why) = (alert::cpu_fan_stopped(), alert::cpu_fan_stopped_why());
             alert.set(shown.then_some((title.as_str(), why.as_str())));
         }
@@ -706,9 +693,9 @@ impl FansPage {
 
         // The rows.
         let mut lines: Vec<FanLine> = model
-            .cards
+            .fans
             .iter()
-            .map(|card| card_line(card, &context, value, stopped))
+            .map(|fan| fan_line(fan, &context, value, stopped))
             .collect();
         lines.extend(model.read_only.iter().map(|r| read_only_line(r, numbers)));
 
@@ -750,15 +737,15 @@ impl FansPage {
         drop(state);
 
         // The curve page, while it is open; it goes back when its header
-        // has no curve any more.
+        // has no curve details any more.
         let gone = match imp.curve.borrow().as_ref() {
             Some(curve) => match model
-                .cards
+                .fans
                 .iter()
-                .find(|c| c.key == curve.key && c.curve().is_some())
+                .find(|f| f.key == curve.key && f.has_details())
             {
-                Some(card) => {
-                    curve.update(card, &context, &preview_note());
+                Some(fan) => {
+                    curve.update(fan, &context);
                     false
                 }
                 None => true,
@@ -858,6 +845,8 @@ mod tests {
                 .label(kernel_markup())
                 .build();
             reserve_link_icon(&label);
+            // The sentence of the System page, then the link.
+            assert!(label.text().starts_with(&crate::system::read_only_fans()));
             assert!(label.text().ends_with("Kernel\u{a0}status\u{a0}"));
             for width in [560, 200] {
                 let (_, natural, _, _) = label.measure(gtk::Orientation::Vertical, width);

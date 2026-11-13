@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The user's own names for the readings of a board profile (D22,
+//! The user's custom names for the readings of a board profile (D22,
 //! docs/PROJEKT.md §6.2): one TOML file per profile in
 //! `~/.local/share/baseboard/boards/`, named after the profile's `id`. Only
 //! the app reads them; they never choose a profile and the helper never

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Baseboard: monitoring and control of mainboard hardware for GNOME.
+//! Baseboard: monitoring and control of motherboard hardware for GNOME.
 
 mod alert;
 mod application;

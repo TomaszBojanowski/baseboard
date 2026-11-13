@@ -35,7 +35,7 @@ fn overview_expected() -> [(String, Opens); 8] {
     [
         (gettext("Processor"), sensors(GroupKind::Cpu)),
         (gettext("Graphics card"), sensors(GroupKind::Gpu)),
-        (gettext("Mainboard"), sensors(GroupKind::Board)),
+        (gettext("Motherboard"), sensors(GroupKind::Board)),
         (gettext("Power"), sensors(GroupKind::Voltages)),
         (gettext("Fans"), Opens::FansPage),
         (

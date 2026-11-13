@@ -16,7 +16,7 @@ use std::path::PathBuf;
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
-use baseboard_core::board::{Detection, Dmi, code_label};
+use baseboard_core::board::{Detection, Dmi, board_name, code_label};
 use baseboard_core::fans::driver::DriverLevel;
 use baseboard_core::overview::marketing_name;
 use baseboard_core::profile::Profile;
@@ -79,7 +79,7 @@ impl SkippedFile {
 pub enum FileKind {
     /// A board profile (§6.2).
     Profile,
-    /// The user's own names for readings (D22).
+    /// The user's custom names for readings (D22).
     Labels,
 }
 
@@ -216,7 +216,7 @@ pub fn views(
     alerts: &[String],
 ) -> Views {
     let mut details = vec![
-        board(dmi),
+        board(dmi, detection.profile()),
         bios(&info.bios),
         processor_and_system(info),
         memory(info.memory.as_deref()),
@@ -240,7 +240,7 @@ pub fn views(
     }
 
     Views {
-        summary: summary(dmi, info),
+        summary: summary(dmi, detection.profile(), info),
         diagnostics,
         details,
     }
@@ -260,12 +260,9 @@ fn readings(alerts: &[String]) -> Section {
 
 /// The short list on top of the page: the computer in plain words, its
 /// disks and network cards, and the system (D64).
-fn summary(dmi: &Dmi, info: &SystemInfo) -> Vec<Section> {
+fn summary(dmi: &Dmi, profile: Option<&Profile>, info: &SystemInfo) -> Vec<Section> {
     let mut computer = vec![
-        Line::value(
-            gettext("Mainboard"),
-            dmi.board_name.clone().or_else(|| dmi.product_name.clone()),
-        ),
+        Line::value(gettext("Motherboard"), board_name(dmi, profile)),
         Line::value(gettext("BIOS"), bios_version(&info.bios)),
         Line::value(
             gettext("Processor"),
@@ -400,11 +397,7 @@ pub fn health(
     }
     match (detection.profile(), driver.level) {
         (None, _) => Health::Limited(no_profile()),
-        (Some(_), Some(DriverLevel::ReadOnly)) => Health::Limited(gettext(
-            // Translators: under "Sensors work" on the System page when the
-            // kernel driver can only read the fans.
-            "This system can only read the fans for now",
-        )),
+        (Some(_), Some(DriverLevel::ReadOnly)) => Health::Limited(read_only_fans()),
         _ => Health::Fine,
     }
 }
@@ -523,40 +516,37 @@ fn skipped_files(files: &[SkippedFile]) -> Section {
     )
 }
 
-// The texts about the board's profile, here and on the Fans page.
+// The texts about the board's profile and the driver, one for each state,
+// here and on the Fans page.
 
-pub fn unverified_revision(revision: Option<u8>) -> String {
+fn unverified_revision(revision: Option<u8>) -> String {
     match revision {
         // Translators: {} is the PCB revision of the board, a digit.
+        // Baseboard only reads the fans then.
         Some(revision) => gettext("PCB revision {} is not verified: read only")
             .replace("{}", &revision.to_string()),
+        // Translators: Baseboard only reads the fans then.
         None => gettext("Unknown PCB revision: read only"),
     }
-}
-
-pub fn other_model(code: &str) -> String {
-    // Translators: {} is the four-character board code, e.g. 7E56. Boards
-    // with one code can differ in fan headers, and the profiles for this
-    // code are for other models.
-    gettext("This MS-{} model has a different fan header layout: generic mode").replace("{}", code)
 }
 
 pub fn no_profile() -> String {
     gettext("No profile for this board")
 }
 
-// Under "Fan control unavailable" in Diagnostics (§5.5.3). No kernel
-// version before the changes are in a released kernel (D41).
-pub fn no_control() -> String {
+// A driver without fan control (§5.5.3): on the Fans page, in the status
+// row of the System page and in Diagnostics. No kernel version before the
+// changes are in a released kernel (D41).
+pub fn read_only_fans() -> String {
     gettext(
-        // Translators: in Diagnostics when the kernel driver can only read
-        // the fans.
-        "The driver in this kernel only reads the fans. \
-         Control is coming in a future Linux version.",
+        // Translators: on the Fans page, the System page and in Diagnostics
+        // when the kernel driver can only read the fans.
+        "This system can only read the fans for now. Fan control is coming in a future Linux \
+         version.",
     )
 }
 
-fn board(dmi: &Dmi) -> Section {
+fn board(dmi: &Dmi, profile: Option<&Profile>) -> Section {
     let code = dmi.board_code().map(|code| code_label(&code));
     let code = match (code, dmi.pcb_revision()) {
         (Some(code), Some(revision)) => Some(
@@ -569,13 +559,10 @@ fn board(dmi: &Dmi) -> Section {
         (code, _) => code,
     };
     section(
-        gettext("Mainboard"),
+        gettext("Motherboard"),
         None,
         vec![
-            Line::property(
-                gettext("Model"),
-                dmi.board_name.clone().or_else(|| dmi.product_name.clone()),
-            ),
+            Line::property(gettext("Model"), board_name(dmi, profile)),
             Line::property(gettext("Manufacturer"), dmi.board_vendor.clone()),
             Line::property(gettext("Board code and PCB revision"), code),
         ],
@@ -596,18 +583,10 @@ fn profile_line(detection: &Detection) -> Line {
                 .status(Some(Status::Ok))
         }
         Detection::UnverifiedRevision { profile, revision } => {
-            let title = match revision {
-                // Translators: {} is the PCB revision of the board, a
-                // digit. Baseboard only reads the fans then.
-                Some(revision) => gettext("Not verified for PCB revision {}: read only")
-                    .replace("{}", &revision.to_string()),
-                // Translators: Baseboard only reads the fans then.
-                None => gettext("PCB revision unknown: read only"),
-            };
-            Line::item(title, file(profile)).status(Some(Status::Warning))
+            Line::item(unverified_revision(*revision), file(profile)).status(Some(Status::Warning))
         }
         Detection::OtherModel { code, .. } => Line::item(
-            gettext("No profile for this model: generic mode"),
+            no_profile(),
             // Translators: {} is the board code, e.g. MS-7E56. Boards with
             // one code can differ in fan headers.
             gettext("The profiles for {} are for models with other fan headers")
@@ -615,7 +594,7 @@ fn profile_line(detection: &Detection) -> Line {
         )
         .status(Some(Status::Info)),
         Detection::Generic => Line::item(
-            gettext("No profile for this board: generic mode"),
+            no_profile(),
             gettext("Readings without header names, no fan control"),
         )
         .status(Some(Status::Info)),
@@ -870,11 +849,12 @@ fn sensors_and_fans(detection: &Detection, info: &SystemInfo, source: Option<&Ch
     let library = gettext("lm-sensors library");
     let library = match source {
         // In a Flatpak sandbox without the host's /etc there is no
-        // configuration to apply (§10.2).
+        // configuration to apply (§10.2); the line about the configuration
+        // says why.
         Some(Choice::Libsensors { version }) if info.sensors_config.is_none() => Line::item(
             library,
             // Translators: {} is the version of libsensors, e.g. 3.6.2.
-            gettext("Version {}: without the system's configuration, which Flatpak does not share")
+            gettext("Version {}: readings without the lm-sensors configuration")
                 .replace("{}", version),
         ),
         Some(Choice::Libsensors { version }) => Line::item(
@@ -994,7 +974,7 @@ fn fan_control(detection: &Detection, level: Option<DriverLevel>, chip: Option<&
             // The usual state of released kernels, not a problem: the icon
             // of information (D64).
             let Some(words) = level_text(level) else {
-                return Line::item(unavailable, no_control());
+                return Line::item(unavailable, read_only_fans());
             };
             if detection.allows_control() {
                 Line::item(gettext("Fan control"), words).status(Some(Status::Ok))
@@ -1018,8 +998,10 @@ fn level_text(level: DriverLevel) -> Option<String> {
         DriverLevel::ReadOnly => None,
         DriverLevel::Manual => Some(gettext("Manual mode")),
         DriverLevel::ManualCurveView => Some(gettext("Manual mode and curve preview")),
-        DriverLevel::Curves => Some(gettext("Curves in the EC")),
-        DriverLevel::CurvesSource => Some(gettext("Curves in the EC with a choice of temperature")),
+        DriverLevel::Curves => Some(gettext("Curves in the board's controller")),
+        DriverLevel::CurvesSource => Some(gettext(
+            "Curves in the board's controller with a choice of temperature",
+        )),
     }
 }
 
@@ -1347,7 +1329,7 @@ mod tests {
         assert_eq!(
             titles(&sections),
             [
-                "Mainboard",
+                "Motherboard",
                 "BIOS",
                 "Processor and system",
                 "Memory",
@@ -1365,16 +1347,16 @@ mod tests {
                 "{title}"
             );
         }
-        for title in ["Mainboard", "BIOS", "Processor and system"] {
+        for title in ["Motherboard", "BIOS", "Processor and system"] {
             for line in &section(&sections, title).lines {
                 assert!(!line.value.is_empty(), "{title}: {}", line.title);
             }
         }
-        let board = section(&sections, "Mainboard");
+        let board = section(&sections, "Motherboard");
         assert_eq!(board.lines[0].value, "No data");
         assert_eq!(
             section(&sections, "Board profile").lines[0].title,
-            "No profile for this board: generic mode"
+            "No profile for this board"
         );
         // Without a profile the driver is information, not a warning.
         let drivers = section(&sections, "Sensors and fans");
@@ -1452,7 +1434,8 @@ mod tests {
     /// The board profile line: the state as the title, the profile's file
     /// or why there is none below it. Verified, a revision not verified or
     /// unknown (read only, warning), another model with the same code and
-    /// no profile (generic mode).
+    /// no profile; each state in the words the status row and the Fans
+    /// page use.
     #[test]
     fn profile_states() {
         let profile_line = |detection: Detection| {
@@ -1481,7 +1464,7 @@ mod tests {
                 revision: Some(2),
             }),
             (
-                "Not verified for PCB revision 2: read only".into(),
+                "PCB revision 2 is not verified: read only".into(),
                 file.clone(),
                 Some(Status::Warning)
             )
@@ -1492,7 +1475,7 @@ mod tests {
                 revision: None,
             }),
             (
-                "PCB revision unknown: read only".into(),
+                "Unknown PCB revision: read only".into(),
                 file,
                 Some(Status::Warning)
             )
@@ -1503,7 +1486,7 @@ mod tests {
                 model: Some("PRO B850-P WIFI".into()),
             }),
             (
-                "No profile for this model: generic mode".into(),
+                no_profile(),
                 "The profiles for MS-7E56 are for models with other fan headers".into(),
                 Some(Status::Info)
             )
@@ -1511,11 +1494,12 @@ mod tests {
         assert_eq!(
             profile_line(Detection::Generic),
             (
-                "No profile for this board: generic mode".into(),
+                no_profile(),
                 "Readings without header names, no fan control".into(),
                 Some(Status::Info)
             )
         );
+        assert_eq!(no_profile(), "No profile for this board");
     }
 
     /// The board code as the manual writes it, the short processor name as
@@ -1544,11 +1528,22 @@ mod tests {
         let sections = sections(&dmi, &Detection::Generic, &info, Extras::default());
         assert_eq!(
             titled(
-                section(&sections, "Mainboard"),
+                section(&sections, "Motherboard"),
                 "Board code and PCB revision"
             )
             .value,
             "MS-7E61, revision 1"
+        );
+        // Without a profile the name from DMI; with one, the profile's.
+        assert_eq!(
+            titled(section(&sections, "Motherboard"), "Model").value,
+            "MAG B850M MORTAR WIFI (MS-7E61)"
+        );
+        let supported = Detection::Supported(ms7e61());
+        let with_profile = self::sections(&dmi, &supported, &info, Extras::default());
+        assert_eq!(
+            titled(section(&with_profile, "Motherboard"), "Model").value,
+            "MAG B850M MORTAR WIFI"
         );
         let processor = section(&sections, "Processor and system");
         assert_eq!(titled(processor, "Processor").value, "AMD Ryzen 7 9700X");
@@ -1566,7 +1561,7 @@ mod tests {
         let sections = self::sections(&no_revision, &Detection::Generic, &info, Extras::default());
         assert_eq!(
             titled(
-                section(&sections, "Mainboard"),
+                section(&sections, "Motherboard"),
                 "Board code and PCB revision"
             )
             .value,
@@ -1618,8 +1613,8 @@ mod tests {
     /// In a Flatpak sandbox (§10.3): the lm-sensors configuration row says
     /// it is not available and gives the command that shares it, the fan
     /// programs cannot be checked (never a green tick), libsensors works
-    /// without the system's configuration, and an unknown module origin is
-    /// said, not guessed (D40).
+    /// without the system's configuration and leaves the reason to the row
+    /// below, and an unknown module origin is said, not guessed (D40).
     #[test]
     fn rows_in_a_sandbox() {
         let info = SystemInfo {
@@ -1656,7 +1651,10 @@ mod tests {
         assert_eq!(programs.value, "Cannot be checked in Flatpak");
         assert_eq!(programs.status, Some(Status::Info));
         let library = titled(rows, "lm-sensors library");
-        assert!(library.value.contains("Flatpak does not share"));
+        assert_eq!(
+            library.value,
+            "Version 3.6.2: readings without the lm-sensors configuration"
+        );
         assert_eq!(library.status, Some(Status::Info));
         assert_eq!(
             rows.lines[0].value,
@@ -1732,13 +1730,16 @@ mod tests {
         .unwrap();
         let supported = Detection::Supported(profile.clone());
         let line = |level| fan_control(&supported, level, Some("nct6687"));
-        assert_eq!(line(Some(DriverLevel::Curves)).value, "Curves in the EC");
+        assert_eq!(
+            line(Some(DriverLevel::Curves)).value,
+            "Curves in the board's controller"
+        );
         assert_eq!(line(Some(DriverLevel::Curves)).status, Some(Status::Ok));
         // The usual state of released kernels: no warning.
         let read_only = line(Some(DriverLevel::ReadOnly));
         assert_eq!(read_only.title, "Fan control unavailable");
         assert_eq!(read_only.status, None);
-        assert_eq!(read_only.value, no_control());
+        assert_eq!(read_only.value, read_only_fans());
         // No version number.
         assert!(!read_only.value.chars().any(|c| c.is_ascii_digit()));
         // A missing chip is a problem.
@@ -1922,6 +1923,7 @@ mod tests {
         );
         let computer = &views.summary[0].lines;
         assert!(computer.iter().all(|l| l.style == Style::Value));
+        assert_eq!(computer[0].title, "Motherboard");
         assert_eq!(computer[0].value, "MAG B850M MORTAR WIFI (MS-7E61)");
         assert_eq!(computer[2].value, "AMD Ryzen 7 9700X");
         assert_eq!(computer[4].title, "Graphics card");
@@ -1976,9 +1978,14 @@ mod tests {
             },
             ..fine.clone()
         };
+        // The same sentence as in Diagnostics and on the Fans page.
         assert_eq!(
             health_of(&read_only, &[]),
-            Health::Limited("This system can only read the fans for now".into())
+            Health::Limited(
+                "This system can only read the fans for now. Fan control is coming in a future \
+                 Linux version."
+                    .into()
+            )
         );
         assert_eq!(
             health(&Detection::Generic, &fine, Extras::default(), &[]),

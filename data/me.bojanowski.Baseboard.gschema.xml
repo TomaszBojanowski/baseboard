@@ -18,7 +18,7 @@
       <range min="1" max="10"/>
       <default>1</default>
       <summary>Refresh interval</summary>
-      <description>Seconds between two readings of the sensors on the Overview page.</description>
+      <description>Seconds between two readings of the sensors.</description>
     </key>
     <key name="sensors-labels" type="b">
       <default>false</default>
@@ -28,12 +28,12 @@
     <key name="hidden-readings" type="as">
       <default>[]</default>
       <summary>Hidden readings</summary>
-      <description>Readings not shown on the Overview page, as chip/channel@device, e.g. nct6687/fan2@devices/platform/nct6683.2592.</description>
+      <description>Readings Baseboard does not show on any page, as chip/channel@device, e.g. nct6687/fan2@devices/platform/nct6683.2592.</description>
     </key>
     <key name="shown-readings" type="as">
       <default>[]</default>
       <summary>Readings turned on</summary>
-      <description>Readings that are off until turned on, such as the numbered temperature sensors of NVMe disks, and that are shown on the Overview page; as in the hidden readings.</description>
+      <description>Readings that are off until turned on, such as the numbered temperature sensors of NVMe disks, and that Baseboard shows; as in the hidden readings.</description>
     </key>
   </schema>
 </schemalist>
