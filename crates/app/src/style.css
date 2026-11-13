@@ -9,7 +9,7 @@ row.monospace-value .subtitle {
 
 /* ---------- Fans page (docs/PROJEKT.md §7 M2, M2.4) ---------- */
 
-/* Values and header names: 72 % instead of the dimmed 55 %, which gives
+/* Secondary text of the fans: 72 % instead of the dimmed 55 %, which gives
    3.2:1 in the light style; 72 % gives 5.2:1 (light) and 7.3:1 (dark). */
 .fan-soft {
   opacity: 0.72;

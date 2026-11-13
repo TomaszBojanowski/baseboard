@@ -56,8 +56,9 @@ install_data(
 
 install_data(app_id + '.gschema.xml', install_dir: datadir / 'glib-2.0' / 'schemas')
 
-# Board profiles (docs/PROJEKT.md §6.2). The helper reads only this folder
-# and /etc/baseboard/boards; `cargo test` checks that each one is valid.
+# Board profiles (docs/PROJEKT.md §6.2). The app reads them, and so will the
+# helper, which reads only this folder and /etc/baseboard/boards; `cargo
+# test` checks that each one is valid.
 install_data(
   'boards/ms-7e61.toml',
   install_dir: datadir / 'baseboard' / 'boards',

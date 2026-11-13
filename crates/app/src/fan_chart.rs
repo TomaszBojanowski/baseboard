@@ -3,8 +3,7 @@
 //! The fan curve chart (docs/PROJEKT.md §5.5.4, §7 M2, M2.4): a widget
 //! that draws a curve of the board's controller with its grid and axes,
 //! the zone below the minimum duty cycle, the emergency threshold of the
-//! source and the operating point, live. Two sizes: in a connector card
-//! and large (the future curve editor, without dragging for now).
+//! source and the operating point, live, on the page "Curve Details".
 //!
 //! - The curve is straight segments, because the controller interpolates
 //!   linearly (`core::fans::curve`); outside the end points it is dashed.
@@ -16,7 +15,7 @@
 //!   operating point, and an unchanged one draws nothing.
 //! - The point moves smoothly (`AdwTimedAnimation`, so not at all with
 //!   animations turned off) when it moves more than 2 px.
-//! - Colors: the curve and its handles in the system's accent color, the
+//! - Colors: the curve and its points in the system's accent color, the
 //!   operating point in the green of the app icon, the threshold in the
 //!   error color of libadwaita; zones also have a pattern or a dashed line
 //!   and a text, so nothing depends on color alone. The chart draws its
@@ -40,7 +39,6 @@ use baseboard_core::units::{Numbers, UNIT_SPACE, duty_to_percent};
 use gettextrs::gettext;
 use gtk::{gdk, glib, graphene, gsk, pango};
 
-pub use geometry::Size;
 use geometry::{Plot, Rect};
 
 /// What the chart draws apart from the live reading.
@@ -115,7 +113,6 @@ struct Cache {
 struct Palette {
     fg: gdk::RGBA,
     accent: gdk::RGBA,
-    accent_text: gdk::RGBA,
     surface: gdk::RGBA,
     error: gdk::RGBA,
     error_band: gdk::RGBA,
@@ -137,7 +134,6 @@ impl Palette {
         Self {
             fg: widget.color(),
             accent: style.accent_color_rgba(),
-            accent_text: style.accent_color().to_standalone_rgba(dark),
             surface: hex("#ffffff", "#38383c"),
             error: hex("#c30000", "#ff938c"),
             error_band: hex("#e01b24", "#c01c28"),
@@ -262,7 +258,6 @@ fn draw_guides(
     palette: &Palette,
     marker: &geometry::Marker,
 ) {
-    let large = plot.size == Size::Large;
     let area = plot.area;
     let (x, y) = (marker.x, marker.y);
     let guide = stroke(1.25, &[2.0, 3.0], false);
@@ -277,18 +272,16 @@ fn draw_guides(
         gsk::FillRule::Winding,
         &palette.live,
     );
-    if large {
-        line(snapshot, (area.x, y), (x, y), &palette.live, &guide);
-        snapshot.append_fill(
-            &triangle(
-                (area.x - 1.0, y - 5.0),
-                (area.x + 6.0, y),
-                (area.x - 1.0, y + 5.0),
-            ),
-            gsk::FillRule::Winding,
-            &palette.live,
-        );
-    }
+    line(snapshot, (area.x, y), (x, y), &palette.live, &guide);
+    snapshot.append_fill(
+        &triangle(
+            (area.x - 1.0, y - 5.0),
+            (area.x + 6.0, y),
+            (area.x - 1.0, y + 5.0),
+        ),
+        gsk::FillRule::Winding,
+        &palette.live,
+    );
     if let Some(ty) = marker.target {
         line(
             snapshot,
@@ -297,7 +290,7 @@ fn draw_guides(
             &palette.accent,
             &stroke(2.0, &[3.0, 3.0], false),
         );
-        let ring = circle((x, ty), if large { 6.0 } else { 4.0 });
+        let ring = circle((x, ty), 6.0);
         snapshot.append_fill(&ring, gsk::FillRule::Winding, &palette.surface);
         snapshot.append_stroke(&ring, &stroke(2.5, &[], false), &palette.accent);
     }
@@ -305,8 +298,8 @@ fn draw_guides(
 
 /// Over the points of the curve: the dot of the operating point, with a
 /// halo.
-fn draw_dot(snapshot: &gtk::Snapshot, plot: &Plot, palette: &Palette, marker: &geometry::Marker) {
-    let radius = if plot.size == Size::Large { 6.5 } else { 4.5 };
+fn draw_dot(snapshot: &gtk::Snapshot, palette: &Palette, marker: &geometry::Marker) {
+    let radius = 6.5;
     let center = (marker.x, marker.y);
     snapshot.append_fill(
         &circle(center, radius * 2.0),
@@ -385,11 +378,6 @@ mod imp {
 
     #[derive(Default)]
     pub struct FanChart {
-        pub(super) size: Cell<Size>,
-        /// Numbered handles (the large chart of the editor) instead of dots.
-        pub(super) handles: Cell<bool>,
-        /// A lower card chart, for narrow windows.
-        pub(super) compact: Cell<bool>,
         pub(super) curve: RefCell<Option<ChartCurve>>,
         pub(super) reading: Cell<Option<Reading>>,
         pub(super) shown: Cell<Option<Shown>>,
@@ -479,29 +467,20 @@ mod imp {
 
     impl WidgetImpl for FanChart {
         fn request_mode(&self) -> gtk::SizeRequestMode {
-            match self.size.get() {
-                Size::Card => gtk::SizeRequestMode::ConstantSize,
-                Size::Large => gtk::SizeRequestMode::HeightForWidth,
-            }
+            gtk::SizeRequestMode::HeightForWidth
         }
 
         fn measure(&self, orientation: gtk::Orientation, for_size: i32) -> (i32, i32, i32, i32) {
-            let (min, natural) = match (orientation, self.size.get()) {
-                // Two cards side by side in a window of the default size.
-                (gtk::Orientation::Horizontal, Size::Card) => (220, 360),
-                (gtk::Orientation::Horizontal, _) => (300, 900),
-                (_, Size::Card) => {
-                    let height = if self.compact.get() { 136 } else { 150 };
-                    (height, height)
-                }
-                // The large chart keeps the shape of the mockups. Its
-                // minimum is the same, because a scrolled page gives its
-                // children their minimum height.
-                (_, _) if for_size > 0 => {
+            let (min, natural) = match orientation {
+                gtk::Orientation::Horizontal => (300, 900),
+                // The chart keeps the shape of the mockups. Its minimum is
+                // the same, because a scrolled page gives its children
+                // their minimum height.
+                _ if for_size > 0 => {
                     let height = (f64::from(for_size) * 0.43).clamp(280.0, 390.0) as i32;
                     (height, height)
                 }
-                (_, _) => (280, 390),
+                _ => (280, 390),
             };
             (min, natural, -1, -1)
         }
@@ -519,24 +498,8 @@ glib::wrapper! {
 }
 
 impl FanChart {
-    /// A chart of `size`; `handles` draws numbered handles instead of dots
-    /// (the large chart of the editor).
-    pub fn new(size: Size, handles: bool) -> Self {
-        let chart: Self = glib::Object::new();
-        chart.imp().size.set(size);
-        chart.imp().handles.set(handles);
-        chart
-    }
-
-    pub fn size(&self) -> Size {
-        self.imp().size.get()
-    }
-
-    /// A lower card chart (136 px instead of 150), for narrow windows.
-    pub fn set_compact(&self, compact: bool) {
-        if self.imp().compact.replace(compact) != compact {
-            self.queue_resize();
-        }
+    pub fn new() -> Self {
+        glib::Object::new()
     }
 
     /// The curve to draw, or nothing.
@@ -584,14 +547,9 @@ impl FanChart {
         });
         let animation = imp.animation.get();
         match (imp.shown.get(), next) {
-            // Only the large chart moves smoothly: on a card a degree is
-            // 3–4 px, and each move redraws the window 30 times at 120 Hz
-            // (D57).
-            (Some(now), Some(next))
-                if imp.size.get() == Size::Large
-                    && self.is_mapped()
-                    && self.moves_far(now, next) =>
-            {
+            // Each smooth move redraws the window 30 times at 120 Hz, so
+            // only a far one is smooth (D57).
+            (Some(now), Some(next)) if self.is_mapped() && self.moves_far(now, next) => {
                 imp.from.set(Some(now));
                 imp.to.set(Some(next));
                 if let Some(animation) = animation {
@@ -619,11 +577,7 @@ impl FanChart {
     }
 
     fn moves_far(&self, from: Shown, to: Shown) -> bool {
-        let plot = Plot::new(
-            self.imp().size.get(),
-            f64::from(self.width()),
-            f64::from(self.height()),
-        );
+        let plot = Plot::new(f64::from(self.width()), f64::from(self.height()));
         let dx = (plot.x(from.temp) - plot.x(to.temp)).abs();
         let dy = (plot.y(from.duty) - plot.y(to.duty)).abs();
         let dt = (plot.y(from.target) - plot.y(to.target)).abs();
@@ -664,7 +618,7 @@ impl FanChart {
             return;
         }
         let palette = Palette::of(self.upcast_ref());
-        let plot = Plot::new(imp.size.get(), f64::from(width), f64::from(height));
+        let plot = Plot::new(f64::from(width), f64::from(height));
         let fresh = imp.cache.borrow().as_ref().is_some_and(|c| {
             c.width == width && c.height == height && c.generation == imp.generation.get()
         });
@@ -698,13 +652,11 @@ impl FanChart {
         }
         let mut labelled = false;
         if let (Some(shown), Some(marker)) = (shown, &marker) {
-            draw_dot(snapshot, &plot, &palette, marker);
-            if plot.size == Size::Large {
-                labelled =
-                    self.draw_now_label(snapshot, &plot, &palette, shown, marker, &cache.obstacles);
-            }
+            draw_dot(snapshot, &palette, marker);
+            labelled =
+                self.draw_now_label(snapshot, &plot, &palette, shown, marker, &cache.obstacles);
         }
-        if plot.size == Size::Large && imp.now_label.replace(Some(labelled)) != Some(labelled) {
+        if imp.now_label.replace(Some(labelled)) != Some(labelled) {
             // Told after drawing, as the legend changes the layout.
             let chart = self.downgrade();
             glib::idle_add_local_once(move || {
@@ -739,8 +691,7 @@ impl FanChart {
         let Some(curve) = curve.as_ref() else {
             return Vec::new();
         };
-        let large = plot.size == Size::Large;
-        let text_scale = if large { 0.82 } else { 0.75 };
+        let text_scale = 0.82;
         let area = plot.area;
         let mut obstacles = Vec::new();
 
@@ -783,7 +734,7 @@ impl FanChart {
             let y = plot.y_percent(f64::from(percent));
             draw_text(snapshot, &text, area.x - 7.0 - w, y + 4.0, &tick);
         }
-        let below = if large { 20.0 } else { 16.0 };
+        let below = 20.0;
         for temp in plot.label_temps() {
             let text = layout(widget, &temp_text(temp), text_scale, false);
             let (w, _) = size_of(&text);
@@ -795,28 +746,26 @@ impl FanChart {
                 &tick,
             );
         }
-        if large {
-            // Translators: the title of the vertical axis of a fan curve.
-            let title = layout(widget, &gettext("Duty cycle"), text_scale, false);
-            let (w, _) = size_of(&title);
-            snapshot.save();
-            snapshot.translate(&point(16.0, area.y + area.height / 2.0));
-            snapshot.rotate(-90.0);
-            draw_text(snapshot, &title, -w / 2.0, 0.0, &tick);
-            snapshot.restore();
-            // Translators: the title of the horizontal axis of a fan curve;
-            // {source} is a temperature, e.g. "Processor (board sensor)".
-            let text = gettext("Temperature: {source}").replace("{source}", &curve.source);
-            let title = layout(widget, &text, text_scale, false);
-            let (w, _) = size_of(&title);
-            draw_text(
-                snapshot,
-                &title,
-                area.x + area.width / 2.0 - w / 2.0,
-                area.bottom() + 48.0,
-                &tick,
-            );
-        }
+        // Translators: the title of the vertical axis of a fan curve.
+        let title = layout(widget, &gettext("Duty cycle"), text_scale, false);
+        let (w, _) = size_of(&title);
+        snapshot.save();
+        snapshot.translate(&point(16.0, area.y + area.height / 2.0));
+        snapshot.rotate(-90.0);
+        draw_text(snapshot, &title, -w / 2.0, 0.0, &tick);
+        snapshot.restore();
+        // Translators: the title of the horizontal axis of a fan curve;
+        // {source} is a temperature, e.g. "Processor (board sensor)".
+        let text = gettext("Temperature: {source}").replace("{source}", &curve.source);
+        let title = layout(widget, &text, text_scale, false);
+        let (w, _) = size_of(&title);
+        draw_text(
+            snapshot,
+            &title,
+            area.x + area.width / 2.0 - w / 2.0,
+            area.bottom() + 48.0,
+            &tick,
+        );
 
         // The emergency band and the zone below the minimum.
         let band = curve
@@ -869,9 +818,8 @@ impl FanChart {
         }
 
         // Texts of the zones, below the curve line so that they never hide
-        // it; only on the large chart (a card says the minimum in its
-        // subtitle and the threshold in the source row).
-        if large && curve.min_percent > 0 {
+        // it.
+        if curve.min_percent > 0 {
             // Translators: the zone of a fan curve below the lowest duty
             // cycle allowed; {duty} is e.g. "30 %".
             let text = gettext("Below the minimum of {duty}")
@@ -898,7 +846,7 @@ impl FanChart {
             .filter(|t| f64::from(*t) < geometry::TEMP_MAX)
         {
             let x = plot.x(f64::from(threshold));
-            let top = if large { area.y - 10.0 } else { area.y };
+            let top = area.y - 10.0;
             line(
                 snapshot,
                 (x, top),
@@ -906,30 +854,27 @@ impl FanChart {
                 &palette.error,
                 &stroke(1.5, &[5.0, 3.0], false),
             );
-            if large {
-                let temperature = temp_text(threshold);
-                let text = if curve.needs_full {
-                    // Translators: the emergency temperature of the source on
-                    // a fan curve that must reach full duty by then; e.g.
-                    // "Emergency threshold 95 °C: 100 % from there".
-                    gettext("Emergency threshold {temperature}: {duty} from there")
-                        .replace("{temperature}", &temperature)
-                        .replace("{duty}", &percent_text(100))
-                } else {
-                    // Translators: the emergency temperature of the source on
-                    // a fan curve, e.g. "Emergency threshold 95 °C".
-                    gettext("Emergency threshold {temperature}")
-                        .replace("{temperature}", &temperature)
-                };
-                let label = layout(widget, &text, text_scale, true);
-                let (w, _) = size_of(&label);
-                draw_text(snapshot, &label, x + 4.0 - w, area.y - 16.0, &palette.error);
-            }
+            let temperature = temp_text(threshold);
+            let text = if curve.needs_full {
+                // Translators: the emergency temperature of the source on a
+                // fan curve that must reach full duty by then; e.g.
+                // "Emergency threshold 95 °C: 100 % from there".
+                gettext("Emergency threshold {temperature}: {duty} from there")
+                    .replace("{temperature}", &temperature)
+                    .replace("{duty}", &percent_text(100))
+            } else {
+                // Translators: the emergency temperature of the source on a
+                // fan curve, e.g. "Emergency threshold 95 °C".
+                gettext("Emergency threshold {temperature}").replace("{temperature}", &temperature)
+            };
+            let label = layout(widget, &text, text_scale, true);
+            let (w, _) = size_of(&label);
+            draw_text(snapshot, &label, x + 4.0 - w, area.y - 16.0, &palette.error);
         }
 
         // The curve: straight segments, dashed outside the end points.
         if let Some(shape) = &shape {
-            let width = if large { 2.75 } else { 2.25 };
+            let width = 2.75;
             let ends = stroke(width, &[5.0, 5.0], false);
             let ends_color = alpha(&palette.accent, 0.75);
             for part in [shape.lead, shape.tail].into_iter().flatten() {
@@ -944,7 +889,7 @@ impl FanChart {
         // Where the curve must reach 100 % (B14).
         let full_at = curve
             .threshold
-            .filter(|t| large && curve.needs_full && f64::from(*t) < geometry::TEMP_MAX);
+            .filter(|t| curve.needs_full && f64::from(*t) < geometry::TEMP_MAX);
         if let Some(threshold) = full_at {
             let ring = circle(
                 (plot.x(f64::from(threshold)), plot.y(geometry::DUTY_MAX)),
@@ -954,49 +899,11 @@ impl FanChart {
             snapshot.append_stroke(&ring, &stroke(2.0, &[], false), &palette.error);
         }
 
-        // The points: dots, or numbered handles on the editor's chart.
-        let handles = geometry::handles(plot, &curve.points);
-        if large && self.imp().handles.get() {
-            for h in &handles {
-                let text = if h.first == h.last {
-                    (h.first + 1).to_string()
-                } else {
-                    format!("{}–{}", h.first + 1, h.last + 1)
-                };
-                let label = layout(widget, &text, 0.75, true);
-                let (w, _) = size_of(&label);
-                let r = geometry::HANDLE_RADIUS;
-                let half = if h.first == h.last { r } else { w / 2.0 + 9.0 };
-                let shape = Rect {
-                    x: h.x - half,
-                    y: h.y - r,
-                    width: 2.0 * half,
-                    height: 2.0 * r,
-                };
-                let path = rounded(&shape, r);
-                front.append_fill(&path, gsk::FillRule::Winding, &palette.surface);
-                front.append_stroke(&path, &stroke(2.5, &[], false), &palette.accent);
-                draw_text(
-                    front,
-                    &label,
-                    h.x - w / 2.0,
-                    h.y + 4.0,
-                    &palette.accent_text,
-                );
-                obstacles.push(Rect {
-                    x: shape.x - 4.0,
-                    y: shape.y - 4.0,
-                    width: shape.width + 8.0,
-                    height: shape.height + 8.0,
-                });
-            }
-        } else {
-            let (radius, ring) = if large { (4.5, 2.0) } else { (3.0, 1.5) };
-            for h in &handles {
-                let dot = circle((h.x, h.y), radius);
-                front.append_fill(&dot, gsk::FillRule::Winding, &palette.accent);
-                front.append_stroke(&dot, &stroke(ring, &[], false), &palette.surface);
-            }
+        // The points: a dot for each run of equal points.
+        for h in &geometry::handles(plot, &curve.points) {
+            let dot = circle((h.x, h.y), 4.5);
+            front.append_fill(&dot, gsk::FillRule::Winding, &palette.accent);
+            front.append_stroke(&dot, &stroke(2.0, &[], false), &palette.surface);
         }
         obstacles
     }
@@ -1176,7 +1083,7 @@ mod tests {
     #[test]
     fn no_target_in_manual_mode() {
         crate::gtk_test::run("no_target_in_manual_mode", || {
-            let chart = FanChart::new(Size::Large, false);
+            let chart = FanChart::new();
             let reading = Some(Reading {
                 millidegrees: 46_000,
                 duty: 115,

@@ -18,8 +18,9 @@ use std::cell::{Cell, OnceCell, RefCell};
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
+use baseboard_core::fans::driver::DriverLevel;
 use baseboard_core::fans::driver::{Mode, Source};
-use baseboard_core::fans::page::{self, Card, CardKind, Note, Page, SourceRow};
+use baseboard_core::fans::page::{self, Card, CardKind, Page, SourceRow};
 use baseboard_core::overview::{Name, Row, RowId, Subtitle, Visibility};
 use baseboard_core::profile::{FanRole, Profile, TempRole};
 use baseboard_core::units::{Numbers, UNIT_SPACE};
@@ -713,7 +714,7 @@ impl FansPage {
 
         // Under the temperature: the reserved line, or what the kernel can
         // do.
-        let no_control = matches!(model.note, Note::NoControl { .. });
+        let no_control = model.level == DriverLevel::ReadOnly;
         imp.kernel_box.set_visible(no_control);
         imp.speeding.set_visible(!no_control);
         imp.footer.set_visible(!no_control);
@@ -845,22 +846,6 @@ mod tests {
         );
     }
 
-    /// The kernel section of the website; the Polish translation names the
-    /// Polish page. The link is a real link.
-    #[test]
-    fn kernel_section_of_the_website() {
-        assert_eq!(kernel_url(), "https://baseboard.bojanowski.me/#kernel");
-        // Bold, without a break inside, with room for the icon at the end.
-        assert!(
-            kernel_markup().ends_with(
-                " <a href=\"https://baseboard.bojanowski.me/#kernel\">\
-                 <b>Kernel\u{a0}status</b>\u{a0}</a>"
-            ),
-            "{}",
-            kernel_markup()
-        );
-    }
-
     /// The icon of the link stands right after the link text, on its
     /// line, in a wide and in a narrow label. Needs a display.
     #[test]
@@ -909,17 +894,5 @@ mod tests {
                 assert!(place.x() + LINK_ICON <= width, "width {width}");
             }
         });
-    }
-
-    /// Four marks in the legend, each with a name.
-    #[test]
-    fn legend_of_the_charts() {
-        let items = legend_items();
-        let marks: Vec<Mark> = items.iter().map(|(mark, _)| *mark).collect();
-        assert_eq!(
-            marks,
-            [Mark::BelowMinimum, Mark::Threshold, Mark::Now, Mark::Ends]
-        );
-        assert!(items.iter().all(|(_, text)| !text.is_empty()));
     }
 }

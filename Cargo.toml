@@ -17,7 +17,7 @@ gtk = { package = "gtk4", version = "0.11.5", features = ["gnome_50"] }
 adw = { package = "libadwaita", version = "0.9.2", features = ["v1_9"] }
 gettext-rs = { version = "0.8.0", features = ["gettext-system"] }
 glib-build-tools = "0.22.8"
-# dlopen of libsensors in the app's FFI module.
+# The app's FFI modules: dlopen of libsensors and libudev, the locale.
 libc = "0.2.191"
 # Board profiles (TOML).
 serde = { version = "1.0.229", features = ["derive"] }

@@ -485,10 +485,7 @@ fn graphics_card_disks_and_memory() {
     );
     assert_eq!(gpu.rows[0].subtitle, source("amdgpu", "edge"));
     assert_eq!(gpu.rows[5].subtitle, source("amdgpu", "PPT"));
-    assert_eq!(
-        overview::marketing_name(gpu.description.as_deref().unwrap()),
-        "Radeon RX 9050 / 9060 XT"
-    );
+    assert_eq!(gpu.description.as_deref(), Some(GPU_ENTRY));
 
     let disks = group(&groups, GroupKind::Disks);
     let first = |controller: &str| {

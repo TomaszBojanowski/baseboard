@@ -107,9 +107,7 @@ body {
 .dim { opacity: var(--dim); }
 .caption { font-size: 82%; line-height: 1.4; }
 .heading { font-weight: 700; }
-.title-1 { font-weight: 800; font-size: 181%; }
 .title-2 { font-weight: 800; font-size: 136%; }
-.title-3 { font-weight: 700; font-size: 136%; }
 .title-4 { font-weight: 700; font-size: 118%; }
 .success { color: var(--success); }
 .warning { color: var(--warning); }
@@ -211,11 +209,6 @@ svg.ic {
   border-radius: 9px;
 }
 .nav-row.selected { background: color-mix(in srgb, currentColor 10%, transparent); }
-.nav-row .badge {
-  margin-left: auto;
-  font-size: 82%;
-  opacity: var(--dim);
-}
 .sidebar-footer {
   margin: 6px;
   padding: 10px 12px;
@@ -245,7 +238,6 @@ svg.ic {
 .btn.circular { border-radius: 50%; width: 34px; padding: 0; }
 .btn.suggested { background: var(--accent-bg); color: var(--accent-fg); }
 .btn.destructive { background: color-mix(in srgb, var(--error-bg) 100%, transparent); color: #fff; }
-.btn.pill { padding: 10px 32px; border-radius: 9999px; }
 .btn.small { min-height: 28px; padding: 2px 8px; border-radius: 7px; }
 .btn.disabled { opacity: 0.5; }
 
@@ -280,13 +272,6 @@ svg.ic {
 }
 .group-header .labels { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .group-header .desc { opacity: var(--dim); }
-.group-header .cols {
-  display: flex;
-  gap: 0;
-  font-size: 82%;
-  opacity: var(--dim);
-  padding-right: 12px;
-}
 
 .columns {
   display: grid;
@@ -318,7 +303,6 @@ svg.ic {
 .row > .suffix { display: flex; align-items: center; gap: 6px; }
 .row.property > .tb .t { font-size: smaller; opacity: var(--dim); }
 .row.property > .tb .sub { font-size: inherit; opacity: 1; }
-.row.selectable-text .sub { user-select: text; }
 
 .expander .nested { background: color-mix(in srgb, var(--card-shade) 50%, transparent); }
 .expander .nested .row { padding-left: 12px; }
@@ -337,8 +321,6 @@ svg.ic {
   font-variant-numeric: tabular-nums;
 }
 .v-now.muted { opacity: var(--dim); }
-.cols .c-range { width: 112px; text-align: right; }
-.cols .c-now { width: 92px; text-align: right; }
 
 /* status icon + text */
 .status { display: inline-flex; align-items: center; gap: 6px; }

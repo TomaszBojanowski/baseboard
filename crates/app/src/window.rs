@@ -350,8 +350,7 @@ impl BaseboardWindow {
         }
     }
 
-    /// Debug builds: opens the curve page of header `key`, as "Show Curve"
-    /// would.
+    /// Debug builds: opens the curve page of header `key`, as its row does.
     #[cfg(debug_assertions)]
     pub fn open_curve(&self, key: &str) {
         self.show_curve(key);

@@ -14,7 +14,7 @@ use std::rc::Rc;
 use adw::prelude::*;
 use baseboard_core::fans::curve;
 use baseboard_core::fans::driver::{CurvePoint, Mode, Source};
-use baseboard_core::fans::page::{Card, CardKind, Control, SourceRow};
+use baseboard_core::fans::page::{Card, SourceRow};
 use baseboard_core::overview::Subtitle;
 use baseboard_core::sensors::Kind;
 use baseboard_core::units::{UNIT_SPACE, duty_to_percent};
@@ -23,7 +23,7 @@ use gtk::{glib, pango};
 
 use super::{Layout, PageContext, legend_items, percent, source_name};
 use crate::fan_chart::swatch::Swatch;
-use crate::fan_chart::{ChartCurve, FanChart, Reading, Size};
+use crate::fan_chart::{ChartCurve, FanChart, Reading};
 use crate::overview;
 
 /// The widgets of one row of the list of points: one point, or a run of
@@ -146,17 +146,10 @@ fn set_label(label: &gtk::Label, text: &str) {
     }
 }
 
-/// The mode of a header: from its switch, or as the Overview read it.
+/// The mode of a header, as its row has it.
 pub(super) fn card_mode(card: &Card) -> Option<Mode> {
-    match (&card.kind, &card.row.subtitle) {
-        (
-            CardKind::Full {
-                control: Control::Switch { mode, .. },
-                ..
-            },
-            _,
-        ) => *mode,
-        (_, Subtitle::Header { mode, .. }) => *mode,
+    match &card.row.subtitle {
+        Subtitle::Header { mode, .. } => *mode,
         _ => None,
     }
 }
@@ -287,7 +280,7 @@ impl CurvePage {
             .orientation(gtk::Orientation::Vertical)
             .css_classes(["card", "fan-chart-card"])
             .build();
-        let chart = FanChart::new(Size::Large, false);
+        let chart = FanChart::new();
         chart_card.append(&chart);
         let marks = chart_legend();
         marks.set_margin_top(10);
@@ -358,7 +351,7 @@ impl CurvePage {
         );
         let (minimum_row, minimum) = value_row(
             // Translators: on the curve page, the lowest duty cycle of a
-            // header (B5).
+            // header.
             &gettext("Minimum"),
             Some(&gettext("The lowest duty cycle Baseboard allows")),
         );
@@ -683,7 +676,7 @@ impl CurvePage {
 
 #[cfg(test)]
 mod tests {
-    use baseboard_core::fans::page::{Body, Chart};
+    use baseboard_core::fans::page::{Body, CardKind, Chart};
     use baseboard_core::overview::{Name, Row, RowId};
     use baseboard_core::profile::FanRole;
     use baseboard_core::units::Numbers;
@@ -697,7 +690,6 @@ mod tests {
         Card {
             key: "pump1".into(),
             role: FanRole::Pump,
-            pwm: Some(2),
             row: Row {
                 id: RowId {
                     chip: "nct6687".into(),
@@ -728,11 +720,6 @@ mod tests {
             min_percent,
             duty: Some(255),
             kind: CardKind::Full {
-                control: if verified {
-                    Control::Switch { mode, positions: 2 }
-                } else {
-                    Control::Unchecked
-                },
                 body: Body::Chart(Box::new(Chart {
                     points: vec![
                         CurvePoint {
@@ -817,12 +804,11 @@ mod tests {
             assert!(!page.header.manual.is_visible());
 
             let mut card = card(true, 900.0, 0);
-            let CardKind::Full { control, body } = &mut card.kind else {
+            if let Subtitle::Header { mode, .. } = &mut card.row.subtitle {
+                *mode = Some(Mode::Manual);
+            }
+            let CardKind::Full { body } = &mut card.kind else {
                 unreachable!();
-            };
-            *control = Control::Switch {
-                mode: Some(Mode::Manual),
-                positions: 2,
             };
             let Body::Chart(chart) = body.clone() else {
                 unreachable!();

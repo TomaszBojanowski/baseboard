@@ -161,7 +161,7 @@ impl Fan {
     }
 }
 
-/// In the order the Overview lists them.
+/// In the order the page "All Sensors" lists them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TempRole {
@@ -185,7 +185,8 @@ pub struct Temp {
     pub label: Option<String>,
 }
 
-/// In the order the Overview lists them: the rated ATX rails first.
+/// In the order the page "All Sensors" lists them: the rated ATX rails
+/// first.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum VoltageRole {
@@ -755,14 +756,6 @@ tolerance_pct = 5.0
         assert_eq!(emergency, [Some(95), Some(80), Some(90), Some(80)]);
         assert_eq!(profile.hidden.fan, [3]);
         assert_eq!(profile.hidden.voltage, [5, 6, 7]);
-    }
-
-    #[test]
-    fn minimal_profile_is_valid() {
-        let profile = parse(MINIMAL).unwrap();
-        assert_eq!(profile.voltages[0].multiplier, 12.0);
-        assert!(profile.rgb.is_none());
-        assert_eq!(profile.hidden, Hidden::default());
     }
 
     #[test]

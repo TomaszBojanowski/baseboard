@@ -6,8 +6,8 @@
 //! (`MEMORY_DEVICE_*` of the DMI device). Which properties are read is up
 //! to `core::system` and `core::overview`.
 //!
-//! This module and `libsensors` are the only ones with unsafe code. The
-//! declarations follow `libudev.h` of systemd. A udev context is not thread
+//! One of the FFI modules with unsafe code (with `libsensors` and `i18n`).
+//! The declarations follow `libudev.h` of systemd. A udev context is not thread
 //! safe, so [`Libudev`] stays on the thread that made it (it is neither
 //! `Send` nor `Sync`). It only reads the database.
 

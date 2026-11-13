@@ -15,14 +15,14 @@ use crate::overview;
 /// The warning about a stopped CPU fan (D65), also in the Fans row of the
 /// Overview and in the status row of the System page.
 pub fn cpu_fan_stopped() -> String {
-    // Translators: a CPU fan was spinning and shows 0 rpm now (D65), on the
+    // Translators: a CPU fan was spinning and shows 0 rpm now, on the
     // Overview, the Fans page and the System page.
     gettext("CPU fan stopped")
 }
 
 /// Why the app says the CPU fan stopped, under the warning on the Fans page.
 pub fn cpu_fan_stopped_why() -> String {
-    // Translators: under "CPU fan stopped" on the Fans page (D65).
+    // Translators: under "CPU fan stopped" on the Fans page.
     gettext("It was spinning earlier and has shown 0 rpm for at least 10 seconds.")
 }
 

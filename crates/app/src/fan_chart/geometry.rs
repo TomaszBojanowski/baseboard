@@ -2,21 +2,11 @@
 
 //! The geometry of the fan curve chart (docs/PROJEKT.md §7 M2, M2.4):
 //! where temperatures and duty cycles go, which grid lines and labels
-//! show, the shapes of the curve, the zones, the handles and the
-//! operating point. Pure functions in logical pixels, without GTK.
+//! show, the shapes of the curve, the zones, the points and the operating
+//! point. Pure functions in logical pixels, without GTK.
 
 use baseboard_core::fans::curve;
 use baseboard_core::fans::driver::CurvePoint;
-
-/// The two sizes of the chart.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum Size {
-    /// In a connector card: fewer lines and labels, no axis titles.
-    #[default]
-    Card,
-    /// On the curve subpage: axis titles and texts in the zones.
-    Large,
-}
 
 /// The temperature axis runs from 0 to this, in °C (the range of B7).
 pub const TEMP_MAX: f64 = 100.0;
@@ -24,8 +14,6 @@ pub const TEMP_MAX: f64 = 100.0;
 pub const DUTY_MAX: f64 = 255.0;
 /// A target closer to the dot than this, in pixels, is not drawn apart.
 pub const MIN_TARGET_GAP: f64 = 3.0;
-/// Radius of a handle; a run of points is a pill this tall.
-pub const HANDLE_RADIUS: f64 = 11.0;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Rect {
@@ -57,21 +45,16 @@ impl Rect {
 /// to it.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Plot {
-    pub size: Size,
     pub area: Rect,
 }
 
 impl Plot {
-    /// The margins leave room for the labels: left for "100 %", below for
-    /// "40 °C" (and the axis title on the large chart), above for the
-    /// threshold label of the large chart.
-    pub fn new(size: Size, width: f64, height: f64) -> Self {
-        let (left, right, top, bottom) = match size {
-            Size::Card => (42.0, 12.0, 12.0, 26.0),
-            Size::Large => (66.0, 22.0, 38.0, 58.0),
-        };
+    /// The margins leave room for the labels: left for "100 %" and the
+    /// axis title, below for "40 °C" and the axis title, above for the
+    /// threshold label.
+    pub fn new(width: f64, height: f64) -> Self {
+        let (left, right, top, bottom) = (66.0, 22.0, 38.0, 58.0);
         Self {
-            size,
             area: Rect {
                 x: left,
                 y: top,
@@ -98,30 +81,17 @@ impl Plot {
 
     /// Temperatures with a vertical grid line.
     pub fn grid_temps(&self) -> Vec<u8> {
-        let step = match self.size {
-            Size::Card => 20,
-            Size::Large => 10,
-        };
-        (0..=100).step_by(step).collect()
+        (0..=100).step_by(10).collect()
     }
 
-    /// Temperatures with a label under the axis: every 20 °C, on a narrow
-    /// card every 50 °C, so that "100 °C" labels do not touch.
+    /// Temperatures with a label under the axis.
     pub fn label_temps(&self) -> Vec<u8> {
-        let step = if self.size == Size::Card && self.area.width < 250.0 {
-            50
-        } else {
-            20
-        };
-        (0..=100).step_by(step).collect()
+        (0..=100).step_by(20).collect()
     }
 
     /// Percentages with a horizontal line and a label.
     pub fn percents(&self) -> &'static [u8] {
-        match self.size {
-            Size::Card => &[0, 50, 100],
-            Size::Large => &[0, 25, 50, 75, 100],
-        }
+        &[0, 25, 50, 75, 100]
     }
 }
 
@@ -325,49 +295,26 @@ mod tests {
 
     #[test]
     fn values_map_to_the_plot_area() {
-        // A card 400 × 150: plot from x 42 to 388, y 12 to 124.
-        let plot = Plot::new(Size::Card, 400.0, 150.0);
-        assert_eq!(
-            plot.area,
-            Rect {
-                x: 42.0,
-                y: 12.0,
-                width: 346.0,
-                height: 112.0
-            }
-        );
-        assert!(close(plot.x(0.0), 42.0));
-        assert!(close(plot.x(100.0), 388.0));
-        assert!(close(plot.x(50.0), 215.0));
-        assert!(close(plot.y(0.0), 124.0));
-        assert!(close(plot.y(255.0), 12.0));
-        assert!(close(plot.y_percent(50.0), 68.0));
+        // 900 × 380: plot from x 66 to 878, y 38 to 322.
+        let plot = Plot::new(900.0, 380.0);
+        assert!(close(plot.x(0.0), 66.0));
+        assert!(close(plot.x(100.0), 878.0));
+        assert!(close(plot.x(50.0), 472.0));
+        assert!(close(plot.y(0.0), 322.0));
+        assert!(close(plot.y(255.0), 38.0));
+        assert!(close(plot.y_percent(50.0), 180.0));
         // Outside the axes the values stay at the edges.
-        assert!(close(plot.x(-5.0), 42.0));
-        assert!(close(plot.x(120.0), 388.0));
-        assert!(close(plot.y(300.0), 12.0));
+        assert!(close(plot.x(-5.0), 66.0));
+        assert!(close(plot.x(120.0), 878.0));
+        assert!(close(plot.y(300.0), 38.0));
         // A widget too small for its margins still has a plot area.
-        let tiny = Plot::new(Size::Large, 10.0, 10.0);
+        let tiny = Plot::new(10.0, 10.0);
         assert!(tiny.area.width >= 1.0 && tiny.area.height >= 1.0);
     }
 
     #[test]
-    fn grid_and_labels() {
-        let card = Plot::new(Size::Card, 400.0, 150.0);
-        assert_eq!(card.grid_temps(), [0, 20, 40, 60, 80, 100]);
-        assert_eq!(card.label_temps(), [0, 20, 40, 60, 80, 100]);
-        assert_eq!(card.percents(), [0, 50, 100]);
-        // A narrow card labels every 50 °C.
-        let narrow = Plot::new(Size::Card, 280.0, 136.0);
-        assert_eq!(narrow.label_temps(), [0, 50, 100]);
-        let large = Plot::new(Size::Large, 900.0, 380.0);
-        assert_eq!(large.grid_temps().len(), 11);
-        assert_eq!(large.percents(), [0, 25, 50, 75, 100]);
-    }
-
-    #[test]
     fn repeated_points_are_drawn_once() {
-        let plot = Plot::new(Size::Card, 400.0, 150.0);
+        let plot = Plot::new(900.0, 380.0);
         let shape = curve_shape(&plot, &sys1()).unwrap();
         // Seven points, four places.
         assert_eq!(shape.line.len(), 4);
@@ -392,7 +339,7 @@ mod tests {
 
     #[test]
     fn flat_curve() {
-        let plot = Plot::new(Size::Large, 900.0, 380.0);
+        let plot = Plot::new(900.0, 380.0);
         let shape = curve_shape(&plot, &flat()).unwrap();
         // Four places, all at the same height, and dashed parts on both
         // sides at that height.
@@ -415,7 +362,7 @@ mod tests {
 
     #[test]
     fn any_number_of_points() {
-        let plot = Plot::new(Size::Large, 900.0, 380.0);
+        let plot = Plot::new(900.0, 380.0);
         let five = curve(&[(30, 60), (45, 90), (60, 130), (75, 200), (85, 255)]);
         let shape = curve_shape(&plot, &five).unwrap();
         assert_eq!(shape.line.len(), 5);
@@ -432,7 +379,7 @@ mod tests {
 
     #[test]
     fn zones() {
-        let plot = Plot::new(Size::Card, 400.0, 150.0);
+        let plot = Plot::new(900.0, 380.0);
         assert_eq!(minimum_zone(&plot, 0), None);
         let zone = minimum_zone(&plot, 30).unwrap();
         assert!(close(zone.bottom(), plot.area.bottom()));
@@ -445,10 +392,10 @@ mod tests {
 
     #[test]
     fn marker_shows_a_target_only_apart_from_the_dot() {
-        let plot = Plot::new(Size::Card, 400.0, 150.0);
+        let plot = Plot::new(900.0, 380.0);
         // Settled: target equals the duty cycle.
         assert_eq!(marker(&plot, 46.0, 98.0, Some(98.0)).target, None);
-        // One step apart is under 3 px on a card: not drawn apart.
+        // One step apart is about 1 px: not drawn apart.
         assert_eq!(marker(&plot, 46.0, 98.0, Some(99.0)).target, None);
         // Moving from 76 to 98: the target is drawn.
         let m = marker(&plot, 46.0, 76.0, Some(98.0));
@@ -458,7 +405,7 @@ mod tests {
 
     #[test]
     fn label_keeps_clear_of_obstacles() {
-        let plot = Plot::new(Size::Large, 900.0, 380.0);
+        let plot = Plot::new(900.0, 380.0);
         let point = (plot.x(46.0), plot.y(98.0));
         // Free: right of the point and below it.
         let (x, y) = place_label(&plot, point, 150.0, 46.0, &[]).unwrap();
@@ -479,7 +426,7 @@ mod tests {
         };
         assert!(!label.near(&taken, 4.0));
         // A chart too small for the label: no place.
-        let small = Plot::new(Size::Large, 200.0, 140.0);
+        let small = Plot::new(200.0, 140.0);
         assert_eq!(place_label(&small, (100.0, 60.0), 150.0, 46.0, &[]), None);
     }
 }

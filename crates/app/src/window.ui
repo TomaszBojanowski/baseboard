@@ -108,8 +108,9 @@
         </property>
         <property name="content">
           <!-- The page chosen in the sidebar; window.rs sets the titles and
-               shows the copy button on the System page. Subpages (the
-               curve of a fan) go on top of it in content_nav. -->
+               shows the copy button on the System page. Subpages (All
+               Sensors, the curve of a fan, the views of the System page)
+               go on top of it in content_nav. -->
           <object class="AdwNavigationPage" id="content_page">
             <property name="title" translatable="yes">Overview</property>
             <property name="tag">content</property>

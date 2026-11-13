@@ -476,8 +476,8 @@ mod tests {
             assert!(!widgets.heroes[1].button.get_visible());
             widgets.heroes[0].button.emit_clicked();
             assert_eq!(*opened.borrow(), ["cpu"]);
-            let (title, _) = widgets.alert().unwrap();
-            assert_eq!(title, "+12\u{a0}V below normal: 11,20\u{a0}V");
+            // The texts of the warning: alert.rs.
+            assert!(widgets.alert().is_some());
             assert_eq!(widgets.power.value.label(), "11,20\u{a0}V");
             assert_eq!(
                 widgets.power.row.subtitle().as_deref(),

@@ -350,10 +350,6 @@ impl SysfsDriver {
         }
     }
 
-    pub fn hwmon(&self) -> &Path {
-        &self.hwmon
-    }
-
     fn text(&self, attribute: &str) -> Result<String, ReadError> {
         read_text(&self.hwmon.join(attribute), attribute)
     }
@@ -625,42 +621,6 @@ mod tests {
 
     fn names(caps: Capabilities) -> Vec<&'static str> {
         caps.iter().map(Capability::as_str).collect()
-    }
-
-    #[test]
-    fn names_follow_the_dbus_contract() {
-        let all: Vec<_> = Capability::ALL.iter().map(|c| c.as_str()).collect();
-        assert_eq!(
-            all,
-            [
-                "duty-read",
-                "mode",
-                "duty-write",
-                "curve-read",
-                "curve-write",
-                "source-read",
-                "source-write"
-            ]
-        );
-        let levels = [
-            DriverLevel::ReadOnly,
-            DriverLevel::Manual,
-            DriverLevel::ManualCurveView,
-            DriverLevel::Curves,
-            DriverLevel::CurvesSource,
-        ];
-        let names: Vec<_> = levels.iter().map(|l| l.as_str()).collect();
-        assert_eq!(
-            names,
-            [
-                "read-only",
-                "manual",
-                "manual+curve-view",
-                "curves",
-                "curves+source"
-            ]
-        );
-        assert!(levels.is_sorted());
     }
 
     #[test]

@@ -9,7 +9,7 @@
 //! system, memory, graphics cards, disks and network cards with their
 //! codes and versions). The data comes from a worker thread
 //! (`system_reader`); the text of "Copy system information" from
-//! `core::report`, always in English, the same as before.
+//! `core::report`, always in English.
 
 use std::cell::{OnceCell, RefCell};
 use std::path::PathBuf;
@@ -197,9 +197,8 @@ fn section(title: String, description: Option<String>, mut lines: Vec<Line>) -> 
 }
 
 /// The groups of the three views of the page (D64), in the order of the
-/// mockup. Every line of the page before D64 is in "Diagnostics" or
-/// "Technical Details"; the short list repeats the main ones in plain
-/// words.
+/// mockup. Every line is in "Diagnostics" or "Technical Details"; the short
+/// list repeats the main ones in plain words.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Views {
     pub summary: Vec<Section>,
@@ -462,7 +461,6 @@ fn status_row(health: &Health) -> adw::ActionRow {
         .activatable(true)
         .action_name("win.show-system-view")
         .action_target(&"diagnostics".to_variant())
-        .css_classes(["system-status"])
         .build();
     let image = gtk::Image::builder()
         .icon_name(icon)
@@ -525,8 +523,7 @@ fn skipped_files(files: &[SkippedFile]) -> Section {
     )
 }
 
-// The texts about the board's profile, also in the sidebar footer. No doc
-// comments right above them: xgettext would take them for translators.
+// The texts about the board's profile, here and on the Fans page.
 
 pub fn unverified_revision(revision: Option<u8>) -> String {
     match revision {
@@ -548,27 +545,15 @@ pub fn no_profile() -> String {
     gettext("No profile for this board")
 }
 
-// Under "Fan control unavailable" on the Fans page and on this page
-// (§5.5.3, D60): `sys_without_duty` adds that the system fans report no
-// duty cycle (the Fans page). No kernel version before the changes are in a
-// released kernel (D41).
-pub fn no_control(sys_without_duty: bool) -> String {
-    if sys_without_duty {
-        gettext(
-            // Translators: on the Fans page when the kernel driver can only
-            // read the fans and reports no duty cycle of the system fans. No
-            // kernel version: no released kernel has the changes yet.
-            "The driver in this kernel only reads the fans, without the duty cycle \
-             of the system fans. Control is coming in a future Linux version.",
-        )
-    } else {
-        gettext(
-            // Translators: on the Fans and System pages when the kernel
-            // driver can only read the fans.
-            "The driver in this kernel only reads the fans. \
-             Control is coming in a future Linux version.",
-        )
-    }
+// Under "Fan control unavailable" in Diagnostics (§5.5.3). No kernel
+// version before the changes are in a released kernel (D41).
+pub fn no_control() -> String {
+    gettext(
+        // Translators: in Diagnostics when the kernel driver can only read
+        // the fans.
+        "The driver in this kernel only reads the fans. \
+         Control is coming in a future Linux version.",
+    )
 }
 
 fn board(dmi: &Dmi) -> Section {
@@ -1005,10 +990,12 @@ fn fan_control(detection: &Detection, level: Option<DriverLevel>, chip: Option<&
             },
         )
         .status(warning),
-        // The usual state of released kernels, not a problem: no icon (D60).
-        Some(DriverLevel::ReadOnly) => Line::item(unavailable, no_control(false)),
         Some(level) => {
-            let words = level_text(level);
+            // The usual state of released kernels, not a problem: the icon
+            // of information (D64).
+            let Some(words) = level_text(level) else {
+                return Line::item(unavailable, no_control());
+            };
             if detection.allows_control() {
                 Line::item(gettext("Fan control"), words).status(Some(Status::Ok))
             } else {
@@ -1024,14 +1011,15 @@ fn fan_control(detection: &Detection, level: Option<DriverLevel>, chip: Option<&
     }
 }
 
-/// The driver level in words (§5.5.3).
-fn level_text(level: DriverLevel) -> String {
+/// What the driver can control, in words (§5.5.3); `None` when it only
+/// reads.
+fn level_text(level: DriverLevel) -> Option<String> {
     match level {
-        DriverLevel::ReadOnly => gettext("Read only"),
-        DriverLevel::Manual => gettext("Manual mode"),
-        DriverLevel::ManualCurveView => gettext("Manual mode and curve preview"),
-        DriverLevel::Curves => gettext("Curves in the EC"),
-        DriverLevel::CurvesSource => gettext("Curves in the EC with a choice of temperature"),
+        DriverLevel::ReadOnly => None,
+        DriverLevel::Manual => Some(gettext("Manual mode")),
+        DriverLevel::ManualCurveView => Some(gettext("Manual mode and curve preview")),
+        DriverLevel::Curves => Some(gettext("Curves in the EC")),
+        DriverLevel::CurvesSource => Some(gettext("Curves in the EC with a choice of temperature")),
     }
 }
 
@@ -1327,8 +1315,7 @@ mod tests {
 
     use super::*;
 
-    /// The groups of both views, "Technical Details" then "Diagnostics":
-    /// every line the page had before D64.
+    /// The groups of both views, "Technical Details" then "Diagnostics".
     fn sections(
         dmi: &Dmi,
         detection: &Detection,
@@ -1747,12 +1734,11 @@ mod tests {
         let line = |level| fan_control(&supported, level, Some("nct6687"));
         assert_eq!(line(Some(DriverLevel::Curves)).value, "Curves in the EC");
         assert_eq!(line(Some(DriverLevel::Curves)).status, Some(Status::Ok));
-        // The usual state of released kernels: information, no warning
-        // icon, the same words as on the Fans page (D60).
+        // The usual state of released kernels: no warning.
         let read_only = line(Some(DriverLevel::ReadOnly));
         assert_eq!(read_only.title, "Fan control unavailable");
         assert_eq!(read_only.status, None);
-        assert_eq!(read_only.value, no_control(false));
+        assert_eq!(read_only.value, no_control());
         // No version number.
         assert!(!read_only.value.chars().any(|c| c.is_ascii_digit()));
         // A missing chip is a problem.

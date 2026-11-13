@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Logic shared by the Baseboard app and its system helper: board profiles,
-//! the sensor model and the validation of fan settings.
+//! Logic for the Baseboard app and, later, its system helper: board
+//! profiles, the sensor model and the fan driver layer.
 //!
 //! The helper runs as root, so this crate has no user interface, no
 //! translated text and no unsafe code. Both programs compute the same

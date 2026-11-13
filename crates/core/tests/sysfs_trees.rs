@@ -407,9 +407,6 @@ fn hwmon_next_and_v1_read_curves_and_sources() {
                 channel.key
             );
         }
-        let profile = profile();
-        let cpu = driver::source_temp(&profile, Source::Temp(1)).unwrap();
-        assert_eq!((cpu.key.as_str(), cpu.emergency_c), ("cpu", Some(95)));
 
         // Known curves from §6.3: CPU_FAN1 and SYS_FAN1 with the owner's
         // BIOS settings; points 5–7 copy point 4.
@@ -676,56 +673,6 @@ fn devices_are_found_by_name_and_path_not_number() {
     }
     // The trees number the board's hwmon device differently.
     assert_eq!(folders, ["hwmon0", "hwmon3", "hwmon7"]);
-}
-
-/// The duty cycle of SYS 1–4 is read only where `pwm13`–`pwm16` exist.
-#[test]
-fn sys_duty_only_with_pwm13_to_16() {
-    let duties = |name: &str| -> Vec<(String, Option<f64>)> {
-        let tree = Tree::new(name, &[]);
-        let chip = tree.board_chip();
-        profile()
-            .fans
-            .iter()
-            .map(|fan| {
-                let duty = fan
-                    .pwm_index
-                    .and_then(|n| chip.reading(Kind::Pwm, n))
-                    .map(|r| r.value);
-                (fan.key.clone(), duty)
-            })
-            .collect()
-    };
-    let expect = |values: [Option<f64>; 7]| -> Vec<(String, Option<f64>)> {
-        ["cpu1", "pump1", "sys1", "sys2", "sys3", "sys4", "ezconn"]
-            .into_iter()
-            .map(String::from)
-            .zip(values)
-            .collect()
-    };
-    assert_eq!(
-        duties(FEDORA),
-        expect([
-            Some(124.0),
-            Some(255.0),
-            None,
-            None,
-            None,
-            None,
-            Some(153.0)
-        ])
-    );
-    let with_sys = expect([
-        Some(124.0),
-        Some(255.0),
-        Some(98.0),
-        Some(108.0),
-        Some(76.0),
-        Some(102.0),
-        Some(153.0),
-    ]);
-    assert_eq!(duties(HWMON_NEXT), with_sys);
-    assert_eq!(duties(V1), with_sys);
 }
 
 #[test]

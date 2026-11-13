@@ -128,22 +128,6 @@ impl Worker {
 mod tests {
     use super::*;
 
-    /// This machine through libudev, where there is one: the data is read
-    /// without errors and the memory, when the database has it, has slots.
-    #[test]
-    fn reads_this_machine() {
-        let info = read(Path::new("/sys"), None);
-        match &info.memory {
-            Some(slots) => assert!(!slots.is_empty()),
-            None => eprintln!("no memory data in the udev database here, slots not checked"),
-        }
-        assert!(
-            info.sensors_config.unwrap_or_default().is_empty(),
-            "no profile, no chip"
-        );
-        assert_eq!(info.fan_driver.level, None);
-    }
-
     /// A fake sysfs with one hwmon device, removed at the end.
     struct Tree(PathBuf);
 

@@ -21,11 +21,6 @@ pub fn run() -> glib::ExitCode {
             window.present();
             return;
         }
-        #[cfg(debug_assertions)]
-        if crate::fan_chart_demo::wanted() {
-            crate::fan_chart_demo::open(app);
-            return;
-        }
         if gio::SettingsSchemaSource::default()
             .and_then(|s| s.lookup(APP_ID, true))
             .is_none()
@@ -155,14 +150,9 @@ fn show_about(app: &adw::Application) {
         .license_type(gtk::License::Gpl30)
         // Translators: your name and email, one translator per line.
         .translator_credits(gettext("translator-credits"))
+        .website(config::WEBSITE)
+        .issue_url(config::ISSUES)
         .build();
-    // Only once the project has public addresses (config.rs).
-    if !config::WEBSITE.is_empty() {
-        dialog.set_website(config::WEBSITE);
-    }
-    if !config::ISSUES.is_empty() {
-        dialog.set_issue_url(config::ISSUES);
-    }
     let sources = hardware_sources();
     let sources: Vec<&str> = sources.iter().map(String::as_str).collect();
     dialog.add_acknowledgement_section(
@@ -170,18 +160,6 @@ fn show_about(app: &adw::Application) {
         &sources,
     );
     dialog.present(app.active_window().as_ref());
-}
-
-/// Debug builds only: `BASEBOARD_DEBUG_SCREENSHOT` for another window than
-/// the main one (the fan chart demo); `before` runs just before the
-/// screenshot is taken.
-#[cfg(debug_assertions)]
-pub fn debug_screenshot(
-    app: &adw::Application,
-    window: &gtk::Window,
-    before: impl Fn(&gtk::Window) + 'static,
-) {
-    debug::capture(app, window, before);
 }
 
 /// Debug builds only: settings for looking at the window without a mouse.
@@ -229,8 +207,6 @@ mod debug {
         }
     }
 
-    /// After the window is shown: `BASEBOARD_DEBUG_MINIMIZED=1` minimizes
-    /// it, to check that reading stops while it cannot be seen.
     /// `BASEBOARD_DEBUG_DIALOG` opens a dialog a second after the window is
     /// shown, when the Overview has its first sample: `preferences`,
     /// `readings` (the subpage "Visible Readings"), `about` or
@@ -415,16 +391,11 @@ mod debug {
                 ),
             );
         }
-        capture(app, window.upcast_ref(), |_| {});
+        capture(app, window.upcast_ref());
     }
 
-    /// The screenshot of `BASEBOARD_DEBUG_SCREENSHOT`, for any window;
-    /// `before` runs just before it is taken.
-    pub fn capture(
-        app: &adw::Application,
-        window: &gtk::Window,
-        before: impl Fn(&gtk::Window) + 'static,
-    ) {
+    /// The screenshot of `BASEBOARD_DEBUG_SCREENSHOT`.
+    fn capture(app: &adw::Application, window: &gtk::Window) {
         let Some(name) = var("BASEBOARD_DEBUG_SCREENSHOT") else {
             return;
         };
@@ -450,7 +421,6 @@ mod debug {
                 #[weak]
                 window,
                 move || {
-                    before(&window);
                     save_png(&window, &path, scale);
                     app.quit();
                 }

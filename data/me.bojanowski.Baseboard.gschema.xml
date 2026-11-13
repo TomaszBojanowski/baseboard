@@ -33,7 +33,7 @@
     <key name="shown-readings" type="as">
       <default>[]</default>
       <summary>Readings turned on</summary>
-      <description>Readings that are off until turned on, such as the numbered temperature sensors of NVMe drives, and that are shown on the Overview page; as in the hidden readings.</description>
+      <description>Readings that are off until turned on, such as the numbered temperature sensors of NVMe disks, and that are shown on the Overview page; as in the hidden readings.</description>
     </key>
   </schema>
 </schemalist>

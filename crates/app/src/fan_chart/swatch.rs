@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The small drawings of the legend above the cards of the Fans page
-//! (docs/PROJEKT.md §7 M2, M2.4, D60): each mark of a card's chart, drawn
-//! with the chart's colors and lines.
+//! The small drawings of the legend under the chart of the page "Curve
+//! Details": each mark of the chart, drawn with its colors and lines.
 
 use std::cell::{Cell, RefCell};
 
@@ -12,7 +11,7 @@ use gtk::{glib, graphene, gsk};
 
 use super::{Palette, alpha, circle, line, stroke};
 
-/// A mark of a card's chart.
+/// A mark of the chart.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Mark {
     /// The hatched zone below the header's minimum.
@@ -113,7 +112,8 @@ impl Swatch {
         let middle = height / 2.0;
         match self.imp().mark.get() {
             Mark::BelowMinimum => {
-                // As in a card: diagonal lines 6 px apart under a dashed line.
+                // As on the chart: diagonal lines 6 px apart under a dashed
+                // line.
                 let (top, bottom) = (2.0, height - 1.0);
                 snapshot.push_clip(&graphene::Rect::new(
                     0.0,
@@ -151,7 +151,7 @@ impl Swatch {
                 &stroke(1.5, &[5.0, 3.0], false),
             ),
             Mark::Now => {
-                // The dot of a card, a little smaller, with its halo.
+                // The dot of the chart, a little smaller, with its halo.
                 let center = (width / 2.0, middle);
                 snapshot.append_fill(
                     &circle(center, 6.5),

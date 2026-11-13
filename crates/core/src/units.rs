@@ -215,11 +215,7 @@ mod tests {
         // The fixed floors of B5.
         assert_eq!(duty_from_percent(CPU_MIN_DUTY_FLOOR), 51);
         assert_eq!(duty_from_percent(PUMP_MIN_DUTY_FLOOR), 102);
-        assert_eq!(duty_to_percent(76), 30);
-        assert_eq!(duty_to_percent(127), 50);
-        assert_eq!(duty_to_percent(255), 100);
-        assert_eq!(duty_to_percent(124), 49);
-        assert_eq!(duty_to_percent(0), 0);
+        // The other way: tests/units.rs, as the pages show it.
     }
 
     #[test]

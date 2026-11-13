@@ -264,8 +264,7 @@ impl RowWidgets {
             .css_classes(["dimmed", "numeric"])
             .build();
         // Translators: the tooltip of the gray range next to a reading on
-        // the page "All Sensors"; the line that said it above the readings
-        // is gone (D64).
+        // the page "All Sensors".
         let tooltip = gettext("Lowest and highest value since the app started");
         range.set_tooltip_text(Some(&tooltip));
         let value = gtk::Inscription::builder()

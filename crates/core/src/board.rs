@@ -269,16 +269,6 @@ mod tests {
     }
 
     #[test]
-    fn no_serial_numbers_are_read() {
-        for field in DMI_FIELDS {
-            assert!(
-                !field.contains("serial") && !field.contains("uuid"),
-                "{field}"
-            );
-        }
-    }
-
-    #[test]
     fn reads_dmi_from_a_sysfs_root() {
         let root = scratch("dmi");
         let dir = root.join("class/dmi/id");

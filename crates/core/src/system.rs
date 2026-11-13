@@ -132,7 +132,7 @@ pub struct SystemInfo {
     /// The kernel release, e.g. `7.3.3-300.fc45.x86_64`.
     pub kernel: Option<String>,
     pub bios: Bios,
-    /// The processor's `model name`, unchanged; the Overview shortens it
+    /// The processor's `model name`, unchanged; the pages shorten it
     /// ([`short_cpu_name`]).
     pub cpu: Option<String>,
     /// `scaling_driver` of the first cpufreq policy, e.g. `amd-pstate-epp`.
@@ -390,7 +390,7 @@ pub fn cpu_model(proc: &Path) -> Option<String> {
     })
 }
 
-/// The processor's name for the Overview: the model without a trailing
+/// The processor's name on every page: the model without a trailing
 /// "8-Core Processor" ("AMD Ryzen 7 9700X 8-Core Processor" → "AMD Ryzen 7
 /// 9700X").
 pub fn short_cpu_name(model: &str) -> &str {

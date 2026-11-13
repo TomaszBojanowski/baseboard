@@ -5,8 +5,8 @@
 //! /etc/sensors.d. The library is loaded at run time, so the app still
 //! starts when it is missing and reads raw sysfs instead.
 //!
-//! This is the only module of the app with unsafe code. The declarations
-//! follow `sensors.h` of lm-sensors 3.6.0. libsensors keeps global state and
+//! One of the FFI modules with unsafe code (with `libudev` and `i18n`). The
+//! declarations follow `sensors.h` of lm-sensors 3.6.0. libsensors keeps global state and
 //! is not thread safe, so there is at most one [`Libsensors`] at a time and
 //! it stays on the thread that made it (it is neither `Send` nor `Sync`).
 //! It only reads: `set` statements are never executed.

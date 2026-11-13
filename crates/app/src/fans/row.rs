@@ -81,7 +81,7 @@ impl FanLine {
     pub(super) fn state(&self) -> Option<String> {
         if self.stopped {
             // Translators: under the CPU fan on the Fans page when it was
-            // spinning before and stands now (D65).
+            // spinning before and stands now.
             return Some(pgettext("fan state", "Stopped"));
         }
         if self.maybe_empty {
@@ -330,7 +330,6 @@ impl FanRow {
             .margin_bottom(9)
             .margin_start(12)
             .margin_end(12)
-            .css_classes(["fan-row"])
             .build();
         let name = gtk::Label::builder()
             .label(&line.name)

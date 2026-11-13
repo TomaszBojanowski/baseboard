@@ -14,8 +14,7 @@
 
 use crate::fans::curve;
 use crate::fans::driver::{
-    self, Capabilities, Capability, Channel, CurvePoint, DriverLevel, FanDriver, Mode, ReadError,
-    Source,
+    self, Capabilities, Channel, CurvePoint, DriverLevel, FanDriver, Mode, ReadError, Source,
 };
 use crate::overview::{Group, Row, Subtitle, Visibility};
 use crate::profile::{Fan, FanRole, Profile, Temp, TempRole};
@@ -79,8 +78,9 @@ pub type SourceRead = Option<Result<Source, ReadError>>;
 /// The page.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Page {
+    /// With `ReadOnly` the page says that the fans cannot be controlled
+    /// yet (§5.5.3).
     pub level: DriverLevel,
-    pub note: Note,
     /// The temperature the curves follow, once for all cards; `None`
     /// without a curve source.
     pub source: Option<SourceRow>,
@@ -92,16 +92,6 @@ pub struct Page {
     /// Headers the driver does not control (the auxiliary fan on MS-7E61),
     /// as the Overview shows them.
     pub read_only: Vec<Row>,
-}
-
-/// The one line on top of the page (§5.5.3).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Note {
-    /// The driver cannot control the fans (Fedora's kernel 7.3.3).
-    /// `sys_without_duty`: the system fans report no duty cycle.
-    NoControl { sys_without_duty: bool },
-    /// The driver could, but this version only shows the settings (0.2.0).
-    PreviewOnly,
 }
 
 /// The temperature source of the curves.
@@ -130,8 +120,6 @@ impl SourceRow {
 pub struct Card {
     pub key: String,
     pub role: FanRole,
-    /// N of `pwmN`, when the header has one.
-    pub pwm: Option<u8>,
     /// Its row of the Overview: the name, the speed and its range since
     /// the start, the duty cycle and the header.
     pub row: Row,
@@ -194,25 +182,14 @@ impl Card {
     }
 }
 
-/// What a card holds below its header line.
+/// What the page knows of a header beyond its row.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CardKind {
-    /// The driver controls nothing: the speed, and the duty cycle as a bar
-    /// where the driver reports it.
+    /// The driver controls nothing: the speed, and the duty cycle where
+    /// the driver reports it.
     Low,
-    /// The driver controls the header.
-    Full { control: Control, body: Body },
-}
-
-/// In place of the mode switch.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Control {
-    /// The switch, insensitive in 0.2.0: it only shows the mode. Three
-    /// positions with curve writes (Automatic BIOS, Manual, Curve), else
-    /// two. `None`: the mode could not be read.
-    Switch { mode: Option<Mode>, positions: u8 },
-    /// Nobody checked the header on this board (D52): a box saying so.
-    Unchecked,
+    /// The driver controls the header: its curve.
+    Full { body: Body },
 }
 
 /// The main part of a card.
@@ -326,7 +303,6 @@ pub fn build(input: &Input) -> Page {
         cards.push(Card {
             key: fan.key.clone(),
             role: fan.role,
-            pwm: fan.pwm_index,
             row: row.clone(),
             header: fan.header.clone(),
             verified: fan.verified,
@@ -335,15 +311,6 @@ pub fn build(input: &Input) -> Page {
             kind,
         });
     }
-    let note = if level == DriverLevel::ReadOnly {
-        Note::NoControl {
-            sys_without_duty: cards
-                .iter()
-                .any(|c| c.role == FanRole::Sys && c.duty.is_none()),
-        }
-    } else {
-        Note::PreviewOnly
-    };
     let source = common
         .filter(|_| level != DriverLevel::ReadOnly)
         .map(source_row);
@@ -354,7 +321,6 @@ pub fn build(input: &Input) -> Page {
         .map(|t| source_row(Source::Temp(t.input)));
     Page {
         level,
-        note,
         temperature: source.clone().or(cpu),
         source,
         cards,
@@ -370,18 +336,6 @@ fn full(
     source_row: &dyn Fn(Source) -> SourceRow,
 ) -> CardKind {
     let mode = reading.mode.clone().and_then(Result::ok);
-    let control = if fan.verified {
-        Control::Switch {
-            mode,
-            positions: if reading.capabilities.contains(Capability::CurveWrite) {
-                3
-            } else {
-                2
-            },
-        }
-    } else {
-        Control::Unchecked
-    };
     let chart = |points: &Vec<CurvePoint>| {
         let source = reading.source.clone().and_then(Result::ok);
         let row = source.map(source_row);
@@ -405,7 +359,7 @@ fn full(
         (_, Some(Err(_))) => Body::CurveUnreadable,
         (_, Some(Ok(points))) => Body::Chart(chart(points)),
     };
-    CardKind::Full { control, body }
+    CardKind::Full { body }
 }
 
 /// The duty cycle of a fan's row, 0–255.
@@ -421,6 +375,7 @@ fn duty_of(row: &Row) -> Option<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fans::driver::Capability;
     use crate::fans::driver::model::{ModelChannel, ModelDriver};
     use crate::overview::{GroupKind, Name, RowId};
     use crate::sensors::Kind;
@@ -604,12 +559,6 @@ mod tests {
     fn driver_without_control() {
         let page = page(DriverLevel::ReadOnly);
         assert_eq!(page.level, DriverLevel::ReadOnly);
-        assert_eq!(
-            page.note,
-            Note::NoControl {
-                sys_without_duty: true
-            }
-        );
         // Every header as a low card, the auxiliary fan too; no source.
         assert_eq!(
             keys(&page.cards),
@@ -630,7 +579,6 @@ mod tests {
     #[test]
     fn curves_to_read() {
         let page = page(DriverLevel::ManualCurveView);
-        assert_eq!(page.note, Note::PreviewOnly);
         // The auxiliary fan has no control: a row, not a card.
         assert_eq!(
             keys(&page.cards),
@@ -644,19 +592,10 @@ mod tests {
         assert_eq!(source.millidegrees(), Some(46_000));
         // On top the source of the curves.
         assert_eq!(page.temperature.as_ref(), Some(source));
-        // Two positions without curve writes; the pump, not checked on this
-        // board, has the box instead.
         let cpu = card(&page, "cpu1");
-        let CardKind::Full { control, body } = &cpu.kind else {
+        let CardKind::Full { body } = &cpu.kind else {
             panic!("{cpu:?}");
         };
-        assert_eq!(
-            *control,
-            Control::Switch {
-                mode: Some(Mode::Auto),
-                positions: 2
-            }
-        );
         let Body::Chart(chart) = body else {
             panic!("{body:?}");
         };
@@ -667,27 +606,16 @@ mod tests {
         // At 46 °C the CPU curve gives 124 (123.2 rounded up).
         assert_eq!(chart.target, Some(124));
         assert_eq!(cpu.min_percent, 30);
+        // The pump, not checked on this board, shows its curve too.
+        let pump = card(&page, "pump1");
+        assert!(!pump.verified);
         assert!(matches!(
-            card(&page, "pump1").kind,
+            pump.kind,
             CardKind::Full {
-                control: Control::Unchecked,
                 body: Body::Chart(_)
             }
         ));
         assert!(!card(&page, "sys1").chart().unwrap().needs_full);
-    }
-
-    #[test]
-    fn curves_to_write() {
-        let page = page(DriverLevel::Curves);
-        assert_eq!(page.level, DriverLevel::Curves);
-        assert!(matches!(
-            card(&page, "sys1").kind,
-            CardKind::Full {
-                control: Control::Switch { positions: 3, .. },
-                ..
-            }
-        ));
     }
 
     #[test]
@@ -716,10 +644,6 @@ mod tests {
         assert!(matches!(
             sys3.kind,
             CardKind::Full {
-                control: Control::Switch {
-                    mode: Some(Mode::Manual),
-                    ..
-                },
                 body: Body::Manual(Some(_)),
             }
         ));
@@ -821,16 +745,9 @@ mod tests {
                 ..
             }
         ));
-        // A mode that cannot be read: no position of the switch; the curve
-        // shows, but without a target.
+        // A mode that cannot be read: the curve shows, but without a
+        // target.
         let sys3 = card(&page, "sys3");
-        assert!(matches!(
-            sys3.kind,
-            CardKind::Full {
-                control: Control::Switch { mode: None, .. },
-                ..
-            }
-        ));
         assert_eq!(sys3.chart().unwrap().target, None);
         // Turned off in the preferences: no card.
         assert!(!keys(&page.cards).contains(&"sys4"));

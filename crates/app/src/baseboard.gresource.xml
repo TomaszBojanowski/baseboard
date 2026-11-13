@@ -12,12 +12,11 @@
     <file compressed="true">style.css</file>
     <file compressed="true" alias="icons/scalable/apps/me.bojanowski.Baseboard.svg">icons/hicolor/scalable/apps/me.bojanowski.Baseboard.svg</file>
     <file compressed="true" alias="icons/scalable/actions/baseboard-overview-symbolic.svg">icons/overview-symbolic.svg</file>
-    <!-- The Fans page: Adwaita has no fan, pump, thermometer or curve. -->
+    <!-- The Fans page: Adwaita has no fan, thermometer or curve. -->
     <file compressed="true" alias="icons/scalable/actions/baseboard-fan-symbolic.svg">icons/fan-symbolic.svg</file>
-    <file compressed="true" alias="icons/scalable/actions/baseboard-pump-symbolic.svg">icons/pump-symbolic.svg</file>
     <file compressed="true" alias="icons/scalable/actions/baseboard-temperature-symbolic.svg">icons/temperature-symbolic.svg</file>
     <file compressed="true" alias="icons/scalable/actions/baseboard-curve-symbolic.svg">icons/curve-symbolic.svg</file>
-    <!-- The board in the sidebar footer: the symbolic app icon. -->
+    <!-- The board (the System page): the symbolic app icon. -->
     <file compressed="true" alias="icons/scalable/actions/baseboard-board-symbolic.svg">icons/hicolor/symbolic/apps/me.bojanowski.Baseboard-symbolic.svg</file>
   </gresource>
 </gresources>
