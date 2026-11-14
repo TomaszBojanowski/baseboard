@@ -8,8 +8,9 @@
   <summary>MSI motherboard sensors and fans</summary>
   <description>
     <p>A native GNOME app for the sensors and fans of MSI motherboards on Linux. Sensor readings work on any board. Fan header names and, later, fan control need a board profile; one is verified today: MAG B850M MORTAR WIFI.</p>
-    <p>Baseboard shows the temperatures, fan speeds and voltages reported by your motherboard, processor, graphics card, disks and memory, with the names of the fan headers printed on the board.</p>
-    <p>It also shows information about the board, BIOS, processor, memory, graphics card and disks, and copies it as text for bug reports.</p>
+    <p>The Overview shows the processor, graphics card and board with their temperature over the last five minutes, the fans, memory and disks, and one sentence that says whether everything is fine. It warns when the processor gets very hot, when the CPU fan stops and when a voltage is outside its tolerance.</p>
+    <p>The Fans page shows the speed and duty cycle of every fan, named after the headers printed on the board, and the curves the board runs them by, where the kernel driver reports them. Baseboard does not change them yet.</p>
+    <p>The System page shows the board, BIOS, processor, memory, graphics card and disks, and copies the details as text for bug reports.</p>
     <p>Later versions will also control fans, onboard RGB lighting and power profiles.</p>
     <p>MSI and MSI product names are trademarks of Micro-Star International Co., Ltd. Baseboard is an independent project and is not affiliated with or endorsed by MSI.</p>
   </description>
@@ -37,19 +38,29 @@
        release gets its own folder. -->
   <screenshots>
     <screenshot type="default">
-      <caption>Readings named after the board’s fan headers and voltage rails</caption>
-      <image>https://baseboard.bojanowski.me/screenshots/0.1.0/overview-en.png</image>
-      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.1.0/overview-pl.png</image>
+      <caption>Temperatures over the last five minutes, fans, memory and disks</caption>
+      <image>https://baseboard.bojanowski.me/screenshots/0.2.0/overview-en.png</image>
+      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.2.0/overview-pl.png</image>
     </screenshot>
     <screenshot>
-      <caption>The board, BIOS, processor, memory and disks</caption>
-      <image>https://baseboard.bojanowski.me/screenshots/0.1.0/system-en.png</image>
-      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.1.0/system-pl.png</image>
+      <caption>Every fan with its speed and duty cycle, named after its header</caption>
+      <image>https://baseboard.bojanowski.me/screenshots/0.2.0/fans-en.png</image>
+      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.2.0/fans-pl.png</image>
     </screenshot>
     <screenshot>
-      <caption>The readings in the dark style</caption>
-      <image>https://baseboard.bojanowski.me/screenshots/0.1.0/overview-dark-en.png</image>
-      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.1.0/overview-dark-pl.png</image>
+      <caption>The curve the board runs the CPU fan by</caption>
+      <image>https://baseboard.bojanowski.me/screenshots/0.2.0/fan-curve-en.png</image>
+      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.2.0/fan-curve-pl.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>The board, BIOS, processor, memory, graphics card and disks</caption>
+      <image>https://baseboard.bojanowski.me/screenshots/0.2.0/system-en.png</image>
+      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.2.0/system-pl.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>The Overview in the dark style</caption>
+      <image>https://baseboard.bojanowski.me/screenshots/0.2.0/overview-dark-en.png</image>
+      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.2.0/overview-dark-pl.png</image>
     </screenshot>
   </screenshots>
   <branding>
@@ -58,13 +69,25 @@
   </branding>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.2.0" date="2026-11-14">
+      <description>
+        <p>A new look and a Fans page. Baseboard still only reads: it does not change any setting.</p>
+        <ul>
+          <li>A new Overview: the processor, graphics card and board with their temperature over the last five minutes, and the fans, memory and disks at a glance</li>
+          <li>A Fans page with the speed and duty cycle of every fan and, where the kernel driver reports them, the curves the board runs the fans by</li>
+          <li>A new System page, short like About in GNOME Settings, with the details one click away</li>
+          <li>Warnings when the processor gets very hot, when the CPU fan stops and when a voltage is outside its tolerance</li>
+        </ul>
+        <p>Fan control comes in a later version.</p>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-11-11">
       <description>
         <p>The first release. Baseboard reads the sensors of a motherboard and shows information about the system; it does not control anything yet.</p>
         <ul>
           <li>Temperatures, fan speeds and voltages; on a board with a profile, named after its fan headers and voltage rails</li>
           <li>Voltages rated against their tolerance, with the lowest and highest value since the app started</li>
-          <li>A System page with the board, BIOS, processor, memory, graphics card, drives and the fan driver, which can be copied as text for bug reports</li>
+          <li>A System page with the board, BIOS, processor, memory, graphics card, disks and the fan driver, which can be copied as text for bug reports</li>
           <li>English and Polish</li>
         </ul>
         <p>Fan control, onboard RGB lighting and power profiles are not there yet.</p>

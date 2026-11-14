@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: baseboard\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-13 22:51+0100\n"
+"POT-Creation-Date: 2026-11-14 00:52+0100\n"
 "PO-Revision-Date: 2026-11-11 20:30+0100\n"
 "Last-Translator: Tomasz Bojanowski <tomasz@bojanowski.me>\n"
 "Language-Team: \n"
@@ -107,23 +107,36 @@ msgstr ""
 
 #: data/me.bojanowski.Baseboard.metainfo.xml.in:11
 msgid ""
-"Baseboard shows the temperatures, fan speeds and voltages reported by your "
-"motherboard, processor, graphics card, disks and memory, with the names of "
-"the fan headers printed on the board."
+"The Overview shows the processor, graphics card and board with their "
+"temperature over the last five minutes, the fans, memory and disks, and one "
+"sentence that says whether everything is fine. It warns when the processor "
+"gets very hot, when the CPU fan stops and when a voltage is outside its "
+"tolerance."
 msgstr ""
-"Baseboard pokazuje temperatury, obroty wentylatorów i napięcia zgłaszane "
-"przez płytę główną, procesor, kartę graficzną, dyski i pamięć, z nazwami "
-"złączy wentylatorów nadrukowanymi na płycie."
+"Przegląd pokazuje procesor, kartę graficzną i płytę z temperaturą z "
+"ostatnich 5 minut, wentylatory, pamięć i dyski oraz jedno zdanie, czy "
+"wszystko jest w normie. Ostrzega, gdy procesor jest bardzo gorący, gdy "
+"stanie wentylator procesora i gdy napięcie wyjdzie poza tolerancję."
 
 #: data/me.bojanowski.Baseboard.metainfo.xml.in:12
 msgid ""
-"It also shows information about the board, BIOS, processor, memory, graphics "
-"card and disks, and copies it as text for bug reports."
+"The Fans page shows the speed and duty cycle of every fan, named after the "
+"headers printed on the board, and the curves the board runs them by, where "
+"the kernel driver reports them. Baseboard does not change them yet."
 msgstr ""
-"Pokazuje też informacje o płycie, BIOS-ie, procesorze, pamięci, karcie "
-"graficznej i dyskach i kopiuje je jako tekst do zgłoszeń błędów."
+"Strona Wentylatory pokazuje obroty i wypełnienie każdego wentylatora, "
+"nazwanego tak jak złącze na płycie, oraz krzywe, według których płyta nimi "
+"steruje, gdy sterownik jądra je podaje. Baseboard jeszcze ich nie zmienia."
 
 #: data/me.bojanowski.Baseboard.metainfo.xml.in:13
+msgid ""
+"The System page shows the board, BIOS, processor, memory, graphics card and "
+"disks, and copies the details as text for bug reports."
+msgstr ""
+"Strona System pokazuje płytę, BIOS, procesor, pamięć, kartę graficzną i "
+"dyski i kopiuje szczegóły jako tekst do zgłoszeń błędów."
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:14
 msgid ""
 "Later versions will also control fans, onboard RGB lighting and power "
 "profiles."
@@ -131,7 +144,7 @@ msgstr ""
 "Kolejne wersje będą też sterować wentylatorami, podświetleniem RGB płyty i "
 "profilami energii."
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:14
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:15
 msgid ""
 "MSI and MSI product names are trademarks of Micro-Star International Co., "
 "Ltd. Baseboard is an independent project and is not affiliated with or "
@@ -141,19 +154,72 @@ msgstr ""
 "Co., Ltd. Baseboard jest niezależnym projektem, niezwiązanym z MSI i bez jej "
 "poparcia."
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:40
-msgid "Readings named after the board’s fan headers and voltage rails"
-msgstr "Odczyty nazwane według złączy wentylatorów i szyn napięć płyty"
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:41
+msgid "Temperatures over the last five minutes, fans, memory and disks"
+msgstr "Temperatury z ostatnich 5 minut, wentylatory, pamięć i dyski"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:45
-msgid "The board, BIOS, processor, memory and disks"
-msgstr "Płyta, BIOS, procesor, pamięć i dyski"
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:46
+msgid "Every fan with its speed and duty cycle, named after its header"
+msgstr "Każdy wentylator z obrotami i wypełnieniem, nazwany według złącza"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:50
-msgid "The readings in the dark style"
-msgstr "Odczyty w ciemnym stylu"
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:51
+msgid "The curve the board runs the CPU fan by"
+msgstr "Krzywa, według której płyta steruje wentylatorem procesora"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:63
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:56
+msgid "The board, BIOS, processor, memory, graphics card and disks"
+msgstr "Płyta, BIOS, procesor, pamięć, karta graficzna i dyski"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:61
+msgid "The Overview in the dark style"
+msgstr "Przegląd w ciemnym stylu"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:74
+msgid ""
+"A new look and a Fans page. Baseboard still only reads: it does not change "
+"any setting."
+msgstr ""
+"Nowy wygląd i strona Wentylatory. Baseboard nadal tylko odczytuje: nie "
+"zmienia żadnych ustawień."
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:76
+msgid ""
+"A new Overview: the processor, graphics card and board with their "
+"temperature over the last five minutes, and the fans, memory and disks at a "
+"glance"
+msgstr ""
+"Nowy Przegląd: procesor, karta graficzna i płyta z temperaturą z ostatnich 5 "
+"minut oraz wentylatory, pamięć i dyski w skrócie"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:77
+msgid ""
+"A Fans page with the speed and duty cycle of every fan and, where the kernel "
+"driver reports them, the curves the board runs the fans by"
+msgstr ""
+"Strona Wentylatory z obrotami i wypełnieniem każdego wentylatora oraz, gdy "
+"sterownik jądra je podaje, krzywymi, według których płyta nimi steruje"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:78
+msgid ""
+"A new System page, short like About in GNOME Settings, with the details one "
+"click away"
+msgstr ""
+"Nowa strona System, krótka jak „O systemie” w Ustawieniach GNOME, ze "
+"szczegółami o jedno kliknięcie dalej"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:79
+msgid ""
+"Warnings when the processor gets very hot, when the CPU fan stops and when a "
+"voltage is outside its tolerance"
+msgstr ""
+"Ostrzeżenia, gdy procesor jest bardzo gorący, gdy stanie wentylator "
+"procesora i gdy napięcie wyjdzie poza tolerancję"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:81
+msgid "Fan control comes in a later version."
+msgstr "Sterowanie wentylatorami pojawi się w jednej z kolejnych wersji."
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:86
 msgid ""
 "The first release. Baseboard reads the sensors of a motherboard and shows "
 "information about the system; it does not control anything yet."
@@ -161,7 +227,7 @@ msgstr ""
 "Pierwsze wydanie. Baseboard odczytuje czujniki płyty głównej i pokazuje "
 "informacje o systemie; jeszcze niczym nie steruje."
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:65
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:88
 msgid ""
 "Temperatures, fan speeds and voltages; on a board with a profile, named "
 "after its fan headers and voltage rails"
@@ -169,7 +235,7 @@ msgstr ""
 "Temperatury, obroty wentylatorów i napięcia; na płycie z profilem nazwane "
 "według jej złączy wentylatorów i szyn napięć"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:66
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:89
 msgid ""
 "Voltages rated against their tolerance, with the lowest and highest value "
 "since the app started"
@@ -177,20 +243,20 @@ msgstr ""
 "Ocena napięć względem tolerancji, z najniższą i najwyższą wartością od "
 "uruchomienia aplikacji"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:67
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:90
 msgid ""
-"A System page with the board, BIOS, processor, memory, graphics card, drives "
+"A System page with the board, BIOS, processor, memory, graphics card, disks "
 "and the fan driver, which can be copied as text for bug reports"
 msgstr ""
 "Strona System z płytą, BIOS-em, procesorem, pamięcią, kartą graficzną, "
 "dyskami i sterownikiem wentylatorów, którą można skopiować jako tekst do "
 "zgłoszeń błędów"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:68
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:91
 msgid "English and Polish"
 msgstr "Interfejs po angielsku i po polsku"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:70
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:93
 msgid "Fan control, onboard RGB lighting and power profiles are not there yet."
 msgstr ""
 "Sterowania wentylatorami, podświetlenia RGB płyty i profili energii jeszcze "
@@ -363,14 +429,14 @@ msgid "Temperature source: {source}."
 msgstr "Źródło temperatury: {source}."
 
 #. Translators: a point of a fan curve, e.g. "Point 3: 60 °C, 35 %."
-#: crates/app/src/fan_chart.rs:570 crates/app/src/fans/curve_page.rs:189
+#: crates/app/src/fan_chart.rs:570 crates/app/src/fans/curve_page.rs:191
 #, rust-format
 msgid "Point {number}: {temperature}, {duty}."
 msgstr "Punkt {number}: {temperature}, {duty}."
 
 #. Translators: read by screen readers for a row of equal points
 #. of a fan curve, e.g. "Points 4 to 7: 85 °C, 100 %.".
-#: crates/app/src/fan_chart.rs:574 crates/app/src/fans/curve_page.rs:182
+#: crates/app/src/fan_chart.rs:574 crates/app/src/fans/curve_page.rs:184
 #, rust-format
 msgid "Points {first} to {last}: {temperature}, {duty}."
 msgstr "Punkty od {first} do {last}: {temperature}, {duty}."
@@ -523,52 +589,52 @@ msgstr "Odczyt czujników…"
 msgid "Details"
 msgstr "Szczegóły"
 
-#: crates/app/src/fans/curve_page.rs:165
+#: crates/app/src/fans/curve_page.rs:167
 msgid "Automatic BIOS"
 msgstr "Automat BIOS"
 
-#: crates/app/src/fans/curve_page.rs:166
+#: crates/app/src/fans/curve_page.rs:168
 msgid "Manual"
 msgstr "Ręczny"
 
 #. Translators: the mode of a fan when the kernel driver gives none.
-#: crates/app/src/fans/curve_page.rs:168
+#: crates/app/src/fans/curve_page.rs:170
 msgid "The mode could not be read"
 msgstr "Nie udało się odczytać trybu"
 
 #. Translators: read by screen readers for the legend under the large
 #. chart of a fan curve.
-#: crates/app/src/fans/curve_page.rs:234
+#: crates/app/src/fans/curve_page.rs:236
 msgid "Legend of the chart"
 msgstr "Legenda wykresu"
 
 #. Translators: on a fan's row and on its curve page when the
 #. board's controller did not give the curve.
-#: crates/app/src/fans/curve_page.rs:259 crates/app/src/fans/row.rs:93
+#: crates/app/src/fans/curve_page.rs:261 crates/app/src/fans/row.rs:93
 #: crates/app/src/fans/row.rs:165
 msgid "The curve could not be read"
 msgstr "Nie udało się odczytać krzywej"
 
-#: crates/app/src/fans/curve_page.rs:260
+#: crates/app/src/fans/curve_page.rs:262
 msgid "Baseboard tries again every 10 seconds."
 msgstr "Baseboard próbuje ponownie co 10 sekund."
 
 #. Translators: on the curve page, the group about the fan
 #. header of the board: its mode, minimum and notes.
-#: crates/app/src/fans/curve_page.rs:274
+#: crates/app/src/fans/curve_page.rs:276
 msgid "Header"
 msgstr "Złącze"
 
-#: crates/app/src/fans/curve_page.rs:277
+#: crates/app/src/fans/curve_page.rs:279
 msgid "Mode"
 msgstr "Tryb"
 
 #. Translators: on the curve page of a fan in manual mode.
-#: crates/app/src/fans/curve_page.rs:281
+#: crates/app/src/fans/curve_page.rs:283
 msgid "In manual mode the curve does not run"
 msgstr "W trybie ręcznym krzywa nie działa"
 
-#: crates/app/src/fans/curve_page.rs:283
+#: crates/app/src/fans/curve_page.rs:285
 msgid ""
 "The fan holds a fixed duty cycle, and the curve stays in the board's "
 "controller."
@@ -576,86 +642,86 @@ msgstr "Wentylator ma stałe wypełnienie, a krzywa zostaje w kontrolerze płyty
 
 #. Translators: on the curve page, the lowest duty cycle of a
 #. header.
-#: crates/app/src/fans/curve_page.rs:289
+#: crates/app/src/fans/curve_page.rs:291
 msgid "Minimum"
 msgstr "Minimum"
 
-#: crates/app/src/fans/curve_page.rs:290
+#: crates/app/src/fans/curve_page.rs:292
 msgid "The lowest duty cycle Baseboard allows"
 msgstr "Najniższe wypełnienie, jakie Baseboard dopuści"
 
 #. Translators: on the curve page of a fan header whose channel
 #. nobody has checked on this board.
-#: crates/app/src/fans/curve_page.rs:296 crates/app/src/fans/row.rs:158
+#: crates/app/src/fans/curve_page.rs:298 crates/app/src/fans/row.rs:158
 msgid "This header was not checked on this board"
 msgstr "Złącza nie sprawdzono na tej płycie"
 
-#: crates/app/src/fans/curve_page.rs:297
+#: crates/app/src/fans/curve_page.rs:299
 msgid "Nobody has confirmed yet that this reading belongs to this header."
 msgstr "Nikt jeszcze nie potwierdził, że ten odczyt należy do tego złącza."
 
 #. Translators: on the curve page of a fan that has not spun
 #. since Baseboard started.
-#: crates/app/src/fans/curve_page.rs:303 crates/app/src/fans/row.rs:161
+#: crates/app/src/fans/curve_page.rs:305 crates/app/src/fans/row.rs:161
 msgid "Not spinning since the app started"
 msgstr "Nie kręci się od uruchomienia aplikacji"
 
-#: crates/app/src/fans/curve_page.rs:304 crates/app/src/fans/row.rs:162
+#: crates/app/src/fans/curve_page.rs:306 crates/app/src/fans/row.rs:162
 msgid "The header may be empty."
 msgstr "Złącze może być puste."
 
-#: crates/app/src/fans/curve_page.rs:323
+#: crates/app/src/fans/curve_page.rs:325
 msgid "Temperature source"
 msgstr "Źródło temperatury"
 
 #. Translators: under "Temperature source" on the curve page; "it"
 #. is the temperature.
-#: crates/app/src/fans/curve_page.rs:326
+#: crates/app/src/fans/curve_page.rs:328
 msgid "The controller computes the duty cycle from it."
 msgstr "Według niej kontroler liczy wypełnienie."
 
-#: crates/app/src/fans/curve_page.rs:339
+#: crates/app/src/fans/curve_page.rs:341
 msgid "Cannot be changed"
 msgstr "Nie można zmienić"
 
-#: crates/app/src/fans/curve_page.rs:347
+#: crates/app/src/fans/curve_page.rs:349
 msgid "How the curve works"
 msgstr "Jak działa krzywa"
 
-#: crates/app/src/fans/curve_page.rs:350
+#: crates/app/src/fans/curve_page.rs:352
 msgid "The duty cycle changes linearly between the points"
 msgstr "Między punktami wypełnienie zmienia się liniowo"
 
-#: crates/app/src/fans/curve_page.rs:351
+#: crates/app/src/fans/curve_page.rs:353
 msgid "Below the first point and above the last one, their duty cycle applies."
 msgstr ""
 "Poniżej pierwszego punktu i powyżej ostatniego obowiązuje ich wypełnienie."
 
-#: crates/app/src/fans/curve_page.rs:355
+#: crates/app/src/fans/curve_page.rs:357
 msgid "The board's controller runs the curve"
 msgstr "Krzywą wykonuje kontroler płyty"
 
-#: crates/app/src/fans/curve_page.rs:356
+#: crates/app/src/fans/curve_page.rs:358
 msgid "Baseboard does not have to run for it."
 msgstr "Baseboard nie musi przy tym działać."
 
-#: crates/app/src/fans/curve_page.rs:417
+#: crates/app/src/fans/curve_page.rs:435
 msgid "Points"
 msgstr "Punkty"
 
 #. Translators: under "Points" on the curve page.
-#: crates/app/src/fans/curve_page.rs:419
+#: crates/app/src/fans/curve_page.rs:437
 msgid "Values read from the board's controller."
 msgstr "Wartości odczytane z kontrolera płyty."
 
 #. Translators: in the legend under a fan curve, the operating
 #. point, e.g. "Now: 46.0 °C, 38 %".
-#: crates/app/src/fans/curve_page.rs:585
+#: crates/app/src/fans/curve_page.rs:604
 #, rust-format
 msgid "Now: {temperature}, {duty}"
 msgstr "Teraz: {temperature}, {duty}"
 
-#: crates/app/src/fans/curve_page.rs:601
+#: crates/app/src/fans/curve_page.rs:620
 #, rust-format
 msgid "Target: {duty}"
 msgstr "Cel: {duty}"
@@ -1133,7 +1199,7 @@ msgstr[2] "Najcieplejszy z {} dysków"
 msgid "From {low} to {high}"
 msgstr "Od {low} do {high}"
 
-#: crates/app/src/part_card.rs:137
+#: crates/app/src/part_card.rs:319
 msgid "Last 5 minutes"
 msgstr "Ostatnie 5 minut"
 
