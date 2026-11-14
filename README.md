@@ -15,20 +15,27 @@
 </p>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="website/screenshots/0.1.0/overview-dark-en.png">
-  <img src="website/screenshots/0.1.0/overview-en.png" alt="The Overview page: processor and mainboard temperatures and the first fan, named after its header, CPU_FAN1, with the lowest and highest value since the app started.">
+  <source media="(prefers-color-scheme: dark)" srcset="website/screenshots/0.2.0/overview-dark-en.png">
+  <img src="website/screenshots/0.2.0/overview-en.png" alt="The Overview page: “Everything is fine” on top; cards for the processor, graphics card and motherboard, each with its temperature, a line of the last five minutes and the highest value since the app started; tiles for the fans, memory and disks; and a row that opens all sensors.">
 </picture>
 
-> **Early version.** Baseboard has finished its first milestone (M1): it only reads. The first release is 0.1.0, see [Install](#install). The design, in Polish, is in [docs/PROJEKT.md](docs/PROJEKT.md).
+> **Early version, read only.** The current release is 0.2.0, see [Install](#install): it shows readings, fan curves and system information and does not change any setting yet. The design, in Polish, is in [docs/PROJEKT.md](docs/PROJEKT.md).
 
 ## What it is for
 
 - A native GNOME app (GTK 4, libadwaita) for MSI motherboards on Linux. The point of reference is the sensor and fan part of MSI Center on Windows.
 - For sensors and fans it relies only on the kernel drivers and their standard hwmon interface in sysfs. It has no hardware access of its own: no I/O ports, `/dev/port` or `/dev/mem`, and nothing in user space writes to the embedded controller (EC).
-- What it does today (M1), read only:
-  - temperatures, fan speeds and voltages, named after the fan headers and rails in the board profile, with voltages rated against their tolerance and the minimum and maximum since start;
-  - a System page with the board, BIOS, processor, memory, graphics card, disks and the state of the fan driver, and a "Copy Information" button for bug reports (no serial numbers or MAC addresses);
+- What it does today (0.2.0), read only:
+  - an Overview with the processor, graphics card and board, each with its temperature over the last five minutes, the fans, memory and disks, and one sentence that says whether everything is fine; it warns when the processor gets very hot, when the CPU fan stops and when a voltage is outside its tolerance;
+  - a Fans page with the speed and duty cycle of every fan, named after the headers in the board profile, and the curve the board runs each fan by, where the kernel driver reports curves (see [Roadmap and kernel support](#roadmap-and-kernel-support)); with the driver of a released kernel it shows the speeds and temperatures;
+  - all sensors: every temperature, fan speed and voltage with its source and its range since the app started, voltages rated against their tolerance;
+  - a System page with the board, BIOS, processor, memory, graphics card and disks, the details and the state of the fan driver one click away, and a "Copy Information" button for bug reports (no serial numbers or MAC addresses);
   - English and Polish.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="website/screenshots/0.2.0/fans-dark-en.png">
+  <img src="website/screenshots/0.2.0/fans-en.png" alt="The Fans page: the processor card with its temperature and the CPU fan speed, and a list of the fans named after their headers, with their speed and duty cycle and a small curve where the driver reports one.">
+</picture>
 - One verified board: **MAG B850M MORTAR WIFI (MS-7E61)**, PCB revision 1. On other computers Baseboard runs in a generic mode: readings without the board's header names and no fan control.
 
 ## Install
@@ -66,23 +73,23 @@ Fan control (M2) will need a system helper that cannot be part of a Flatpak; it 
 
 ## Roadmap and kernel support
 
-Fan control on these boards depends on the `nct6683` kernel driver. Baseboard does not check the kernel version. It reads the sysfs attributes of each fan channel and decides from them what the driver allows. M1 already detects this level and shows it on the System page. Fan control itself comes with M2; from then on each level below unlocks by itself once the kernel provides it, without a new release of Baseboard.
+Fan control on these boards depends on the `nct6683` kernel driver. Baseboard does not check the kernel version. It reads the sysfs attributes of each fan channel and decides from them what the driver allows, and shows this level on the System page. Since 0.2.0 it shows the fan curves where the driver reports them; fan control comes in a later version. From then on each level below unlocks by itself once the kernel provides it, without a new release of Baseboard.
 
 If a patch in review changes its interface, Baseboard will have to follow it. Choosing the temperature source will be enabled only for the interface that is sent to the mailing list.
 
-| Level | What Baseboard does (M2) | What it needs from the kernel | State in the kernel |
+| Level | What Baseboard does | What it needs from the kernel | State in the kernel |
 |---|---|---|---|
-| Read only | Readings, and the fans shown read only with a note that control needs a newer driver | The `nct6683` driver for the board's NCT6687D-R chip | In current kernels (checked with Fedora's 7.3.3 kernel) |
-| Manual control | A fixed duty cycle per header, set through the helper | Writable `pwmN` and `pwmN_enable`: manual fan control for MSI boards with NCT6687D-R, and its restore after resume | In `hwmon-next`, the hwmon maintainer's tree; not in a released kernel yet |
-| Curve view | The fan curves stored in the EC and their temperature source, as a preview | Readable `pwmN_auto_point*` and `pwmN_auto_channels_temp` | In `hwmon-next`; not in a released kernel yet |
-| Curve editing | Editing the seven-point curves in the EC; they keep working without the app | Writable `pwmN_auto_point*` | Patches in review on linux-hwmon: [v1 thread](https://lore.kernel.org/linux-hwmon/20261109223442.509238-1-tomasz@bojanowski.me/) |
-| Temperature source | Choosing the sensor a curve follows | Writable `pwmN_auto_channels_temp` | Planned, not sent yet |
+| Read only | Readings and fan speeds, with a note that control needs a newer driver (0.2.0) | The `nct6683` driver for the board's NCT6687D-R chip | In current kernels (checked with Fedora's 7.3.3 kernel) |
+| Manual control | A fixed duty cycle per header, set through the helper (later) | Writable `pwmN` and `pwmN_enable`: manual fan control for MSI boards with NCT6687D-R, and its restore after resume | In `hwmon-next`, the hwmon maintainer's tree; not in a released kernel yet |
+| Curve view | The fan curves stored in the EC and their temperature source, read only (0.2.0) | Readable `pwmN_auto_point*` and `pwmN_auto_channels_temp` | In `hwmon-next`; not in a released kernel yet |
+| Curve editing | Editing the seven-point curves in the EC; they keep working without the app (later) | Writable `pwmN_auto_point*` | Patches in review on linux-hwmon: [v1 thread](https://lore.kernel.org/linux-hwmon/20261109223442.509238-1-tomasz@bojanowski.me/) |
+| Temperature source | Choosing the sensor a curve follows (later) | Writable `pwmN_auto_channels_temp` | Planned, not sent yet |
 
 Patches in review may change or may not be accepted. Kernel versions are not given until the patches are in the mainline tree.
 
 ### Next
 
-- **M2, fans:** a curve preview first, then a small system helper (D-Bus and polkit) that is the only part allowed to change fan settings, then manual mode and a curve editor. The helper follows fixed safety rules:
+- **M2, fans:** after the curve view of 0.2.0, a small system helper (D-Bus and polkit) that is the only part allowed to change fan settings, then manual mode and a curve editor. The helper follows fixed safety rules:
   - minimum duty cycles for the CPU fan and the pump;
   - the pump never stops;
   - curves for the CPU and the pump reach 100 % by the emergency temperature;

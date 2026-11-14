@@ -10,10 +10,10 @@
 <meta property="og:url" content="https://baseboard.bojanowski.me/pl/">
 <meta property="og:title" content="Baseboard: czujniki i wentylatory płyt głównych MSI w Linuksie">
 <meta property="og:description" content="Natywna aplikacja GNOME do czujników i wentylatorów płyt głównych MSI w Linuksie. Wczesna wersja, tylko odczyt.">
-<meta property="og:image" content="https://baseboard.bojanowski.me/screenshots/0.1.0/overview-pl.png">
-<meta property="og:image:width" content="1322">
-<meta property="og:image:height" content="947">
-<meta property="og:image:alt" content="Strona Przegląd: odczyty procesora, płyty, wentylatorów i napięć; wentylatory nazwane według złączy, np. CPU_FAN1 i SYS_FAN1, napięcia w tolerancji.">
+<meta property="og:image" content="https://baseboard.bojanowski.me/screenshots/0.2.0/overview-pl.png">
+<meta property="og:image:width" content="1572">
+<meta property="og:image:height" content="1072">
+<meta property="og:image:alt" content="Strona Przegląd: na górze „Wszystko w normie”; karty procesora, karty graficznej i płyty, każda z temperaturą, linią ostatnich 5 minut i najwyższą wartością od uruchomienia; kafelki wentylatorów, pamięci i dysków.">
 <meta property="og:locale" content="pl_PL">
 <meta property="og:locale:alternate" content="en_US">
 <meta name="color-scheme" content="light dark">
@@ -52,10 +52,10 @@
 
 <figure class="shot">
 <picture>
-<source srcset="../img/overview-dark-pl.png" media="(prefers-color-scheme: dark)">
-<img src="../img/overview-light-pl.png" width="1572" height="1072" alt="Strona Przegląd: odczyty procesora, płyty, wentylatorów i napięć; wentylatory nazwane według złączy, np. CPU_FAN1 i SYS_FAN1, napięcia w tolerancji.">
+<source srcset="../screenshots/0.2.0/overview-dark-pl.png" media="(prefers-color-scheme: dark)">
+<img src="../screenshots/0.2.0/overview-pl.png" width="1572" height="1072" alt="Strona Przegląd: na górze „Wszystko w normie”; karty procesora, karty graficznej i płyty, każda z temperaturą, linią ostatnich 5 minut i najwyższą wartością od uruchomienia; kafelki wentylatorów, pamięci i dysków oraz wiersz, który otwiera wszystkie czujniki.">
 </picture>
-<figcaption>Przegląd: odczyty nazwane według złączy wentylatorów i szyn napięć płyty.</figcaption>
+<figcaption>Przegląd: temperatury z ostatnich 5 minut, wentylatory, pamięć i dyski.</figcaption>
 </figure>
 
 <div class="wrap">
@@ -77,21 +77,38 @@
 <main id="main">
 <section id="dzis" aria-labelledby="dzis-tytul">
 <h2 id="dzis-tytul">Co pokazuje dziś</h2>
-<p>Baseboard pokazuje odczyty i informacje o systemie, ale jeszcze niczym nie steruje. Pierwsze wydanie to 0.1.0.</p>
+<p>Baseboard pokazuje odczyty, krzywe wentylatorów i informacje o systemie, ale jeszcze nie zmienia żadnych ustawień. Obecne wydanie to 0.2.0.</p>
 <ul>
-<li>Temperatury, obroty wentylatorów i napięcia, nazwane tak jak złącza i szyny w profilu płyty.</li>
-<li>Ocenę napięć względem tolerancji oraz minimum i maksimum każdego odczytu od uruchomienia aplikacji.</li>
-<li>Stronę System: płytę, BIOS, procesor, pamięć, kartę graficzną, dyski i stan sterownika wentylatorów.</li>
+<li>Przegląd: procesor, kartę graficzną i płytę, każde z temperaturą z ostatnich 5 minut, wentylatory, pamięć i dyski oraz jedno zdanie, czy wszystko jest w normie. Ostrzega, gdy procesor jest bardzo gorący, gdy stanie wentylator procesora i gdy napięcie wyjdzie poza tolerancję.</li>
+<li>Stronę Wentylatory: obroty i wypełnienie każdego wentylatora, nazwanego tak jak złącze na płycie, oraz krzywą, według której płyta nim steruje, gdy sterownik jądra podaje krzywe (zob. <a href="#jadro">Wentylatory a jądro</a>). Ze sterownikiem wydanego jądra pokazuje obroty i temperatury.</li>
+<li>Wszystkie czujniki: każdą temperaturę, obroty i napięcie ze źródłem i zakresem od uruchomienia aplikacji, napięcia z oceną względem tolerancji.</li>
+<li>Stronę System: płytę, BIOS, procesor, pamięć, kartę graficzną i dyski, a szczegóły i stan sterownika wentylatorów o jedno kliknięcie dalej.</li>
 <li>Przycisk „Kopiuj informacje” z tekstem do zgłoszenia błędu, bez numerów seryjnych i adresów MAC.</li>
 <li>Interfejs po polsku i po angielsku.</li>
 </ul>
 
 <figure class="wide">
 <picture>
-<source srcset="../img/system-dark-pl.png" media="(prefers-color-scheme: dark)">
-<img src="../img/system-light-pl.png" width="1572" height="1072" alt="Strona System: płyta z kodem i rewizją PCB, sprawdzony profil płyty, wersja BIOS-u, procesor, system i jądro.">
+<source srcset="../screenshots/0.2.0/fans-dark-pl.png" media="(prefers-color-scheme: dark)">
+<img src="../screenshots/0.2.0/fans-pl.png" width="1572" height="1072" loading="lazy" alt="Strona Wentylatory: karta procesora z temperaturą i obrotami wentylatora procesora oraz lista wentylatorów nazwanych według złączy, z obrotami, wypełnieniem i małą krzywą tam, gdzie sterownik ją podaje.">
 </picture>
-<figcaption>System: płyta, BIOS, procesor, pamięć, dyski i sterownik wentylatorów.</figcaption>
+<figcaption>Wentylatory: obroty i wypełnienie każdego wentylatora, nazwanego według złącza.</figcaption>
+</figure>
+
+<figure class="wide">
+<picture>
+<source srcset="../screenshots/0.2.0/fan-curve-dark-pl.png" media="(prefers-color-scheme: dark)">
+<img src="../screenshots/0.2.0/fan-curve-pl.png" width="1572" height="1072" loading="lazy" alt="Krzywa wentylatora procesora: wypełnienie w zależności od temperatury procesora mierzonej przez płytę, z punktem, w którym wentylator pracuje teraz, progiem awaryjnym i punktami krzywej odczytanymi z kontrolera płyty.">
+</picture>
+<figcaption>Krzywa wentylatora tak, jak wykonuje ją kontroler płyty; Baseboard tylko ją odczytuje.</figcaption>
+</figure>
+
+<figure class="wide">
+<picture>
+<source srcset="../screenshots/0.2.0/system-dark-pl.png" media="(prefers-color-scheme: dark)">
+<img src="../screenshots/0.2.0/system-pl.png" width="1572" height="1072" loading="lazy" alt="Strona System: na górze „Wszystko w normie”; płyta, BIOS z datą, procesor, pamięć i karta graficzna; dyski i karty sieciowe; system operacyjny oraz wiersz, który otwiera szczegóły techniczne.">
+</picture>
+<figcaption>System: płyta, BIOS, procesor, pamięć, karta graficzna i dyski.</figcaption>
 </figure>
 </section>
 
@@ -103,18 +120,18 @@
 
 <section id="jadro" aria-labelledby="jadro-tytul">
 <h2 id="jadro-tytul">Wentylatory a jądro</h2>
-<p>Sterowanie wentylatorami na tych płytach zależy od sterownika jądra <code>nct6683</code>. Baseboard nie sprawdza wersji jądra. Czyta atrybuty sysfs każdego kanału wentylatora i z nich wnioskuje, na co pozwala sterownik; ten poziom widać już na stronie System. Samo sterowanie przyjdzie w kolejnym etapie, a od tego momentu każdy poziom z tabeli odblokuje się sam, gdy jądro go udostępni, bez nowego wydania Baseboard.</p>
+<p>Sterowanie wentylatorami na tych płytach zależy od sterownika jądra <code>nct6683</code>. Baseboard nie sprawdza wersji jądra. Czyta atrybuty sysfs każdego kanału wentylatora i z nich wnioskuje, na co pozwala sterownik; ten poziom widać na stronie System. Od 0.2.0 Baseboard pokazuje krzywe wentylatorów tam, gdzie podaje je sterownik; ze sterownikiem wydanego jądra pokazuje obroty i temperatury. Sterowanie przyjdzie w jednej z kolejnych wersji, a od tego momentu każdy poziom z tabeli odblokuje się sam, gdy jądro go udostępni, bez nowego wydania Baseboard.</p>
 <div class="table">
 <table>
 <thead>
-<tr><th scope="col">Poziom</th><th scope="col">Co zrobi Baseboard</th><th scope="col">Czego wymaga od jądra</th><th scope="col">Stan w jądrze</th></tr>
+<tr><th scope="col">Poziom</th><th scope="col">Co robi Baseboard</th><th scope="col">Czego wymaga od jądra</th><th scope="col">Stan w jądrze</th></tr>
 </thead>
 <tbody>
-<tr><th scope="row">Tylko odczyt</th><td data-label="Co zrobi Baseboard">Odczyty oraz wentylatory tylko do podglądu, z wyjaśnieniem, że sterowanie wymaga nowszego sterownika</td><td data-label="Czego wymaga od jądra">Sterownika <code>nct6683</code> dla układu NCT6687D-R płyty</td><td data-label="Stan w jądrze"><span class="pill pill-released">W obecnych jądrach</span></td></tr>
-<tr><th scope="row">Tryb ręczny</th><td data-label="Co zrobi Baseboard">Stałe wypełnienie dla każdego złącza, ustawiane przez pomocnika systemowego</td><td data-label="Czego wymaga od jądra">Zapisywalnych <code>pwmN</code> i <code>pwmN_enable</code> oraz przywracania ich po wybudzeniu</td><td data-label="Stan w jądrze"><span class="pill pill-next">W <code>hwmon-next</code></span><span class="vh">,</span> <span class="state-note">drzewie opiekuna podsystemu hwmon; jeszcze nie w wydanym jądrze</span></td></tr>
-<tr><th scope="row">Podgląd krzywych</th><td data-label="Co zrobi Baseboard">Krzywe zapisane w EC i ich źródło temperatury, do podglądu</td><td data-label="Czego wymaga od jądra">Czytelnych <code>pwmN_auto_point*</code> i <code>pwmN_auto_channels_temp</code></td><td data-label="Stan w jądrze"><span class="pill pill-next">W <code>hwmon-next</code></span><span class="vh">;</span> <span class="state-note">jeszcze nie w wydanym jądrze</span></td></tr>
-<tr><th scope="row">Krzywe w EC</th><td data-label="Co zrobi Baseboard">Edycja siedmiopunktowych krzywych w EC; działają też bez aplikacji</td><td data-label="Czego wymaga od jądra">Zapisywalnych <code>pwmN_auto_point*</code></td><td data-label="Stan w jądrze"><span class="pill pill-review">Łatki w recenzji</span> <span class="state-note">na liście linux-hwmon: <a href="https://lore.kernel.org/linux-hwmon/20261109223442.509238-1-tomasz@bojanowski.me/" hreflang="en">wątek v1</a></span></td></tr>
-<tr><th scope="row">Wybór temperatury</th><td data-label="Co zrobi Baseboard">Wybór czujnika, za którym idzie krzywa</td><td data-label="Czego wymaga od jądra">Zapisywalnego <code>pwmN_auto_channels_temp</code></td><td data-label="Stan w jądrze"><span class="pill pill-planned">Planowane</span><span class="vh">,</span> <span class="state-note">jeszcze niewysłane</span></td></tr>
+<tr><th scope="row">Tylko odczyt</th><td data-label="Co robi Baseboard">Odczyty i obroty wentylatorów, z wyjaśnieniem, że sterowanie wymaga nowszego sterownika (0.2.0)</td><td data-label="Czego wymaga od jądra">Sterownika <code>nct6683</code> dla układu NCT6687D-R płyty</td><td data-label="Stan w jądrze"><span class="pill pill-released">W obecnych jądrach</span></td></tr>
+<tr><th scope="row">Tryb ręczny</th><td data-label="Co robi Baseboard">Stałe wypełnienie dla każdego złącza, ustawiane przez pomocnika systemowego (później)</td><td data-label="Czego wymaga od jądra">Zapisywalnych <code>pwmN</code> i <code>pwmN_enable</code> oraz przywracania ich po wybudzeniu</td><td data-label="Stan w jądrze"><span class="pill pill-next">W <code>hwmon-next</code></span><span class="vh">,</span> <span class="state-note">drzewie opiekuna podsystemu hwmon; jeszcze nie w wydanym jądrze</span></td></tr>
+<tr><th scope="row">Podgląd krzywych</th><td data-label="Co robi Baseboard">Krzywe zapisane w EC i ich źródło temperatury, tylko do odczytu (0.2.0)</td><td data-label="Czego wymaga od jądra">Czytelnych <code>pwmN_auto_point*</code> i <code>pwmN_auto_channels_temp</code></td><td data-label="Stan w jądrze"><span class="pill pill-next">W <code>hwmon-next</code></span><span class="vh">;</span> <span class="state-note">jeszcze nie w wydanym jądrze</span></td></tr>
+<tr><th scope="row">Krzywe w EC</th><td data-label="Co robi Baseboard">Edycja siedmiopunktowych krzywych w EC; działają też bez aplikacji (później)</td><td data-label="Czego wymaga od jądra">Zapisywalnych <code>pwmN_auto_point*</code></td><td data-label="Stan w jądrze"><span class="pill pill-review">Łatki w recenzji</span> <span class="state-note">na liście linux-hwmon: <a href="https://lore.kernel.org/linux-hwmon/20261109223442.509238-1-tomasz@bojanowski.me/" hreflang="en">wątek v1</a></span></td></tr>
+<tr><th scope="row">Wybór temperatury</th><td data-label="Co robi Baseboard">Wybór czujnika, za którym idzie krzywa (później)</td><td data-label="Czego wymaga od jądra">Zapisywalnego <code>pwmN_auto_channels_temp</code></td><td data-label="Stan w jądrze"><span class="pill pill-planned">Planowane</span><span class="vh">,</span> <span class="state-note">jeszcze niewysłane</span></td></tr>
 </tbody>
 </table>
 </div>
@@ -210,7 +227,7 @@ flatpak run me.bojanowski.Baseboard</code></pre>
 <section id="plany" aria-labelledby="plany-tytul">
 <h2 id="plany-tytul">Plany</h2>
 <h3>Najbliżej: sterowanie wentylatorami</h3>
-<p>Najpierw podgląd krzywych, potem mały pomocnik systemowy (D-Bus i polkit), jedyny element, który może zmieniać ustawienia wentylatorów, a na końcu tryb ręczny i edytor krzywych. Pomocnik nie może być częścią Flatpaka, więc trafi do osobnego pakietu systemowego. Obowiązują go stałe zasady bezpieczeństwa:</p>
+<p>Po podglądzie krzywych z 0.2.0 mały pomocnik systemowy (D-Bus i polkit), jedyny element, który może zmieniać ustawienia wentylatorów, a na końcu tryb ręczny i edytor krzywych. Pomocnik nie może być częścią Flatpaka, więc trafi do osobnego pakietu systemowego. Obowiązują go stałe zasady bezpieczeństwa:</p>
 <ul>
 <li>minimalne wypełnienie dla wentylatora procesora i pompy;</li>
 <li>pompa nigdy nie staje;</li>
