@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
   <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
-  <path fill="#222222" fill-rule="evenodd" d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 1.4a5.6 5.6 0 1 1 0 11.2A5.6 5.6 0 0 1 8 2.4z"/>
-  <path fill="#222222" d="M10.5 5.4l1.06 1.06L7.1 10.92 4.44 8.26 5.5 7.2l1.6 1.6z"/>
+  <path fill="#222222" fill-rule="evenodd" d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 1.25a5.75 5.75 0 1 1 0 11.5A5.75 5.75 0 0 1 8 2.25z"/>
+  <path fill="#222222" d="M4.528 8.172L7.1 10.744l4.372-4.372-.884-.884L7.1 8.976 5.412 7.288z"/>
 </svg>

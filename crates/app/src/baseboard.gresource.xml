@@ -28,7 +28,8 @@
     <!-- "Everything is fine" and the checks that passed: a check in a
          circle, as next to the warnings and the information. -->
     <file compressed="true" alias="icons/scalable/actions/baseboard-ok-symbolic.svg">icons/ok-symbolic.svg</file>
-    <!-- The board (the System page): the symbolic app icon. -->
-    <file compressed="true" alias="icons/scalable/actions/baseboard-board-symbolic.svg">icons/hicolor/symbolic/apps/me.bojanowski.Baseboard-symbolic.svg</file>
+    <!-- The board: its socket, a memory slot and an expansion slot, in the
+         outline of the other parts; the symbolic app icon stays the app's. -->
+    <file compressed="true" alias="icons/scalable/actions/baseboard-board-symbolic.svg">icons/board-symbolic.svg</file>
   </gresource>
 </gresources>
