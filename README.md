@@ -35,6 +35,7 @@
   - all sensors: every temperature, fan speed and voltage with its source and its range since the app started, voltages rated against their tolerance;
   - a System page with the board, BIOS, processor, memory, graphics card and disks, the details and the state of the fan driver one click away, and a "Copy Information" button for bug reports (no serial numbers or MAC addresses);
   - English and Polish.
+- One verified board: **MAG B850M MORTAR WIFI (MS-7E61)**, PCB revision 1. On other computers Baseboard runs in a generic mode: readings without the board's header names and no fan control.
 
 <p align="center">
   <picture>
@@ -42,7 +43,6 @@
     <img src="website/screenshots/0.2.0/readme/fans-en.png" width="700" alt="The Fans page: the processor card with its temperature and the CPU fan speed, and a list of the fans named after their headers, with their speed and duty cycle and a small curve where the driver reports one.">
   </picture>
 </p>
-- One verified board: **MAG B850M MORTAR WIFI (MS-7E61)**, PCB revision 1. On other computers Baseboard runs in a generic mode: readings without the board's header names and no fan control.
 
 ## Install
 
