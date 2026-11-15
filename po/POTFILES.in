@@ -5,6 +5,7 @@ data/me.bojanowski.Baseboard.metainfo.xml.in
 crates/app/src/alert.rs
 crates/app/src/application.rs
 crates/app/src/fan_chart.rs
+crates/app/src/fan_chart/draw.rs
 crates/app/src/fans.rs
 crates/app/src/fans.ui
 crates/app/src/fans/curve_page.rs

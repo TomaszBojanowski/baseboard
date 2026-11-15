@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: baseboard\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-14 01:23+0100\n"
+"POT-Creation-Date: 2026-11-15 23:33+0100\n"
 "PO-Revision-Date: 2026-11-11 20:30+0100\n"
 "Last-Translator: Tomasz Bojanowski <tomasz@bojanowski.me>\n"
 "Language-Team: \n"
@@ -388,21 +388,87 @@ msgstr "Tomasz Bojanowski"
 msgid "Hardware descriptions from public sources"
 msgstr "Opis sprzętu ze źródeł publicznych"
 
+#. Translators: {source} is a temperature, e.g. "Processor (board sensor)".
+#: crates/app/src/fan_chart.rs:123
+#, rust-format
+msgid "Temperature source: {source}."
+msgstr "Źródło temperatury: {source}."
+
+#. Translators: a point of a fan curve, e.g. "Point 3: 60 °C, 35 %."
+#: crates/app/src/fan_chart.rs:129 crates/app/src/fans/curve_page.rs:191
+#, rust-format
+msgid "Point {number}: {temperature}, {duty}."
+msgstr "Punkt {number}: {temperature}, {duty}."
+
+#. Translators: read by screen readers for a row of equal points
+#. of a fan curve, e.g. "Points 4 to 7: 85 °C, 100 %.".
+#: crates/app/src/fan_chart.rs:133 crates/app/src/fans/curve_page.rs:184
+#, rust-format
+msgid "Points {first} to {last}: {temperature}, {duty}."
+msgstr "Punkty od {first} do {last}: {temperature}, {duty}."
+
+#. Translators: the source temperature and the fan's duty cycle
+#. now, e.g. "Now 46.0 °C, duty cycle 38 %."
+#: crates/app/src/fan_chart.rs:147
+#, rust-format
+msgid "Now {temperature}, duty cycle {duty}."
+msgstr "Teraz {temperature}, wypełnienie {duty}."
+
+#. Translators: the controller changes the duty cycle
+#. gradually; {duty} is where it is heading, e.g. "40 %".
+#: crates/app/src/fan_chart.rs:158
+#, rust-format
+msgid "The fan is moving to {duty}."
+msgstr "Wentylator dochodzi do {duty}."
+
+#. Translators: the lowest duty cycle allowed for this fan, e.g. "30 %".
+#: crates/app/src/fan_chart.rs:166
+#, rust-format
+msgid "Minimum duty cycle: {duty}."
+msgstr "Minimalne wypełnienie: {duty}."
+
+#. Translators: the emergency temperature of the source, e.g. "95 °C".
+#: crates/app/src/fan_chart.rs:173
+#, rust-format
+msgid "Emergency threshold: {temperature}."
+msgstr "Próg awaryjny: {temperature}."
+
+#. Translators: the name of the chart for the screen reader;
+#. {name} is a fan, e.g. "CPU fan 1".
+#: crates/app/src/fan_chart.rs:317
+#, rust-format
+msgid "Curve of {name}"
+msgstr "Krzywa: {name}"
+
+#. Translators: the label of the operating point on a fan curve,
+#. e.g. "Now 46.0 °C · 38 %".
+#: crates/app/src/fan_chart.rs:557
+#, rust-format
+msgid "Now {temperature} · {duty}"
+msgstr "Teraz {temperature} · {duty}"
+
+#. Translators: under the label of the operating point, where
+#. the fan is heading, e.g. "target 40 %".
+#: crates/app/src/fan_chart.rs:569
+#, rust-format
+msgid "target {duty}"
+msgstr "cel {duty}"
+
 #. Translators: the title of the vertical axis of a fan curve.
-#: crates/app/src/fan_chart.rs:380
+#: crates/app/src/fan_chart/draw.rs:284
 msgid "Duty cycle"
 msgstr "Wypełnienie"
 
 #. Translators: the title of the horizontal axis of a fan curve;
 #. {source} is a temperature, e.g. "Processor (board sensor)".
-#: crates/app/src/fan_chart.rs:389
+#: crates/app/src/fan_chart/draw.rs:293
 #, rust-format
 msgid "Temperature: {source}"
 msgstr "Temperatura: {source}"
 
 #. Translators: the zone of a fan curve below the lowest duty
 #. cycle allowed; {duty} is e.g. "30 %".
-#: crates/app/src/fan_chart.rs:472
+#: crates/app/src/fan_chart/draw.rs:381
 #, rust-format
 msgid "Below the minimum of {duty}"
 msgstr "Poniżej minimum {duty}"
@@ -410,83 +476,17 @@ msgstr "Poniżej minimum {duty}"
 #. Translators: the emergency temperature of the source on a
 #. fan curve that must reach full duty by then; e.g.
 #. "Emergency threshold 95 °C: 100 % from there".
-#: crates/app/src/fan_chart.rs:514
+#: crates/app/src/fan_chart/draw.rs:423
 #, rust-format
 msgid "Emergency threshold {temperature}: {duty} from there"
 msgstr "Próg awaryjny {temperature}: od niego {duty}"
 
 #. Translators: the emergency temperature of the source on a
 #. fan curve, e.g. "Emergency threshold 95 °C".
-#: crates/app/src/fan_chart.rs:520
+#: crates/app/src/fan_chart/draw.rs:429
 #, rust-format
 msgid "Emergency threshold {temperature}"
 msgstr "Próg awaryjny {temperature}"
-
-#. Translators: {source} is a temperature, e.g. "Processor (board sensor)".
-#: crates/app/src/fan_chart.rs:564
-#, rust-format
-msgid "Temperature source: {source}."
-msgstr "Źródło temperatury: {source}."
-
-#. Translators: a point of a fan curve, e.g. "Point 3: 60 °C, 35 %."
-#: crates/app/src/fan_chart.rs:570 crates/app/src/fans/curve_page.rs:191
-#, rust-format
-msgid "Point {number}: {temperature}, {duty}."
-msgstr "Punkt {number}: {temperature}, {duty}."
-
-#. Translators: read by screen readers for a row of equal points
-#. of a fan curve, e.g. "Points 4 to 7: 85 °C, 100 %.".
-#: crates/app/src/fan_chart.rs:574 crates/app/src/fans/curve_page.rs:184
-#, rust-format
-msgid "Points {first} to {last}: {temperature}, {duty}."
-msgstr "Punkty od {first} do {last}: {temperature}, {duty}."
-
-#. Translators: the source temperature and the fan's duty cycle
-#. now, e.g. "Now 46.0 °C, duty cycle 38 %."
-#: crates/app/src/fan_chart.rs:588
-#, rust-format
-msgid "Now {temperature}, duty cycle {duty}."
-msgstr "Teraz {temperature}, wypełnienie {duty}."
-
-#. Translators: the controller changes the duty cycle
-#. gradually; {duty} is where it is heading, e.g. "40 %".
-#: crates/app/src/fan_chart.rs:599
-#, rust-format
-msgid "The fan is moving to {duty}."
-msgstr "Wentylator dochodzi do {duty}."
-
-#. Translators: the lowest duty cycle allowed for this fan, e.g. "30 %".
-#: crates/app/src/fan_chart.rs:607
-#, rust-format
-msgid "Minimum duty cycle: {duty}."
-msgstr "Minimalne wypełnienie: {duty}."
-
-#. Translators: the emergency temperature of the source, e.g. "95 °C".
-#: crates/app/src/fan_chart.rs:614
-#, rust-format
-msgid "Emergency threshold: {temperature}."
-msgstr "Próg awaryjny: {temperature}."
-
-#. Translators: the name of the chart for the screen reader;
-#. {name} is a fan, e.g. "CPU fan 1".
-#: crates/app/src/fan_chart.rs:758
-#, rust-format
-msgid "Curve of {name}"
-msgstr "Krzywa: {name}"
-
-#. Translators: the label of the operating point on a fan curve,
-#. e.g. "Now 46.0 °C · 38 %".
-#: crates/app/src/fan_chart.rs:998
-#, rust-format
-msgid "Now {temperature} · {duty}"
-msgstr "Teraz {temperature} · {duty}"
-
-#. Translators: under the label of the operating point, where
-#. the fan is heading, e.g. "target 40 %".
-#: crates/app/src/fan_chart.rs:1010
-#, rust-format
-msgid "target {duty}"
-msgstr "cel {duty}"
 
 #. Translators: the source of a fan curve when it is a temperature
 #. the kernel driver does not report.
