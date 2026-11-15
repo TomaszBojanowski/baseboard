@@ -18,5 +18,6 @@ crates/app/src/preferences.rs
 crates/app/src/shortcuts-dialog.ui
 crates/app/src/system.rs
 crates/app/src/system.ui
+crates/app/src/system/sections.rs
 crates/app/src/window.rs
 crates/app/src/window.ui
