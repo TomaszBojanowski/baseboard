@@ -232,8 +232,8 @@ tests/translations.sh       tłumaczenia kompletne, bez fuzzy i przestarzałych 
 tests/work_status.py        „Stan prac” krótki, decyzje poza specyfikacją (§8)
 docs/                       PROJEKT.md (specyfikacja i plan), DECYZJE.md (decyzje z datami)
 makiety/                    makiety interfejsu: HTML, OPIS.md, renderuj.sh (PNG w png/, poza repozytorium)
-website/                    strona projektu (D41): HTML i CSS bez skryptów, angielska pod /, polska pod /pl/, zrzuty strony w img/,
-                            zrzuty metainfo w screenshots/<wersja>/ (stałe adresy, nie zmieniamy ich, D43)
+website/                    strona projektu (D41, D73): HTML i CSS bez skryptów, angielska pod /, polska pod /pl/; zrzuty wydań
+                            w screenshots/<wersja>/ dla metainfo, README i strony (stałe adresy, nie zmieniamy ich, D43, D70)
 .github/workflows/          website.yml: wdrożenie website/ na GitHub Pages po zmianach na main (D41);
                             ci.yml: sprawdzenia z §8 przy każdym pushu i PR na main (D68)
 ```

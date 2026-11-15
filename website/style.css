@@ -13,8 +13,7 @@
     --accent-bg: #18794e;
     --accent-bg-hover: #146b45;
     --button: rgb(0 0 6 / 0.08);
-    --button-hover: rgb(0 0 6 / 0.14);
-    --badge-bg: #dcf3e5;
+    --badge-bg: #c2ecd3;
     --badge-fg: #105c3a;
     --code: #f0f0f3;
     /* Cards and boxed lists, as in libadwaita. */
@@ -25,8 +24,17 @@
     --pill-blue-fg: #1a5fb4;
     --pill-amber-bg: #faedce;
     --pill-amber-fg: #865e3c;
-    /* Strength of the green glow behind the icon and the screenshot. */
-    --glow: 0.3;
+    /* As on the openExpress website: the band at the top of the page, a
+       tint of the icon's green lit from behind the icon; its commands and
+       the line that Baseboard is not MSI's; the shadow under the
+       screenshots. */
+    --hero-bg: #e3f4ea;
+    --hero-glow: radial-gradient(ellipse 560px 380px at 50% 50%,
+        rgb(51 209 122 / 0.45), rgb(51 209 122 / 0.15) 55%, rgb(51 209 122 / 0) 80%);
+    --command-bg: rgb(255 255 255 / 0.7);
+    --command-border: rgb(0 0 6 / 0.18);
+    --unofficial-bg: rgb(0 0 6 / 0.07);
+    --shot-shadow: rgb(43 47 54 / 0.22);
     font-family: "Adwaita Sans", Cantarell, system-ui, -apple-system, "Segoe UI", sans-serif;
     font-size: 106.25%;
     line-height: 1.6;
@@ -43,8 +51,7 @@
         --accent-bg: #18794e;
         --accent-bg-hover: #1b8253;
         --button: rgb(255 255 255 / 0.1);
-        --button-hover: rgb(255 255 255 / 0.15);
-        --badge-bg: #1e3a2b;
+        --badge-bg: #24472f;
         --badge-fg: #8ff0a4;
         --code: #2a2a2f;
         --shadow: 0 1px 3px rgb(0 0 6 / 0.35);
@@ -53,7 +60,14 @@
         --pill-blue-fg: #99c1f1;
         --pill-amber-bg: #53462b;
         --pill-amber-fg: #f5c211;
-        --glow: 0.55;
+        /* The icon's green in the middle, its dark grey around it. */
+        --hero-bg: #1b2520;
+        --hero-glow: radial-gradient(ellipse 560px 400px at 50% 50%,
+            rgb(51 209 122 / 0.28), rgb(61 56 70 / 0.35) 45%, rgb(61 56 70 / 0) 80%);
+        --command-bg: rgb(0 0 0 / 0.3);
+        --command-border: rgb(255 255 255 / 0.16);
+        --unofficial-bg: rgb(255 255 255 / 0.08);
+        --shot-shadow: rgb(0 0 0 / 0.55);
     }
 }
 
@@ -112,7 +126,12 @@ a:hover {
     padding: 0 1.25rem;
 }
 
-/* Top of the page */
+/* Top of the page: a band of colour that the large screenshot reaches up
+   into by --overlap. */
+
+:root {
+    --overlap: clamp(64px, 14vw, 160px);
+}
 
 .hero {
     /* The glow may reach past the sides of the screen; clip it there
@@ -120,7 +139,13 @@ a:hover {
        content of this stacking context, including the badge and buttons. */
     overflow-x: clip;
     isolation: isolate;
-    padding-bottom: 0.5rem;
+    background: var(--hero-bg);
+    padding-bottom: calc(var(--overlap) + 40px);
+}
+
+/* As wide as the screenshots, so that the commands fit on one line. */
+.hero .wrap {
+    max-width: calc(56.5rem + 2.5rem);
 }
 
 .top {
@@ -161,23 +186,22 @@ a:hover {
     margin: 0 auto;
 }
 
+/* Its shadow as on the openExpress website. */
 .icon img {
     display: block;
     width: 128px;
     height: 128px;
+    filter: drop-shadow(0 4px 12px rgb(0 0 0 / 0.28));
 }
 
-/* Soft glow in the greens of the icon, fading into the page. */
+/* The light behind the icon, as on the openExpress website: an ellipse of
+   560 × 380 px (400 px in the dark) around the icon, over the band. */
 .icon::before {
     content: "";
     position: absolute;
-    inset: -80px;
+    inset: -400px -560px;
     z-index: -1;
-    background: radial-gradient(closest-side,
-        rgb(51 209 122 / var(--glow)) 0%,
-        rgb(38 162 105 / calc(var(--glow) * 0.55)) 40%,
-        rgb(24 121 78 / calc(var(--glow) * 0.18)) 70%,
-        rgb(24 121 78 / 0) 100%);
+    background: var(--hero-glow);
     pointer-events: none;
 }
 
@@ -222,70 +246,154 @@ h1 {
     margin-top: 1.75rem;
 }
 
-/* Pill buttons as in libadwaita; the main one in the accent colour. */
+/* Pill buttons as on the openExpress website: Install larger and in the
+   accent colour, the source with an outline. */
 .button {
-    display: inline-block;
-    min-width: 13rem;
-    padding: 0.65rem 1.75rem;
+    display: inline-flex;
+    align-items: center;
+    min-height: 46px;
+    padding: 10px 28px;
     border-radius: 999px;
-    background: var(--button);
-    color: var(--text);
     font-weight: 700;
-    line-height: 1.4;
-    text-align: center;
     text-decoration: none;
 }
 
-.button:hover {
-    background: var(--button-hover);
-}
-
-.button.primary {
+.install {
+    padding: 10px 40px;
     background: var(--accent-bg);
     color: #ffffff;
+    font-size: 1.05rem;
 }
 
-.button.primary:hover {
+.install:hover {
     background: var(--accent-bg-hover);
+}
+
+.source {
+    border: 2px solid var(--command-border);
+    color: var(--text);
+}
+
+.source:hover {
+    background: var(--button);
 }
 
 .button:focus-visible {
     border-radius: 999px;
 }
 
-/* The large screenshot under the buttons, wider than the text column and
-   as wide as the System screenshot further down. */
-.shot {
-    max-width: calc(59.5rem + 2.5rem);
-    margin: 2.75rem auto 0;
+/* That Baseboard is not MSI's: said at once, under what it does. */
+.unofficial {
+    display: inline-block;
+    max-width: 100%;
+    margin: 16px auto 0;
+    padding: 4px 14px;
+    border-radius: 999px;
+    background: var(--unofficial-bg);
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-wrap: balance;
+}
+
+.hint {
+    margin: 22px 0 8px;
+    color: var(--muted);
+    font-size: 0.865rem;
+}
+
+/* A command on one line: it scrolls sideways where it does not fit, and
+   one click selects all of it, ready to copy. */
+.command {
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 12px 16px;
+    border: 1px solid var(--command-border);
+    border-radius: 12px;
+    background: var(--command-bg);
+    text-align: left;
+    font-size: 0.81rem;
+    white-space: pre;
+    user-select: all;
+}
+
+/* The repository's three commands, folded under the one of the reference. */
+.repository {
+    max-width: 100%;
+    margin: 14px auto 0;
+}
+
+.repository summary {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 0.865rem;
+}
+
+.repository .command {
+    margin-top: 10px;
+}
+
+/* Screenshots under the header, as on the openExpress website: one large
+   and a row of three smaller, each the window with rounded corners and a
+   soft shadow, wider than the text column. */
+.shots {
+    max-width: calc(56.5rem + 2.5rem);
+    margin: 0 auto;
     padding: 0 1.25rem;
 }
 
-.shot picture {
-    position: relative;
-    display: block;
+.shot {
+    margin: 0;
+    text-align: center;
 }
 
-/* Two glows that fit inside their box and fade out before its edges:
-   the lighter green of the icon at the top left, the darker at the
-   bottom right. */
-.shot picture::before {
-    content: "";
-    position: absolute;
-    inset: -16% -12% -10%;
-    z-index: -1;
-    background:
-        radial-gradient(closest-side at 42% 46%,
-            rgb(51 209 122 / var(--glow)) 0%,
-            rgb(51 209 122 / var(--glow)) 55%,
-            rgb(51 209 122 / calc(var(--glow) * 0.45)) 78%,
-            rgb(51 209 122 / 0) 100%),
-        radial-gradient(closest-side at 58% 54%,
-            rgb(38 162 105 / var(--glow)) 0%,
-            rgb(38 162 105 / var(--glow)) 55%,
-            rgb(38 162 105 / calc(var(--glow) * 0.45)) 78%,
-            rgb(38 162 105 / 0) 100%);
-    pointer-events: none;
+/* The large one reaches up over the lower edge of the band. */
+.main-shot {
+    position: relative;
+    margin-top: calc(-1 * var(--overlap));
+}
+
+/* The PNGs are the release screenshots that metainfo and README use: the
+   window (1500 × 1000 at 36, 26 of 1572 × 1072) with its own shadow and,
+   taken without a compositor, square corners and a 6 px edge with light
+   lines. The picture shows the window without the shadow and the edge
+   (1488 × 988 at 42, 32), so the files stay as they are. */
+.shot picture {
+    display: block;
+    overflow: hidden;
+    aspect-ratio: 1488 / 988;
+    border-radius: 12px;
+    filter: drop-shadow(0 8px 18px var(--shot-shadow));
+}
+
+.main-shot picture {
+    filter: drop-shadow(0 14px 30px var(--shot-shadow));
+}
+
+.shot img {
+    display: block;
+    width: calc(100% * 1572 / 1488);
+    max-width: none;
+    height: auto;
+    margin: calc(-100% * 32 / 1488) 0 0 calc(-100% * 42 / 1488);
+}
+
+.shot-row {
+    display: flex;
+    gap: 18px;
+    margin-top: 26px;
+}
+
+.shot-row > .shot {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+/* On a phone the smaller ones go one under the other. */
+@media (max-width: 40rem) {
+    .shot-row {
+        flex-direction: column;
+    }
 }
 
 .toc ul {
@@ -382,31 +490,7 @@ h3 {
     color: var(--muted);
 }
 
-/* Kernel work: a faint glow behind the section, well under half of the one
-   at the top of the page, and one card (boxed list) per state. */
-.work {
-    position: relative;
-    isolation: isolate;
-}
-
-.work::before {
-    content: "";
-    position: absolute;
-    inset: 1rem 0 -1rem;
-    z-index: -1;
-    background: radial-gradient(closest-side,
-        rgb(51 209 122 / calc(var(--glow) * 0.4)) 0%,
-        rgb(38 162 105 / calc(var(--glow) * 0.2)) 55%,
-        rgb(24 121 78 / 0) 100%);
-    pointer-events: none;
-}
-
-@media (min-width: 64rem) {
-    .work::before {
-        inset: 1rem -8rem -1rem;
-    }
-}
-
+/* Kernel work: one card (boxed list) per state. */
 .card {
     margin: 1rem 0;
 }
@@ -486,28 +570,10 @@ h3 {
     }
 }
 
-figure {
-    margin: 2rem 0;
-}
-
-figure img {
-    display: block;
-    width: 100%;
-    height: auto;
-}
-
 figcaption {
-    text-align: center;
+    margin-top: 6px;
     color: var(--muted);
-    font-size: 0.95rem;
-    margin-top: 0.25rem;
-}
-
-@media (min-width: 64rem) {
-    figure.wide {
-        margin-left: -8rem;
-        margin-right: -8rem;
-    }
+    font-size: 0.85rem;
 }
 
 /* The table and the kernel work cards share one look. */

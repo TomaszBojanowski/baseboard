@@ -8,6 +8,8 @@
 
 <p align="center">Sensor readings work on any board. Fan header names and, later, fan control need a board profile; one is verified today: MAG B850M MORTAR WIFI.</p>
 
+<p align="center">Unofficial and independent: not affiliated with, endorsed by or supported by MSI.</p>
+
 <p align="center">
   <a href="https://baseboard.bojanowski.me">Website</a> ·
   <a href="#install">Install</a> ·

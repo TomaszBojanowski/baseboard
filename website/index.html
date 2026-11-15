@@ -17,8 +17,8 @@
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="pl_PL">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#fafafb" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#222226" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#e3f4ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b2520" media="(prefers-color-scheme: dark)">
 <link rel="canonical" href="https://baseboard.bojanowski.me/">
 <link rel="alternate" hreflang="en" href="https://baseboard.bojanowski.me/">
 <link rel="alternate" hreflang="pl" href="https://baseboard.bojanowski.me/pl/">
@@ -43,20 +43,55 @@
 <h1>Baseboard</h1>
 <p class="lead">A native GNOME app for the sensors and fans of MSI motherboards on Linux.</p>
 <p class="lead-note">Sensor readings work on any board. Fan header names and, later, fan control need a board profile; one is verified today: MAG B850M MORTAR WIFI.</p>
+<p class="unofficial">Unofficial and independent: not affiliated with, endorsed by or supported by MSI.</p>
 <div class="actions">
-<a class="button primary" href="https://github.com/TomaszBojanowski/baseboard">Source code on GitHub</a>
-<a class="button" href="#install">How to install</a>
+<a class="button install" href="https://flatpak.bojanowski.me/me.bojanowski.Baseboard.flatpakref">Install</a>
+<a class="button source" href="https://github.com/TomaszBojanowski/baseboard">Source on GitHub</a>
+</div>
+<p class="hint">Install downloads a file that opens in GNOME Software. Or in a terminal:</p>
+<pre class="command" tabindex="0"><code>flatpak install --user https://flatpak.bojanowski.me/me.bojanowski.Baseboard.flatpakref</code></pre>
+<details class="repository">
+<summary>Or add the repository</summary>
+<pre class="command" tabindex="0"><code>flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak remote-add --user --if-not-exists bojanowski https://flatpak.bojanowski.me/bojanowski.flatpakrepo
+flatpak install --user bojanowski me.bojanowski.Baseboard</code></pre>
+</details>
 </div>
 </div>
-</div>
+</header>
 
-<figure class="shot">
+<section class="shots" aria-label="Screenshots">
+<figure class="shot main-shot">
 <picture>
 <source srcset="screenshots/0.2.0/overview-dark-en.png" media="(prefers-color-scheme: dark)">
 <img src="screenshots/0.2.0/overview-en.png" width="1572" height="1072" alt="The Overview page: “Everything is fine” on top; cards for the processor, graphics card and motherboard, each with its temperature, a line of the last five minutes and the highest value since the app started; tiles for the fans, memory and disks; and a row that opens all sensors.">
 </picture>
-<figcaption>Overview: temperatures over the last five minutes, fans, memory and disks.</figcaption>
+<figcaption>Overview: temperatures over the last five minutes, fans, memory and disks</figcaption>
 </figure>
+<div class="shot-row">
+<figure class="shot">
+<picture>
+<source srcset="screenshots/0.2.0/fans-dark-en.png" media="(prefers-color-scheme: dark)">
+<img src="screenshots/0.2.0/fans-en.png" width="1572" height="1072" loading="lazy" alt="The Fans page: the processor card with its temperature and the CPU fan speed, and a list of the fans named after their headers, with their speed and duty cycle and a small curve where the driver reports one.">
+</picture>
+<figcaption>Fans: every fan with its speed and duty cycle, named after its header</figcaption>
+</figure>
+<figure class="shot">
+<picture>
+<source srcset="screenshots/0.2.0/fan-curve-dark-en.png" media="(prefers-color-scheme: dark)">
+<img src="screenshots/0.2.0/fan-curve-en.png" width="1572" height="1072" loading="lazy" alt="The curve of the CPU fan: duty cycle against the processor temperature measured by the board, with the point the fan runs at now, the emergency threshold, and the curve points read from the board’s controller.">
+</picture>
+<figcaption>A fan’s curve, as the board’s controller runs it; Baseboard only reads it</figcaption>
+</figure>
+<figure class="shot">
+<picture>
+<source srcset="screenshots/0.2.0/system-dark-en.png" media="(prefers-color-scheme: dark)">
+<img src="screenshots/0.2.0/system-en.png" width="1572" height="1072" loading="lazy" alt="The System page: “Everything is fine” on top; the motherboard, BIOS with its date, processor, memory and graphics card; the disks and network cards; the operating system; and a row that opens the technical details.">
+</picture>
+<figcaption>System: board, BIOS, processor, memory, graphics card and disks</figcaption>
+</figure>
+</div>
+</section>
 
 <div class="wrap">
 <nav class="toc" aria-label="Contents">
@@ -70,10 +105,6 @@
 <li><a href="#plans">Plans</a></li>
 </ul>
 </nav>
-</div>
-</header>
-
-<div class="wrap">
 <main id="main">
 <section id="today" aria-labelledby="today-title">
 <h2 id="today-title">What it shows today</h2>
@@ -86,30 +117,6 @@
 <li>A “Copy Information” button with a text for bug reports, without serial numbers or MAC addresses.</li>
 <li>English and Polish.</li>
 </ul>
-
-<figure class="wide">
-<picture>
-<source srcset="screenshots/0.2.0/fans-dark-en.png" media="(prefers-color-scheme: dark)">
-<img src="screenshots/0.2.0/fans-en.png" width="1572" height="1072" loading="lazy" alt="The Fans page: the processor card with its temperature and the CPU fan speed, and a list of the fans named after their headers, with their speed and duty cycle and a small curve where the driver reports one.">
-</picture>
-<figcaption>Fans: every fan with its speed and duty cycle, named after its header.</figcaption>
-</figure>
-
-<figure class="wide">
-<picture>
-<source srcset="screenshots/0.2.0/fan-curve-dark-en.png" media="(prefers-color-scheme: dark)">
-<img src="screenshots/0.2.0/fan-curve-en.png" width="1572" height="1072" loading="lazy" alt="The curve of the CPU fan: duty cycle against the processor temperature measured by the board, with the point the fan runs at now, the emergency threshold, and the curve points read from the board’s controller.">
-</picture>
-<figcaption>A fan’s curve, as the board’s controller runs it; Baseboard only reads it.</figcaption>
-</figure>
-
-<figure class="wide">
-<picture>
-<source srcset="screenshots/0.2.0/system-dark-en.png" media="(prefers-color-scheme: dark)">
-<img src="screenshots/0.2.0/system-en.png" width="1572" height="1072" loading="lazy" alt="The System page: “Everything is fine” on top; the motherboard, BIOS with its date, processor, memory and graphics card; the disks and network cards; the operating system; and a row that opens the technical details.">
-</picture>
-<figcaption>System: board, BIOS, processor, memory, graphics card and disks.</figcaption>
-</figure>
 </section>
 
 <section id="how" aria-labelledby="how-title">
@@ -138,7 +145,7 @@
 <p>Everything in <code>hwmon-next</code> is expected in Linux 7.5, whose release is expected around March 2027, and after that in distributions. The fan code from <code>hwmon-next</code> was tested on the MAG B850M MORTAR WIFI on 15 November 2026: writing fan curves and going back to automatic control work.</p>
 </section>
 
-<section id="kernel-work" class="work" aria-labelledby="kernel-work-title">
+<section id="kernel-work" aria-labelledby="kernel-work-title">
 <h2 id="kernel-work-title">Kernel work</h2>
 <p>Support for this board in the Linux kernel is being developed alongside the app, in the mainline kernel tree.</p>
 

@@ -17,8 +17,8 @@
 <meta property="og:locale" content="pl_PL">
 <meta property="og:locale:alternate" content="en_US">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#fafafb" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#222226" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#e3f4ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b2520" media="(prefers-color-scheme: dark)">
 <link rel="canonical" href="https://baseboard.bojanowski.me/pl/">
 <link rel="alternate" hreflang="en" href="https://baseboard.bojanowski.me/">
 <link rel="alternate" hreflang="pl" href="https://baseboard.bojanowski.me/pl/">
@@ -43,20 +43,55 @@
 <h1>Baseboard</h1>
 <p class="lead">Natywna aplikacja GNOME do czujników i wentylatorów płyt głównych MSI w Linuksie.</p>
 <p class="lead-note">Odczyty czujników działają na każdej płycie. Nazwy złączy, a w przyszłości sterowanie wentylatorami, wymagają profilu płyty; dziś jest jeden sprawdzony: MAG B850M MORTAR WIFI.</p>
+<p class="unofficial">Nieoficjalna i niezależna: niezwiązana z MSI, niepopierana ani niewspierana przez MSI.</p>
 <div class="actions">
-<a class="button primary" href="https://github.com/TomaszBojanowski/baseboard" hreflang="en">Kod źródłowy na GitHubie</a>
-<a class="button" href="#instalacja">Jak zainstalować</a>
+<a class="button install" href="https://flatpak.bojanowski.me/me.bojanowski.Baseboard.flatpakref">Zainstaluj</a>
+<a class="button source" href="https://github.com/TomaszBojanowski/baseboard" hreflang="en">Kod na GitHubie</a>
+</div>
+<p class="hint">„Zainstaluj” pobiera plik, który otwiera się w Oprogramowaniu GNOME. Albo w terminalu:</p>
+<pre class="command" tabindex="0"><code>flatpak install --user https://flatpak.bojanowski.me/me.bojanowski.Baseboard.flatpakref</code></pre>
+<details class="repository">
+<summary>Albo dodaj repozytorium</summary>
+<pre class="command" tabindex="0"><code>flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak remote-add --user --if-not-exists bojanowski https://flatpak.bojanowski.me/bojanowski.flatpakrepo
+flatpak install --user bojanowski me.bojanowski.Baseboard</code></pre>
+</details>
 </div>
 </div>
-</div>
+</header>
 
-<figure class="shot">
+<section class="shots" aria-label="Zrzuty ekranu">
+<figure class="shot main-shot">
 <picture>
 <source srcset="../screenshots/0.2.0/overview-dark-pl.png" media="(prefers-color-scheme: dark)">
 <img src="../screenshots/0.2.0/overview-pl.png" width="1572" height="1072" alt="Strona Przegląd: na górze „Wszystko w normie”; karty procesora, karty graficznej i płyty, każda z temperaturą, linią ostatnich 5 minut i najwyższą wartością od uruchomienia; kafelki wentylatorów, pamięci i dysków oraz wiersz, który otwiera wszystkie czujniki.">
 </picture>
-<figcaption>Przegląd: temperatury z ostatnich 5 minut, wentylatory, pamięć i dyski.</figcaption>
+<figcaption>Przegląd: temperatury z ostatnich 5 minut, wentylatory, pamięć i dyski</figcaption>
 </figure>
+<div class="shot-row">
+<figure class="shot">
+<picture>
+<source srcset="../screenshots/0.2.0/fans-dark-pl.png" media="(prefers-color-scheme: dark)">
+<img src="../screenshots/0.2.0/fans-pl.png" width="1572" height="1072" loading="lazy" alt="Strona Wentylatory: karta procesora z temperaturą i obrotami wentylatora procesora oraz lista wentylatorów nazwanych według złączy, z obrotami, wypełnieniem i małą krzywą tam, gdzie sterownik ją podaje.">
+</picture>
+<figcaption>Wentylatory: obroty i wypełnienie każdego wentylatora, nazwanego według złącza</figcaption>
+</figure>
+<figure class="shot">
+<picture>
+<source srcset="../screenshots/0.2.0/fan-curve-dark-pl.png" media="(prefers-color-scheme: dark)">
+<img src="../screenshots/0.2.0/fan-curve-pl.png" width="1572" height="1072" loading="lazy" alt="Krzywa wentylatora procesora: wypełnienie w zależności od temperatury procesora mierzonej przez płytę, z punktem, w którym wentylator pracuje teraz, progiem awaryjnym i punktami krzywej odczytanymi z kontrolera płyty.">
+</picture>
+<figcaption>Krzywa wentylatora tak, jak wykonuje ją kontroler płyty; Baseboard tylko ją odczytuje</figcaption>
+</figure>
+<figure class="shot">
+<picture>
+<source srcset="../screenshots/0.2.0/system-dark-pl.png" media="(prefers-color-scheme: dark)">
+<img src="../screenshots/0.2.0/system-pl.png" width="1572" height="1072" loading="lazy" alt="Strona System: na górze „Wszystko w normie”; płyta, BIOS z datą, procesor, pamięć i karta graficzna; dyski i karty sieciowe; system operacyjny oraz wiersz, który otwiera szczegóły techniczne.">
+</picture>
+<figcaption>System: płyta, BIOS, procesor, pamięć, karta graficzna i dyski</figcaption>
+</figure>
+</div>
+</section>
 
 <div class="wrap">
 <nav class="toc" aria-label="Spis treści">
@@ -70,10 +105,6 @@
 <li><a href="#plany">Plany</a></li>
 </ul>
 </nav>
-</div>
-</header>
-
-<div class="wrap">
 <main id="main">
 <section id="dzis" aria-labelledby="dzis-tytul">
 <h2 id="dzis-tytul">Co pokazuje dziś</h2>
@@ -86,30 +117,6 @@
 <li>Przycisk „Kopiuj informacje” z tekstem do zgłoszenia błędu, bez numerów seryjnych i adresów MAC.</li>
 <li>Interfejs po polsku i po angielsku.</li>
 </ul>
-
-<figure class="wide">
-<picture>
-<source srcset="../screenshots/0.2.0/fans-dark-pl.png" media="(prefers-color-scheme: dark)">
-<img src="../screenshots/0.2.0/fans-pl.png" width="1572" height="1072" loading="lazy" alt="Strona Wentylatory: karta procesora z temperaturą i obrotami wentylatora procesora oraz lista wentylatorów nazwanych według złączy, z obrotami, wypełnieniem i małą krzywą tam, gdzie sterownik ją podaje.">
-</picture>
-<figcaption>Wentylatory: obroty i wypełnienie każdego wentylatora, nazwanego według złącza.</figcaption>
-</figure>
-
-<figure class="wide">
-<picture>
-<source srcset="../screenshots/0.2.0/fan-curve-dark-pl.png" media="(prefers-color-scheme: dark)">
-<img src="../screenshots/0.2.0/fan-curve-pl.png" width="1572" height="1072" loading="lazy" alt="Krzywa wentylatora procesora: wypełnienie w zależności od temperatury procesora mierzonej przez płytę, z punktem, w którym wentylator pracuje teraz, progiem awaryjnym i punktami krzywej odczytanymi z kontrolera płyty.">
-</picture>
-<figcaption>Krzywa wentylatora tak, jak wykonuje ją kontroler płyty; Baseboard tylko ją odczytuje.</figcaption>
-</figure>
-
-<figure class="wide">
-<picture>
-<source srcset="../screenshots/0.2.0/system-dark-pl.png" media="(prefers-color-scheme: dark)">
-<img src="../screenshots/0.2.0/system-pl.png" width="1572" height="1072" loading="lazy" alt="Strona System: na górze „Wszystko w normie”; płyta, BIOS z datą, procesor, pamięć i karta graficzna; dyski i karty sieciowe; system operacyjny oraz wiersz, który otwiera szczegóły techniczne.">
-</picture>
-<figcaption>System: płyta, BIOS, procesor, pamięć, karta graficzna i dyski.</figcaption>
-</figure>
 </section>
 
 <section id="jak" aria-labelledby="jak-tytul">
@@ -138,7 +145,7 @@
 <p>Wszystko, co jest w <code>hwmon-next</code>, powinno wejść do Linuksa 7.5, którego wydanie spodziewane jest około marca 2027 r., a potem do dystrybucji. Kod wentylatorów z <code>hwmon-next</code> przetestowano na MAG B850M MORTAR WIFI 15 listopada 2026 r.: zapis krzywych wentylatorów i powrót do sterowania automatycznego działają.</p>
 </section>
 
-<section id="praca-w-jadrze" class="work" aria-labelledby="praca-w-jadrze-tytul">
+<section id="praca-w-jadrze" aria-labelledby="praca-w-jadrze-tytul">
 <h2 id="praca-w-jadrze-tytul">Praca w jądrze</h2>
 <p>Obsługa tej płyty w jądrze Linuksa powstaje równolegle z aplikacją, w głównym drzewie jądra.</p>
 
