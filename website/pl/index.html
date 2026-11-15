@@ -63,30 +63,30 @@ flatpak install --user bojanowski me.bojanowski.Baseboard</code></pre>
 <section class="shots" aria-label="Zrzuty ekranu">
 <figure class="shot main-shot">
 <picture>
-<source srcset="../screenshots/0.2.0/overview-dark-pl.png" media="(prefers-color-scheme: dark)">
-<img src="../screenshots/0.2.0/overview-pl.png" width="1572" height="1072" alt="Strona Przegląd: na górze „Wszystko w normie”; karty procesora, karty graficznej i płyty, każda z temperaturą, linią ostatnich 5 minut i najwyższą wartością od uruchomienia; kafelki wentylatorów, pamięci i dysków oraz wiersz, który otwiera wszystkie czujniki.">
+<source srcset="../screenshots/0.2.0/overview-dark-pl.webp" media="(prefers-color-scheme: dark)">
+<img src="../screenshots/0.2.0/overview-pl.webp" width="1400" height="930" alt="Strona Przegląd: na górze „Wszystko w normie”; karty procesora, karty graficznej i płyty, każda z temperaturą, linią ostatnich 5 minut i najwyższą wartością od uruchomienia; kafelki wentylatorów, pamięci i dysków oraz wiersz, który otwiera wszystkie czujniki.">
 </picture>
 <figcaption>Przegląd: temperatury z ostatnich 5 minut, wentylatory, pamięć i dyski</figcaption>
 </figure>
 <div class="shot-row">
 <figure class="shot">
 <picture>
-<source srcset="../screenshots/0.2.0/fans-dark-pl.png" media="(prefers-color-scheme: dark)">
-<img src="../screenshots/0.2.0/fans-pl.png" width="1572" height="1072" loading="lazy" alt="Strona Wentylatory: karta procesora z temperaturą i obrotami wentylatora procesora oraz lista wentylatorów nazwanych według złączy, z obrotami, wypełnieniem i małą krzywą tam, gdzie sterownik ją podaje.">
+<source srcset="../screenshots/0.2.0/fans-dark-pl.webp" media="(prefers-color-scheme: dark)">
+<img src="../screenshots/0.2.0/fans-pl.webp" width="1400" height="930" loading="lazy" alt="Strona Wentylatory: karta procesora z temperaturą i obrotami wentylatora procesora oraz lista wentylatorów nazwanych według złączy, z obrotami, wypełnieniem i małą krzywą tam, gdzie sterownik ją podaje.">
 </picture>
 <figcaption>Wentylatory: obroty i wypełnienie każdego wentylatora, nazwanego według złącza</figcaption>
 </figure>
 <figure class="shot">
 <picture>
-<source srcset="../screenshots/0.2.0/fan-curve-dark-pl.png" media="(prefers-color-scheme: dark)">
-<img src="../screenshots/0.2.0/fan-curve-pl.png" width="1572" height="1072" loading="lazy" alt="Krzywa wentylatora procesora: wypełnienie w zależności od temperatury procesora mierzonej przez płytę, z punktem, w którym wentylator pracuje teraz, progiem awaryjnym i punktami krzywej odczytanymi z kontrolera płyty.">
+<source srcset="../screenshots/0.2.0/fan-curve-dark-pl.webp" media="(prefers-color-scheme: dark)">
+<img src="../screenshots/0.2.0/fan-curve-pl.webp" width="1400" height="930" loading="lazy" alt="Krzywa wentylatora procesora: wypełnienie w zależności od temperatury procesora mierzonej przez płytę, z punktem, w którym wentylator pracuje teraz, progiem awaryjnym i punktami krzywej odczytanymi z kontrolera płyty.">
 </picture>
 <figcaption>Krzywa wentylatora tak, jak wykonuje ją kontroler płyty; Baseboard tylko ją odczytuje</figcaption>
 </figure>
 <figure class="shot">
 <picture>
-<source srcset="../screenshots/0.2.0/system-dark-pl.png" media="(prefers-color-scheme: dark)">
-<img src="../screenshots/0.2.0/system-pl.png" width="1572" height="1072" loading="lazy" alt="Strona System: na górze „Wszystko w normie”; płyta, BIOS z datą, procesor, pamięć i karta graficzna; dyski i karty sieciowe; system operacyjny oraz wiersz, który otwiera szczegóły techniczne.">
+<source srcset="../screenshots/0.2.0/system-dark-pl.webp" media="(prefers-color-scheme: dark)">
+<img src="../screenshots/0.2.0/system-pl.webp" width="1400" height="930" loading="lazy" alt="Strona System: na górze „Wszystko w normie”; płyta, BIOS z datą, procesor, pamięć i karta graficzna; dyski i karty sieciowe; system operacyjny oraz wiersz, który otwiera szczegóły techniczne.">
 </picture>
 <figcaption>System: płyta, BIOS, procesor, pamięć, karta graficzna i dyski</figcaption>
 </figure>
@@ -134,11 +134,11 @@ flatpak install --user bojanowski me.bojanowski.Baseboard</code></pre>
 <tr><th scope="col">Poziom</th><th scope="col">Co robi Baseboard</th><th scope="col">Czego wymaga od jądra</th><th scope="col">Stan w jądrze</th></tr>
 </thead>
 <tbody>
-<tr><th scope="row">Tylko odczyt</th><td data-label="Co robi Baseboard">Odczyty i obroty wentylatorów, z wyjaśnieniem, że sterowanie wymaga nowszego sterownika (0.2.0)</td><td data-label="Czego wymaga od jądra">Sterownika <code>nct6683</code> dla układu NCT6687D-R płyty</td><td data-label="Stan w jądrze"><span class="pill pill-released">W obecnych jądrach</span></td></tr>
-<tr><th scope="row">Tryb ręczny</th><td data-label="Co robi Baseboard">Stałe wypełnienie dla każdego złącza, ustawiane przez pomocnika systemowego (później)</td><td data-label="Czego wymaga od jądra">Zapisywalnych <code>pwmN</code> i <code>pwmN_enable</code> oraz przywracania ich po wybudzeniu</td><td data-label="Stan w jądrze"><span class="pill pill-next">W <code>hwmon-next</code></span><span class="vh">,</span> <span class="state-note">drzewie opiekuna podsystemu hwmon; jeszcze nie w wydanym jądrze</span></td></tr>
-<tr><th scope="row">Podgląd krzywych</th><td data-label="Co robi Baseboard">Krzywe zapisane w EC i ich źródło temperatury, tylko do odczytu (0.2.0)</td><td data-label="Czego wymaga od jądra">Czytelnych <code>pwmN_auto_point*</code> i <code>pwmN_auto_channels_temp</code></td><td data-label="Stan w jądrze"><span class="pill pill-next">W <code>hwmon-next</code></span><span class="vh">;</span> <span class="state-note">jeszcze nie w wydanym jądrze</span></td></tr>
-<tr><th scope="row">Krzywe w EC</th><td data-label="Co robi Baseboard">Edycja siedmiopunktowych krzywych w EC; działają też bez aplikacji (później)</td><td data-label="Czego wymaga od jądra">Zapisywalnych <code>pwmN_auto_point*</code></td><td data-label="Stan w jądrze"><span class="pill pill-next">W <code>hwmon-next</code></span><span class="vh">;</span> <span class="state-note">jeszcze nie w wydanym jądrze</span></td></tr>
-<tr><th scope="row">Wybór temperatury</th><td data-label="Co robi Baseboard">Wybór czujnika, za którym idzie krzywa (później)</td><td data-label="Czego wymaga od jądra">Zapisywalnego <code>pwmN_auto_channels_temp</code></td><td data-label="Stan w jądrze"><span class="pill pill-planned">Planowane</span><span class="vh">,</span> <span class="state-note">jeszcze niewysłane</span></td></tr>
+<tr><th scope="row">Tylko odczyt</th><td data-label="Co robi Baseboard">Pokazuje temperatury, napięcia i obroty wentylatorów (od wersji 0.2.0)</td><td data-label="Czego wymaga od jądra">Sterownika <code>nct6683</code></td><td data-label="Stan w jądrze"><span class="pill pill-released">W obecnych jądrach</span></td></tr>
+<tr><th scope="row">Tryb ręczny</th><td data-label="Co robi Baseboard">Pozwala ustawić każdemu wentylatorowi stałą prędkość w procentach (w jednej z kolejnych wersji)</td><td data-label="Czego wymaga od jądra">Zapisywalnych <code>pwmN</code> i <code>pwmN_enable</code></td><td data-label="Stan w jądrze"><span class="pill pill-next">W <code>hwmon-next</code></span><span class="vh">,</span> <span class="state-note">drzewie opiekuna podsystemu hwmon; jeszcze nie w wydanym jądrze</span></td></tr>
+<tr><th scope="row">Podgląd krzywych</th><td data-label="Co robi Baseboard">Pokazuje krzywe wentylatorów zapisane w płycie i temperaturę, za którą idzie każda z nich (od wersji 0.2.0)</td><td data-label="Czego wymaga od jądra">Czytelnych <code>pwmN_auto_point*</code> i <code>pwmN_auto_channels_temp</code></td><td data-label="Stan w jądrze"><span class="pill pill-next">W <code>hwmon-next</code></span><span class="vh">;</span> <span class="state-note">jeszcze nie w wydanym jądrze</span></td></tr>
+<tr><th scope="row">Edycja krzywych</th><td data-label="Co robi Baseboard">Pozwala zmieniać krzywe wentylatorów; płyta wykonuje je także przy zamkniętej aplikacji (w jednej z kolejnych wersji)</td><td data-label="Czego wymaga od jądra">Zapisywalnych <code>pwmN_auto_point*</code></td><td data-label="Stan w jądrze"><span class="pill pill-next">W <code>hwmon-next</code></span><span class="vh">;</span> <span class="state-note">jeszcze nie w wydanym jądrze</span></td></tr>
+<tr><th scope="row">Wybór temperatury</th><td data-label="Co robi Baseboard">Pozwala wybrać temperaturę, za którą idzie krzywa wentylatora (w jednej z kolejnych wersji)</td><td data-label="Czego wymaga od jądra">Zapisywalnego <code>pwmN_auto_channels_temp</code></td><td data-label="Stan w jądrze"><span class="pill pill-planned">Planowane</span><span class="vh">,</span> <span class="state-note">jeszcze niewysłane</span></td></tr>
 </tbody>
 </table>
 </div>

@@ -16,10 +16,12 @@
   <a href="#report-your-board">Report a board</a>
 </p>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="website/screenshots/0.2.0/overview-dark-en.png">
-  <img src="website/screenshots/0.2.0/overview-en.png" alt="The Overview page: “Everything is fine” on top; cards for the processor, graphics card and motherboard, each with its temperature, a line of the last five minutes and the highest value since the app started; tiles for the fans, memory and disks; and a row that opens all sensors.">
-</picture>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="website/screenshots/0.2.0/readme/overview-dark-en.png">
+    <img src="website/screenshots/0.2.0/readme/overview-en.png" width="800" alt="The Overview page: “Everything is fine” on top; cards for the processor, graphics card and motherboard, each with its temperature, a line of the last five minutes and the highest value since the app started; tiles for the fans, memory and disks; and a row that opens all sensors.">
+  </picture>
+</p>
 
 > **Early version, read only.** The current release is 0.2.0, see [Install](#install): it shows readings, fan curves and system information and does not change any setting yet. The design, in Polish, is in [docs/PROJEKT.md](docs/PROJEKT.md).
 
@@ -34,10 +36,12 @@
   - a System page with the board, BIOS, processor, memory, graphics card and disks, the details and the state of the fan driver one click away, and a "Copy Information" button for bug reports (no serial numbers or MAC addresses);
   - English and Polish.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="website/screenshots/0.2.0/fans-dark-en.png">
-  <img src="website/screenshots/0.2.0/fans-en.png" alt="The Fans page: the processor card with its temperature and the CPU fan speed, and a list of the fans named after their headers, with their speed and duty cycle and a small curve where the driver reports one.">
-</picture>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="website/screenshots/0.2.0/readme/fans-dark-en.png">
+    <img src="website/screenshots/0.2.0/readme/fans-en.png" width="700" alt="The Fans page: the processor card with its temperature and the CPU fan speed, and a list of the fans named after their headers, with their speed and duty cycle and a small curve where the driver reports one.">
+  </picture>
+</p>
 - One verified board: **MAG B850M MORTAR WIFI (MS-7E61)**, PCB revision 1. On other computers Baseboard runs in a generic mode: readings without the board's header names and no fan control.
 
 ## Install
@@ -81,11 +85,11 @@ Choosing the temperature source will be enabled only for the interface that is s
 
 | Level | What Baseboard does | What it needs from the kernel | State in the kernel |
 |---|---|---|---|
-| Read only | Readings and fan speeds, with a note that control needs a newer driver (0.2.0) | The `nct6683` driver for the board's NCT6687D-R chip | In current kernels (checked with Fedora's 7.3.3 kernel) |
-| Manual control | A fixed duty cycle per header, set through the helper (later) | Writable `pwmN` and `pwmN_enable`: manual fan control for MSI boards with NCT6687D-R, and its restore after resume | In `hwmon-next`, the hwmon maintainer's tree; not in a released kernel yet |
-| Curve view | The fan curves stored in the EC and their temperature source, read only (0.2.0) | Readable `pwmN_auto_point*` and `pwmN_auto_channels_temp` | In `hwmon-next`; not in a released kernel yet |
-| Curve editing | Editing the seven-point curves in the EC; they keep working without the app (later) | Writable `pwmN_auto_point*` | In `hwmon-next` since 2026-11-14 ([v1 thread](https://lore.kernel.org/linux-hwmon/20261109223442.509238-1-tomasz@bojanowski.me/)); not in a released kernel yet |
-| Temperature source | Choosing the sensor a curve follows (later) | Writable `pwmN_auto_channels_temp` | Planned, not sent yet |
+| Read only | Shows temperatures, voltages and fan speeds (Baseboard 0.2.0) | The `nct6683` driver | In current kernels (checked with Fedora's 7.3.3 kernel) |
+| Manual control | Lets you set each fan to a fixed speed, in percent (a later Baseboard version) | Writable `pwmN` and `pwmN_enable` | In `hwmon-next`, the hwmon maintainer's tree; not in a released kernel yet |
+| Curve view | Shows the fan curves stored in the board and the temperature each one follows (Baseboard 0.2.0) | Readable `pwmN_auto_point*` and `pwmN_auto_channels_temp` | In `hwmon-next`; not in a released kernel yet |
+| Curve editing | Lets you change the fan curves; the board keeps running them when the app is closed (a later Baseboard version) | Writable `pwmN_auto_point*` | In `hwmon-next` since 2026-11-14 ([v1 thread](https://lore.kernel.org/linux-hwmon/20261109223442.509238-1-tomasz@bojanowski.me/)); not in a released kernel yet |
+| Temperature source | Lets you choose the temperature a fan curve follows (a later Baseboard version) | Writable `pwmN_auto_channels_temp` | Planned, not sent yet |
 
 Everything in `hwmon-next` is expected in Linux 7.5, whose release is expected around March 2027, and after that in distributions. The fan code from `hwmon-next` was tested on the MAG B850M MORTAR WIFI on 2026-11-15: writing fan curves and going back to automatic control work.
 

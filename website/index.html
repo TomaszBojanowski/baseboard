@@ -63,30 +63,30 @@ flatpak install --user bojanowski me.bojanowski.Baseboard</code></pre>
 <section class="shots" aria-label="Screenshots">
 <figure class="shot main-shot">
 <picture>
-<source srcset="screenshots/0.2.0/overview-dark-en.png" media="(prefers-color-scheme: dark)">
-<img src="screenshots/0.2.0/overview-en.png" width="1572" height="1072" alt="The Overview page: “Everything is fine” on top; cards for the processor, graphics card and motherboard, each with its temperature, a line of the last five minutes and the highest value since the app started; tiles for the fans, memory and disks; and a row that opens all sensors.">
+<source srcset="screenshots/0.2.0/overview-dark-en.webp" media="(prefers-color-scheme: dark)">
+<img src="screenshots/0.2.0/overview-en.webp" width="1400" height="930" alt="The Overview page: “Everything is fine” on top; cards for the processor, graphics card and motherboard, each with its temperature, a line of the last five minutes and the highest value since the app started; tiles for the fans, memory and disks; and a row that opens all sensors.">
 </picture>
 <figcaption>Overview: temperatures over the last five minutes, fans, memory and disks</figcaption>
 </figure>
 <div class="shot-row">
 <figure class="shot">
 <picture>
-<source srcset="screenshots/0.2.0/fans-dark-en.png" media="(prefers-color-scheme: dark)">
-<img src="screenshots/0.2.0/fans-en.png" width="1572" height="1072" loading="lazy" alt="The Fans page: the processor card with its temperature and the CPU fan speed, and a list of the fans named after their headers, with their speed and duty cycle and a small curve where the driver reports one.">
+<source srcset="screenshots/0.2.0/fans-dark-en.webp" media="(prefers-color-scheme: dark)">
+<img src="screenshots/0.2.0/fans-en.webp" width="1400" height="930" loading="lazy" alt="The Fans page: the processor card with its temperature and the CPU fan speed, and a list of the fans named after their headers, with their speed and duty cycle and a small curve where the driver reports one.">
 </picture>
 <figcaption>Fans: every fan with its speed and duty cycle, named after its header</figcaption>
 </figure>
 <figure class="shot">
 <picture>
-<source srcset="screenshots/0.2.0/fan-curve-dark-en.png" media="(prefers-color-scheme: dark)">
-<img src="screenshots/0.2.0/fan-curve-en.png" width="1572" height="1072" loading="lazy" alt="The curve of the CPU fan: duty cycle against the processor temperature measured by the board, with the point the fan runs at now, the emergency threshold, and the curve points read from the board’s controller.">
+<source srcset="screenshots/0.2.0/fan-curve-dark-en.webp" media="(prefers-color-scheme: dark)">
+<img src="screenshots/0.2.0/fan-curve-en.webp" width="1400" height="930" loading="lazy" alt="The curve of the CPU fan: duty cycle against the processor temperature measured by the board, with the point the fan runs at now, the emergency threshold, and the curve points read from the board’s controller.">
 </picture>
 <figcaption>A fan’s curve, as the board’s controller runs it; Baseboard only reads it</figcaption>
 </figure>
 <figure class="shot">
 <picture>
-<source srcset="screenshots/0.2.0/system-dark-en.png" media="(prefers-color-scheme: dark)">
-<img src="screenshots/0.2.0/system-en.png" width="1572" height="1072" loading="lazy" alt="The System page: “Everything is fine” on top; the motherboard, BIOS with its date, processor, memory and graphics card; the disks and network cards; the operating system; and a row that opens the technical details.">
+<source srcset="screenshots/0.2.0/system-dark-en.webp" media="(prefers-color-scheme: dark)">
+<img src="screenshots/0.2.0/system-en.webp" width="1400" height="930" loading="lazy" alt="The System page: “Everything is fine” on top; the motherboard, BIOS with its date, processor, memory and graphics card; the disks and network cards; the operating system; and a row that opens the technical details.">
 </picture>
 <figcaption>System: board, BIOS, processor, memory, graphics card and disks</figcaption>
 </figure>
@@ -134,11 +134,11 @@ flatpak install --user bojanowski me.bojanowski.Baseboard</code></pre>
 <tr><th scope="col">Level</th><th scope="col">What Baseboard does</th><th scope="col">What it needs from the kernel</th><th scope="col">State in the kernel</th></tr>
 </thead>
 <tbody>
-<tr><th scope="row">Read only</th><td data-label="What Baseboard does">Readings and fan speeds, with a note that control needs a newer driver (0.2.0)</td><td data-label="What it needs from the kernel">The <code>nct6683</code> driver for the board’s NCT6687D-R chip</td><td data-label="State in the kernel"><span class="pill pill-released">In current kernels</span></td></tr>
-<tr><th scope="row">Manual control</th><td data-label="What Baseboard does">A fixed duty cycle per header, set through a system helper (later)</td><td data-label="What it needs from the kernel">Writable <code>pwmN</code> and <code>pwmN_enable</code>, and their restore after resume</td><td data-label="State in the kernel"><span class="pill pill-next">In <code>hwmon-next</code></span><span class="vh">,</span> <span class="state-note">the hwmon maintainer’s tree; not in a released kernel yet</span></td></tr>
-<tr><th scope="row">Curve view</th><td data-label="What Baseboard does">The fan curves stored in the EC and their temperature source, read only (0.2.0)</td><td data-label="What it needs from the kernel">Readable <code>pwmN_auto_point*</code> and <code>pwmN_auto_channels_temp</code></td><td data-label="State in the kernel"><span class="pill pill-next">In <code>hwmon-next</code></span><span class="vh">;</span> <span class="state-note">not in a released kernel yet</span></td></tr>
-<tr><th scope="row">Curve editing</th><td data-label="What Baseboard does">Editing the seven-point curves in the EC; they keep working without the app (later)</td><td data-label="What it needs from the kernel">Writable <code>pwmN_auto_point*</code></td><td data-label="State in the kernel"><span class="pill pill-next">In <code>hwmon-next</code></span><span class="vh">;</span> <span class="state-note">not in a released kernel yet</span></td></tr>
-<tr><th scope="row">Temperature source</th><td data-label="What Baseboard does">Choosing the sensor a curve follows (later)</td><td data-label="What it needs from the kernel">Writable <code>pwmN_auto_channels_temp</code></td><td data-label="State in the kernel"><span class="pill pill-planned">Planned</span><span class="vh">,</span> <span class="state-note">not sent yet</span></td></tr>
+<tr><th scope="row">Read only</th><td data-label="What Baseboard does">Shows temperatures, voltages and fan speeds (Baseboard 0.2.0)</td><td data-label="What it needs from the kernel">The <code>nct6683</code> driver</td><td data-label="State in the kernel"><span class="pill pill-released">In current kernels</span></td></tr>
+<tr><th scope="row">Manual control</th><td data-label="What Baseboard does">Lets you set each fan to a fixed speed, in percent (a later Baseboard version)</td><td data-label="What it needs from the kernel">Writable <code>pwmN</code> and <code>pwmN_enable</code></td><td data-label="State in the kernel"><span class="pill pill-next">In <code>hwmon-next</code></span><span class="vh">,</span> <span class="state-note">the hwmon maintainer’s tree; not in a released kernel yet</span></td></tr>
+<tr><th scope="row">Curve view</th><td data-label="What Baseboard does">Shows the fan curves stored in the board and the temperature each one follows (Baseboard 0.2.0)</td><td data-label="What it needs from the kernel">Readable <code>pwmN_auto_point*</code> and <code>pwmN_auto_channels_temp</code></td><td data-label="State in the kernel"><span class="pill pill-next">In <code>hwmon-next</code></span><span class="vh">;</span> <span class="state-note">not in a released kernel yet</span></td></tr>
+<tr><th scope="row">Curve editing</th><td data-label="What Baseboard does">Lets you change the fan curves; the board keeps running them when the app is closed (a later Baseboard version)</td><td data-label="What it needs from the kernel">Writable <code>pwmN_auto_point*</code></td><td data-label="State in the kernel"><span class="pill pill-next">In <code>hwmon-next</code></span><span class="vh">;</span> <span class="state-note">not in a released kernel yet</span></td></tr>
+<tr><th scope="row">Temperature source</th><td data-label="What Baseboard does">Lets you choose the temperature a fan curve follows (a later Baseboard version)</td><td data-label="What it needs from the kernel">Writable <code>pwmN_auto_channels_temp</code></td><td data-label="State in the kernel"><span class="pill pill-planned">Planned</span><span class="vh">,</span> <span class="state-note">not sent yet</span></td></tr>
 </tbody>
 </table>
 </div>

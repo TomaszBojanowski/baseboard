@@ -353,29 +353,19 @@ h1 {
     margin-top: calc(-1 * var(--overlap));
 }
 
-/* The PNGs are the release screenshots that metainfo and README use: the
-   window (1500 × 1000 at 36, 26 of 1572 × 1072) with its own shadow and,
-   taken without a compositor, square corners and a 6 px edge with light
-   lines. The picture shows the window without the shadow and the edge
-   (1488 × 988 at 42, 32), so the files stay as they are. */
-.shot picture {
+/* Each picture is the window alone, with transparent rounded corners and
+   without a shadow (screenshots/<version>/*.webp); the shadow is drawn
+   here. */
+.shot img {
     display: block;
-    overflow: hidden;
-    aspect-ratio: 1488 / 988;
+    width: 100%;
+    height: auto;
     border-radius: 12px;
     filter: drop-shadow(0 8px 18px var(--shot-shadow));
 }
 
-.main-shot picture {
+.main-shot img {
     filter: drop-shadow(0 14px 30px var(--shot-shadow));
-}
-
-.shot img {
-    display: block;
-    width: calc(100% * 1572 / 1488);
-    max-width: none;
-    height: auto;
-    margin: calc(-100% * 32 / 1488) 0 0 calc(-100% * 42 / 1488);
 }
 
 .shot-row {
