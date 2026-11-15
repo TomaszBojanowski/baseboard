@@ -130,12 +130,12 @@
 <tr><th scope="row">Read only</th><td data-label="What Baseboard does">Readings and fan speeds, with a note that control needs a newer driver (0.2.0)</td><td data-label="What it needs from the kernel">The <code>nct6683</code> driver for the board’s NCT6687D-R chip</td><td data-label="State in the kernel"><span class="pill pill-released">In current kernels</span></td></tr>
 <tr><th scope="row">Manual control</th><td data-label="What Baseboard does">A fixed duty cycle per header, set through a system helper (later)</td><td data-label="What it needs from the kernel">Writable <code>pwmN</code> and <code>pwmN_enable</code>, and their restore after resume</td><td data-label="State in the kernel"><span class="pill pill-next">In <code>hwmon-next</code></span><span class="vh">,</span> <span class="state-note">the hwmon maintainer’s tree; not in a released kernel yet</span></td></tr>
 <tr><th scope="row">Curve view</th><td data-label="What Baseboard does">The fan curves stored in the EC and their temperature source, read only (0.2.0)</td><td data-label="What it needs from the kernel">Readable <code>pwmN_auto_point*</code> and <code>pwmN_auto_channels_temp</code></td><td data-label="State in the kernel"><span class="pill pill-next">In <code>hwmon-next</code></span><span class="vh">;</span> <span class="state-note">not in a released kernel yet</span></td></tr>
-<tr><th scope="row">Curve editing</th><td data-label="What Baseboard does">Editing the seven-point curves in the EC; they keep working without the app (later)</td><td data-label="What it needs from the kernel">Writable <code>pwmN_auto_point*</code></td><td data-label="State in the kernel"><span class="pill pill-review">Patches in review</span> <span class="state-note">on linux-hwmon: <a href="https://lore.kernel.org/linux-hwmon/20261109223442.509238-1-tomasz@bojanowski.me/">v1 thread</a></span></td></tr>
+<tr><th scope="row">Curve editing</th><td data-label="What Baseboard does">Editing the seven-point curves in the EC; they keep working without the app (later)</td><td data-label="What it needs from the kernel">Writable <code>pwmN_auto_point*</code></td><td data-label="State in the kernel"><span class="pill pill-next">In <code>hwmon-next</code></span><span class="vh">;</span> <span class="state-note">not in a released kernel yet</span></td></tr>
 <tr><th scope="row">Temperature source</th><td data-label="What Baseboard does">Choosing the sensor a curve follows (later)</td><td data-label="What it needs from the kernel">Writable <code>pwmN_auto_channels_temp</code></td><td data-label="State in the kernel"><span class="pill pill-planned">Planned</span><span class="vh">,</span> <span class="state-note">not sent yet</span></td></tr>
 </tbody>
 </table>
 </div>
-<p>Patches in review may change or may not be accepted. If a patch changes its interface, Baseboard will follow it.</p>
+<p>Everything in <code>hwmon-next</code> is expected in Linux 7.5, whose release is expected around March 2027, and after that in distributions. The fan code from <code>hwmon-next</code> was tested on the MAG B850M MORTAR WIFI on 15 November 2026: writing fan curves and going back to automatic control work.</p>
 </section>
 
 <section id="kernel-work" class="work" aria-labelledby="kernel-work-title">
@@ -172,18 +172,9 @@
 <li><span class="row-text"><a href="https://patch.msgid.link/20261107150619.297999-1-tomasz@bojanowski.me">hwmon: (nct6683) Remove the 32 mV voltage scale</a></span></li>
 <li><span class="row-text"><a href="https://patch.msgid.link/20261109015759.24284-1-tomasz@bojanowski.me">hwmon: (nct6683) Report the fan curves of MSI boards with NCT6687D-R</a><span class="row-note">with documentation</span></span></li>
 <li><span class="row-text"><a href="https://patch.msgid.link/20261109163328.61787-1-tomasz@bojanowski.me">hwmon: (nct6683) Restore manual fan control after resume</a></span></li>
+<li><span class="row-text"><a href="https://patch.msgid.link/20261109223442.509238-2-tomasz@bojanowski.me">hwmon: (nct6683) Factor out the NCT6687D-R fan configuration transaction</a></span></li>
+<li><span class="row-text"><a href="https://patch.msgid.link/20261109223442.509238-3-tomasz@bojanowski.me">hwmon: (nct6683) Make the fan curves of NCT6687D-R writable</a><span class="row-note">with documentation</span></span></li>
 <li><span class="row-text">Tested-by: <a href="https://patchwork.kernel.org/series/1205153/">four changes to the <code>msi_mystic_light</code> driver</a><span class="row-note">tested on this board</span></span></li>
-</ul>
-</div>
-
-<div class="card">
-<div class="card-head">
-<h3><span class="pill pill-review">In review</span> <span class="head-note">on linux-hwmon</span></h3>
-<p class="subsys">hwmon (sensors and fans)</p>
-</div>
-<ul class="rows">
-<li><span class="row-text"><a href="https://lore.kernel.org/linux-hwmon/20261109223442.509238-1-tomasz@bojanowski.me/">hwmon: (nct6683) Factor out the NCT6687D-R fan configuration transaction</a></span></li>
-<li><span class="row-text"><a href="https://lore.kernel.org/linux-hwmon/20261109223442.509238-1-tomasz@bojanowski.me/">hwmon: (nct6683) Make the fan curves of NCT6687D-R writable</a><span class="row-note">with documentation</span></span></li>
 </ul>
 </div>
 </section>

@@ -75,17 +75,17 @@ Fan control (M2) will need a system helper that cannot be part of a Flatpak; it 
 
 Fan control on these boards depends on the `nct6683` kernel driver. Baseboard does not check the kernel version. It reads the sysfs attributes of each fan channel and decides from them what the driver allows, and shows this level on the System page. Since 0.2.0 it shows the fan curves where the driver reports them; fan control comes in a later version. From then on each level below unlocks by itself once the kernel provides it, without a new release of Baseboard.
 
-If a patch in review changes its interface, Baseboard will have to follow it. Choosing the temperature source will be enabled only for the interface that is sent to the mailing list.
+Choosing the temperature source will be enabled only for the interface that is sent to the mailing list.
 
 | Level | What Baseboard does | What it needs from the kernel | State in the kernel |
 |---|---|---|---|
 | Read only | Readings and fan speeds, with a note that control needs a newer driver (0.2.0) | The `nct6683` driver for the board's NCT6687D-R chip | In current kernels (checked with Fedora's 7.3.3 kernel) |
 | Manual control | A fixed duty cycle per header, set through the helper (later) | Writable `pwmN` and `pwmN_enable`: manual fan control for MSI boards with NCT6687D-R, and its restore after resume | In `hwmon-next`, the hwmon maintainer's tree; not in a released kernel yet |
 | Curve view | The fan curves stored in the EC and their temperature source, read only (0.2.0) | Readable `pwmN_auto_point*` and `pwmN_auto_channels_temp` | In `hwmon-next`; not in a released kernel yet |
-| Curve editing | Editing the seven-point curves in the EC; they keep working without the app (later) | Writable `pwmN_auto_point*` | Patches in review on linux-hwmon: [v1 thread](https://lore.kernel.org/linux-hwmon/20261109223442.509238-1-tomasz@bojanowski.me/) |
+| Curve editing | Editing the seven-point curves in the EC; they keep working without the app (later) | Writable `pwmN_auto_point*` | In `hwmon-next` since 2026-11-14 ([v1 thread](https://lore.kernel.org/linux-hwmon/20261109223442.509238-1-tomasz@bojanowski.me/)); not in a released kernel yet |
 | Temperature source | Choosing the sensor a curve follows (later) | Writable `pwmN_auto_channels_temp` | Planned, not sent yet |
 
-Patches in review may change or may not be accepted. Kernel versions are not given until the patches are in the mainline tree.
+Everything in `hwmon-next` is expected in Linux 7.5, whose release is expected around March 2027, and after that in distributions. The fan code from `hwmon-next` was tested on the MAG B850M MORTAR WIFI on 2026-11-15: writing fan curves and going back to automatic control work.
 
 ### Next
 
@@ -113,8 +113,7 @@ Support for this board in the Linux kernel is being developed alongside the app,
 hwmon (sensors and fans):
 
 - In the mainline tree, not in a released kernel yet: the board added to the [list of tested boards](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=f9c5d495e22f77c0455dacfca627e06219f05881) in the `nct6683` documentation (`f9c5d495e22f`).
-- In `hwmon-next`: a [driver for the voltage sensors of the RGB controller](https://patch.msgid.link/20261107082821.8257-1-tomasz@bojanowski.me) (`msi_mystic_light`) with documentation and a MAINTAINERS entry; in `nct6683`, the [32 mV voltage scale removed](https://patch.msgid.link/20261107150619.297999-1-tomasz@bojanowski.me), the [fan curves reported](https://patch.msgid.link/20261109015759.24284-1-tomasz@bojanowski.me) with documentation and [manual fan control restored after resume](https://patch.msgid.link/20261109163328.61787-1-tomasz@bojanowski.me); Tested-by on [four changes to the `msi_mystic_light` driver](https://patchwork.kernel.org/series/1205153/).
-- In review: [two `nct6683` patches](https://lore.kernel.org/linux-hwmon/20261109223442.509238-1-tomasz@bojanowski.me/) that make the fan curves writable, with documentation.
+- In `hwmon-next`: a [driver for the voltage sensors of the RGB controller](https://patch.msgid.link/20261107082821.8257-1-tomasz@bojanowski.me) (`msi_mystic_light`) with documentation and a MAINTAINERS entry; in `nct6683`, the [32 mV voltage scale removed](https://patch.msgid.link/20261107150619.297999-1-tomasz@bojanowski.me), the [fan curves reported](https://patch.msgid.link/20261109015759.24284-1-tomasz@bojanowski.me) with documentation and [manual fan control restored after resume](https://patch.msgid.link/20261109163328.61787-1-tomasz@bojanowski.me), the [fan configuration transaction factored out](https://patch.msgid.link/20261109223442.509238-2-tomasz@bojanowski.me) and the [fan curves made writable](https://patch.msgid.link/20261109223442.509238-3-tomasz@bojanowski.me) with documentation; Tested-by on [four changes to the `msi_mystic_light` driver](https://patchwork.kernel.org/series/1205153/).
 
 Sound:
 
