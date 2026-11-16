@@ -19,9 +19,10 @@ gettext-rs = { version = "0.8.0", features = ["gettext-system"] }
 glib-build-tools = "0.22.8"
 # The app's FFI modules: dlopen of libsensors and libudev, the locale.
 libc = "0.2.191"
-# Board profiles (TOML).
+# Board profiles (TOML). They are only read, so toml goes without its
+# `display` feature, which writes TOML.
 serde = { version = "1.0.229", features = ["derive"] }
-toml = "1.2.1"
+toml = { version = "1.2.1", default-features = false, features = ["std", "serde", "parse"] }
 
 [workspace.lints.rust]
 # Unsafe code is allowed only in FFI modules, each of which opts in with
