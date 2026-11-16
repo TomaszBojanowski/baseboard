@@ -73,9 +73,11 @@
       <description>
         <p>Small improvements after 0.2.0. Baseboard still only reads: it does not change any setting.</p>
         <ul>
-          <li>In a large window the lines of the last five minutes grow into the free room instead of leaving the bottom of the window empty</li>
-          <li>Diagnostics in one list, and icons for disks and network cards on the System page</li>
-          <li>Screen readers hear the values of rows and each new warning</li>
+          <li>In a large window, the five-minute charts on the Overview and Fans pages grow to fill the free space, up to a square, instead of leaving the bottom of the window empty; windows of 1200 × 800 and smaller look as before</li>
+          <li>Diagnostics is now a single list, like in GNOME Settings</li>
+          <li>Icons for disks, wired and Wi-Fi network cards on the System page</li>
+          <li>The status icon is now centred in its row</li>
+          <li>Screen readers now read the value and subtitle of each row and announce each new warning once</li>
         </ul>
         <p>Fan control comes in a later version.</p>
       </description>

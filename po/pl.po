@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: baseboard\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-16 19:27+0100\n"
+"POT-Creation-Date: 2026-11-16 19:36+0100\n"
 "PO-Revision-Date: 2026-11-11 20:30+0100\n"
 "Last-Translator: Tomasz Bojanowski <tomasz@bojanowski.me>\n"
 "Language-Team: \n"
@@ -184,30 +184,41 @@ msgstr ""
 
 #: data/me.bojanowski.Baseboard.metainfo.xml.in:76
 msgid ""
-"In a large window the lines of the last five minutes grow into the free room "
-"instead of leaving the bottom of the window empty"
+"In a large window, the five-minute charts on the Overview and Fans pages "
+"grow to fill the free space, up to a square, instead of leaving the bottom "
+"of the window empty; windows of 1200 × 800 and smaller look as before"
 msgstr ""
-"W dużym oknie linie z ostatnich 5 minut rosną w wolne miejsce, zamiast "
-"zostawiać pusty dół okna"
+"W dużym oknie wykresy z ostatnich 5 minut na stronach Przegląd i Wentylatory "
+"wypełniają wolne miejsce, najwyżej do kwadratu, zamiast zostawiać pusty dół "
+"okna; okna 1200 × 800 i mniejsze wyglądają jak dotąd"
 
 #: data/me.bojanowski.Baseboard.metainfo.xml.in:77
-msgid ""
-"Diagnostics in one list, and icons for disks and network cards on the System "
-"page"
-msgstr ""
-"„Diagnostyka” w jednej liście, a na stronie System ikony dysków i kart "
-"sieciowych"
+msgid "Diagnostics is now a single list, like in GNOME Settings"
+msgstr "„Diagnostyka” to teraz jedna lista, jak w Ustawieniach GNOME"
 
 #: data/me.bojanowski.Baseboard.metainfo.xml.in:78
-msgid "Screen readers hear the values of rows and each new warning"
-msgstr "Czytniki ekranu podają wartości wierszy i każde nowe ostrzeżenie"
+msgid "Icons for disks, wired and Wi-Fi network cards on the System page"
+msgstr ""
+"Ikony dysków, przewodowych kart sieciowych i kart Wi-Fi na stronie System"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:79
+msgid "The status icon is now centred in its row"
+msgstr "Znak stanu jest teraz wyśrodkowany w swoim wierszu"
 
 #: data/me.bojanowski.Baseboard.metainfo.xml.in:80
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:92
+msgid ""
+"Screen readers now read the value and subtitle of each row and announce each "
+"new warning once"
+msgstr ""
+"Czytniki ekranu podają teraz wartość i podtytuł każdego wiersza i raz "
+"ogłaszają każde nowe ostrzeżenie"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:82
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:94
 msgid "Fan control comes in a later version."
 msgstr "Sterowanie wentylatorami pojawi się w jednej z kolejnych wersji."
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:85
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:87
 msgid ""
 "A new look and a Fans page. Baseboard still only reads: it does not change "
 "any setting."
@@ -215,7 +226,7 @@ msgstr ""
 "Nowy wygląd i strona Wentylatory. Baseboard nadal tylko odczytuje: nie "
 "zmienia żadnych ustawień."
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:87
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:89
 msgid ""
 "A new Overview: the processor, graphics card and board with their "
 "temperature over the last five minutes, and the fans, memory and disks at a "
@@ -224,7 +235,7 @@ msgstr ""
 "Nowy Przegląd: procesor, karta graficzna i płyta z temperaturą z ostatnich 5 "
 "minut oraz wentylatory, pamięć i dyski w skrócie"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:88
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:90
 msgid ""
 "A Fans page with the speed and duty cycle of every fan and, where the kernel "
 "driver reports them, the curves the board runs the fans by"
@@ -232,7 +243,7 @@ msgstr ""
 "Strona Wentylatory z obrotami i wypełnieniem każdego wentylatora oraz, gdy "
 "sterownik jądra je podaje, krzywymi, według których płyta nimi steruje"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:89
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:91
 msgid ""
 "A new System page, short like About in GNOME Settings, with the details one "
 "click away"
@@ -240,7 +251,7 @@ msgstr ""
 "Nowa strona System, krótka jak „O systemie” w Ustawieniach GNOME, ze "
 "szczegółami o jedno kliknięcie dalej"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:90
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:92
 msgid ""
 "Warnings when the processor gets very hot, when the CPU fan stops and when a "
 "voltage is outside its tolerance"
@@ -248,7 +259,7 @@ msgstr ""
 "Ostrzeżenia, gdy procesor jest bardzo gorący, gdy stanie wentylator "
 "procesora i gdy napięcie wyjdzie poza tolerancję"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:97
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:99
 msgid ""
 "The first release. Baseboard reads the sensors of a motherboard and shows "
 "information about the system; it does not control anything yet."
@@ -256,7 +267,7 @@ msgstr ""
 "Pierwsze wydanie. Baseboard odczytuje czujniki płyty głównej i pokazuje "
 "informacje o systemie; jeszcze niczym nie steruje."
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:99
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:101
 msgid ""
 "Temperatures, fan speeds and voltages; on a board with a profile, named "
 "after its fan headers and voltage rails"
@@ -264,7 +275,7 @@ msgstr ""
 "Temperatury, obroty wentylatorów i napięcia; na płycie z profilem nazwane "
 "według jej złączy wentylatorów i szyn napięć"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:100
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:102
 msgid ""
 "Voltages rated against their tolerance, with the lowest and highest value "
 "since the app started"
@@ -272,7 +283,7 @@ msgstr ""
 "Ocena napięć względem tolerancji, z najniższą i najwyższą wartością od "
 "uruchomienia aplikacji"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:101
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:103
 msgid ""
 "A System page with the board, BIOS, processor, memory, graphics card, disks "
 "and the fan driver, which can be copied as text for bug reports"
@@ -281,11 +292,11 @@ msgstr ""
 "dyskami i sterownikiem wentylatorów, którą można skopiować jako tekst do "
 "zgłoszeń błędów"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:102
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:104
 msgid "English and Polish"
 msgstr "Interfejs po angielsku i po polsku"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:104
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:106
 msgid "Fan control, onboard RGB lighting and power profiles are not there yet."
 msgstr ""
 "Sterowania wentylatorami, podświetlenia RGB płyty i profili energii jeszcze "
