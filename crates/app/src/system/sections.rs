@@ -263,6 +263,7 @@ fn summary(dmi: &Dmi, profile: Option<&Profile>, info: &SystemInfo) -> Vec<Secti
                 disk.model.clone().unwrap_or_else(|| disk.name.clone()),
                 Some(size),
             )
+            .icon("baseboard-disk-symbolic")
         })
         .collect();
     let network = info
@@ -273,7 +274,14 @@ fn summary(dmi: &Dmi, profile: Option<&Profile>, info: &SystemInfo) -> Vec<Secti
                 || gettext("Unknown network card"),
                 |name| marketing_name(name).to_owned(),
             );
-            Line::value(name, Some(String::new()))
+            // Computers in a network for a wired card, the arcs of Wi-Fi
+            // for a wireless one (D77).
+            let icon = if card.wireless {
+                "baseboard-network-wireless-symbolic"
+            } else {
+                "baseboard-network-wired-symbolic"
+            };
+            Line::value(name, Some(String::new())).icon(icon)
         })
         .collect();
     vec![
@@ -1542,6 +1550,15 @@ mod tests {
                 size_bytes: 2_000_398_934_016,
                 removable: false,
             }],
+            network: [false, true]
+                .into_iter()
+                .map(|wireless| NetworkCard {
+                    device: "devices/a".into(),
+                    name: None,
+                    driver: None,
+                    wireless,
+                })
+                .collect(),
             ..SystemInfo::default()
         };
         let dmi = Dmi {
@@ -1581,6 +1598,17 @@ mod tests {
         assert_eq!(
             (disk.title.as_str(), disk.value.as_str()),
             ("WD_BLACK SN7100 2TB", "2.0\u{a0}TB")
+        );
+        // Disks and network cards with their icons too (D77): computers in
+        // a network for a wired card, the arcs of Wi-Fi for a wireless one.
+        assert_eq!(disk.icon, Some("baseboard-disk-symbolic"));
+        let network: Vec<_> = views.summary[2].lines.iter().map(|l| l.icon).collect();
+        assert_eq!(
+            network,
+            [
+                Some("baseboard-network-wired-symbolic"),
+                Some("baseboard-network-wireless-symbolic"),
+            ]
         );
         assert_eq!(views.summary[3].lines[0].value, "Fedora Linux 45");
         // The firmware stays in "Technical Details".

@@ -396,6 +396,7 @@ fn system_of_ms7e61() {
             device: NIC.into(),
             name: Some("RTL8126 5GbE Controller".into()),
             driver: Some("r8169".into()),
+            wireless: false,
         }]
     );
     // The device has no pwm files here: no channel has `mode`.
@@ -422,6 +423,38 @@ fn system_of_ms7e61() {
 /// A Flatpak sandbox (§10.3): the host's system name from /run/host, no
 /// lm-sensors files without the host's /etc, and no verdict on the fan
 /// programs, whose processes the sandbox cannot see.
+/// A Wi-Fi card is a PCI network controller of the subclass "other" (class
+/// 0x0280), as Wi-Fi cards report; Ethernet (0x0200) is wired, and a
+/// device of another class is no network card (D77).
+#[test]
+fn wired_and_wireless_cards() {
+    let s = System::new("wired_and_wireless_cards");
+    for (address, class) in [
+        ("0000:0d:00.0", "0x020000"),
+        ("0000:0e:00.0", "0x028000"),
+        ("0000:0f:00.0", "0x030000"),
+    ] {
+        let device = format!("devices/pci0000:00/{address}");
+        s.file(&format!("sys/{device}/class"), &format!("{class}\n"));
+        s.link(
+            &format!("sys/bus/pci/devices/{address}"),
+            &format!("sys/{device}"),
+        );
+    }
+    let cards = system::network_cards(&s.paths().sys, &NoUdev);
+    let kinds: Vec<(String, bool)> = cards
+        .iter()
+        .map(|card| (card.device.display().to_string(), card.wireless))
+        .collect();
+    assert_eq!(
+        kinds,
+        [
+            ("devices/pci0000:00/0000:0d:00.0".to_owned(), false),
+            ("devices/pci0000:00/0000:0e:00.0".to_owned(), true),
+        ]
+    );
+}
+
 #[test]
 fn seen_from_a_sandbox() {
     let system = System::ms7e61("sandbox");

@@ -290,6 +290,9 @@ pub struct NetworkCard {
     /// The udev database entry, unchanged (the app shortens it, D23).
     pub name: Option<String>,
     pub driver: Option<String>,
+    /// A network controller of the PCI subclass "other" (class 0x0280),
+    /// which Wi-Fi cards report; Ethernet is 0x0200 (D77).
+    pub wireless: bool,
 }
 
 /// The state of the board's EC driver (§5.4).

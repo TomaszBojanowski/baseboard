@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+  <path fill="#222222" fill-rule="evenodd" d="M5.75 1h4.5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-.75.75h-4.5A.75.75 0 0 1 5 5.25v-3.5A.75.75 0 0 1 5.75 1zm.5 1.25v2.5h3.5v-2.5z"/>
+  <rect fill="#222222" x="7.375" y="5.5" width="1.25" height="3" rx=".625"/>
+  <rect fill="#222222" x="2.875" y="7.875" width="10.25" height="1.25" rx=".625"/>
+  <rect fill="#222222" x="2.875" y="7.875" width="1.25" height="3" rx=".625"/>
+  <rect fill="#222222" x="11.875" y="7.875" width="1.25" height="3" rx=".625"/>
+  <path fill="#222222" fill-rule="evenodd" d="M1.75 10.5h3.5a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3.5a.75.75 0 0 1-.75-.75v-3a.75.75 0 0 1 .75-.75zm.5 1.25v2h2.5v-2z"/>
+  <path fill="#222222" fill-rule="evenodd" d="M10.75 10.5h3.5a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3.5a.75.75 0 0 1-.75-.75v-3a.75.75 0 0 1 .75-.75zm.5 1.25v2h2.5v-2z"/>
+</svg>

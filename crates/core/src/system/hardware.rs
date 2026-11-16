@@ -190,24 +190,27 @@ pub fn graphics_cards(sys: &Path, udev: &dyn Udev) -> Vec<GraphicsCard> {
         .collect()
 }
 
-/// The PCI devices of the network class (0x02), sorted.
+/// The PCI devices of the network class (0x02), sorted; those of the
+/// subclass "other" (0x80) are Wi-Fi cards.
 pub fn network_cards(sys: &Path, udev: &dyn Udev) -> Vec<NetworkCard> {
     let sys = canonical(sys);
-    let mut devices: Vec<PathBuf> = entries(&sys.join("bus/pci/devices"))
+    let mut devices: Vec<(PathBuf, u32)> = entries(&sys.join("bus/pci/devices"))
         .into_iter()
         .filter_map(|(_, path)| relative(&sys, &path))
-        .filter(|device| {
-            attribute(&sys, device, "class")
+        .filter_map(|device| {
+            attribute(&sys, &device, "class")
                 .and_then(|c| u32::from_str_radix(c.trim_start_matches("0x"), 16).ok())
-                .is_some_and(|class| class >> 16 == 0x02)
+                .filter(|class| class >> 16 == 0x02)
+                .map(|class| (device, class))
         })
         .collect();
     devices.sort();
     devices
         .into_iter()
-        .map(|device| NetworkCard {
+        .map(|(device, class)| NetworkCard {
             name: device_name(&sys, udev, &device),
             driver: driver_name(&sys, &device),
+            wireless: (class >> 8) & 0xff == 0x80,
             device,
         })
         .collect()
