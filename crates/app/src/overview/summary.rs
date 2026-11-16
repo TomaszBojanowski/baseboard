@@ -262,12 +262,7 @@ impl StatusRow {
             .accessible_role(gtk::AccessibleRole::Presentation)
             .css_classes(["status-icon"])
             .build();
-        let chevron = gtk::Image::builder()
-            .icon_name("go-next-symbolic")
-            .valign(gtk::Align::Center)
-            .accessible_role(gtk::AccessibleRole::Presentation)
-            .css_classes(["dimmed"])
-            .build();
+        let chevron = crate::widgets::chevron();
         row.add_prefix(&icon);
         row.add_suffix(&chevron);
         list.append(&row);
@@ -573,13 +568,7 @@ impl SummaryWidgets {
                 .css_classes(["dimmed"])
                 .build(),
         );
-        every.add_suffix(
-            &gtk::Image::builder()
-                .icon_name("go-next-symbolic")
-                .accessible_role(gtk::AccessibleRole::Presentation)
-                .css_classes(["dimmed"])
-                .build(),
-        );
+        every.add_suffix(&crate::widgets::chevron());
         every.set_action_target_value(Some(&"".to_variant()));
         every.set_action_name(Some(show));
         all.append(&every);

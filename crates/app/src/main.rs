@@ -29,6 +29,7 @@ mod system_reader;
 mod test_env;
 #[cfg(debug_assertions)]
 mod tour;
+mod widgets;
 mod window;
 
 use gtk::{gio, glib};

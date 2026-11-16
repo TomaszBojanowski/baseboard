@@ -294,13 +294,7 @@ impl PartCard {
         head.append(&badge);
         head.append(&title);
         if opens.is_some() {
-            head.append(
-                &gtk::Image::builder()
-                    .icon_name("go-next-symbolic")
-                    .accessible_role(gtk::AccessibleRole::Presentation)
-                    .css_classes(["dimmed"])
-                    .build(),
-            );
+            head.append(&crate::widgets::chevron());
         }
         let value = gtk::Label::builder()
             .css_classes(["part-value", "numeric"])

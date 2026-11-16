@@ -402,12 +402,7 @@ impl FanRow {
             .build();
         values.append(&rpm);
         values.append(&pct);
-        let chevron = gtk::Image::builder()
-            .icon_name("go-next-symbolic")
-            .valign(gtk::Align::Center)
-            .accessible_role(gtk::AccessibleRole::Presentation)
-            .css_classes(["dimmed"])
-            .build();
+        let chevron = crate::widgets::chevron();
 
         let row = gtk::ListBoxRow::builder().child(&grid).build();
         let widgets = Self {

@@ -183,13 +183,7 @@ fn main_page(
         .subtitle(gettext("Choose which readings Baseboard shows"))
         .activatable(true)
         .build();
-    visible.add_suffix(
-        &gtk::Image::builder()
-            .icon_name("go-next-symbolic")
-            .accessible_role(gtk::AccessibleRole::Presentation)
-            .css_classes(["dimmed"])
-            .build(),
-    );
+    visible.add_suffix(&crate::widgets::chevron());
     // The row keeps the subpage: nothing else holds it until it is shown.
     visible.connect_activated(glib::clone!(
         #[weak]

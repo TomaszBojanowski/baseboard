@@ -30,6 +30,7 @@ use crate::config;
 use crate::layout::{self, Columns, Place, Width};
 use crate::sensors::Choice;
 use crate::system_reader::Worker;
+use crate::widgets::chevron;
 use sections::{Extras, Health, Line, Section, Status, Style, health, status_texts, views};
 pub use sections::{no_profile, read_only_fans};
 
@@ -129,15 +130,6 @@ fn details_row() -> adw::ActionRow {
         .build();
     row.add_suffix(&chevron());
     row
-}
-
-fn chevron() -> gtk::Image {
-    gtk::Image::builder()
-        .icon_name("go-next-symbolic")
-        .valign(gtk::Align::Center)
-        .accessible_role(gtk::AccessibleRole::Presentation)
-        .css_classes(["dimmed"])
-        .build()
 }
 
 /// The widgets of one group.
