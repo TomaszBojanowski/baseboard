@@ -7,7 +7,7 @@
 use adw::prelude::*;
 use baseboard_core::sensors::Kind;
 use baseboard_core::summary::{FansNow, HotPart, OutsideRail, Problem};
-use baseboard_core::units::Numbers;
+use baseboard_core::units::{self, Numbers};
 use gettextrs::{gettext, ngettext};
 
 use crate::overview;
@@ -57,8 +57,8 @@ pub fn rail_warning(rail: &OutsideRail, numbers: &Numbers) -> (String, String) {
 /// the processor in its own words (it slows down at its limit, and what
 /// the fans do, when that is known), any other part by its name.
 pub fn hot_warning(part: &HotPart, fans: FansNow, numbers: &Numbers) -> (String, String) {
-    let value = crate::history_chart::degrees(part.value);
-    let limit = crate::history_chart::degrees(part.limit);
+    let value = units::degrees(part.value);
+    let limit = units::degrees(part.limit);
     if part.processor {
         // Translators: the status sentence on top of the Overview; {value}
         // is e.g. "93 °C".

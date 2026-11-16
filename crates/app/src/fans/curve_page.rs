@@ -17,11 +17,11 @@ use baseboard_core::fans::driver::{CurvePoint, Mode, Source};
 use baseboard_core::fans::page::{Chart, Fan, SourceRow};
 use baseboard_core::overview::Subtitle;
 use baseboard_core::sensors::Kind;
-use baseboard_core::units::{Numbers, UNIT_SPACE, duty_to_percent};
+use baseboard_core::units::{self, Numbers, duty_to_percent, percent};
 use gettextrs::gettext;
 use gtk::{glib, pango};
 
-use super::{PageContext, footer_text, legend_items, percent, source_name};
+use super::{PageContext, footer_text, legend_items, source_name};
 use crate::fan_chart::swatch::Swatch;
 use crate::fan_chart::{ChartCurve, FanChart, Reading};
 use crate::layout::{self, Width};
@@ -694,7 +694,7 @@ impl CurvePage {
         }
         for (row, &(first, last)) in rows.iter().zip(&runs) {
             let point = points[first];
-            let temp = format!("{}{UNIT_SPACE}°C", point.temp);
+            let temp = units::degrees(f64::from(point.temp));
             let duty = percent(duty_to_percent(point.duty));
             let (number, text) = point_texts(first, last, &temp, &duty);
             set_label(&row.number, &number);

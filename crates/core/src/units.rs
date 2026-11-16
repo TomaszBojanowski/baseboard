@@ -206,6 +206,22 @@ pub fn whole(kind: Kind, value: f64) -> String {
     )
 }
 
+/// A temperature in whole degrees, as the cards, the warnings and the
+/// fan curves show it: "68 °C"; "–" when it could not be read.
+pub fn degrees(value: f64) -> String {
+    whole(Kind::Temp, value)
+}
+
+/// A whole percent, as the fans show a duty cycle: "30 %".
+pub fn percent(value: u8) -> String {
+    format!("{value}{UNIT_SPACE}%")
+}
+
+/// The speed of a memory module: "6000 MT/s".
+pub fn megatransfers(speed: u32) -> String {
+    format!("{speed}{UNIT_SPACE}MT/s")
+}
+
 /// A duty cycle reading as 0–255.
 fn duty(value: f64) -> u8 {
     // Clamped first, so the cast cannot overflow.
@@ -246,6 +262,18 @@ mod tests {
         assert_eq!(whole(Kind::Temp, -0.3), "0\u{a0}°C");
         assert_eq!(whole(Kind::Fan, 1013.4), "1013\u{a0}rpm");
         assert_eq!(whole(Kind::Temp, f64::NAN), UNREADABLE);
+    }
+
+    /// The whole numbers of the pages with their units after a no-break
+    /// space (D25).
+    #[test]
+    fn whole_numbers_with_units() {
+        assert_eq!(degrees(68.4), "68\u{a0}°C");
+        assert_eq!(degrees(f64::from(85u8)), "85\u{a0}°C");
+        assert_eq!(degrees(f64::NAN), UNREADABLE);
+        assert_eq!(percent(30), "30\u{a0}%");
+        assert_eq!(percent(100), "100\u{a0}%");
+        assert_eq!(megatransfers(6000), "6000\u{a0}MT/s");
     }
 
     #[test]

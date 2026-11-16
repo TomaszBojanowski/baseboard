@@ -36,14 +36,14 @@ use adw::subclass::prelude::*;
 use baseboard_core::fans::curve;
 use baseboard_core::fans::driver::CurvePoint;
 use baseboard_core::sensors::Kind;
-use baseboard_core::units::{Numbers, duty_to_percent};
+use baseboard_core::units::{self, Numbers, duty_to_percent};
 use gettextrs::gettext;
 use gtk::{gdk, glib, gsk};
 
 use draw::{
     Palette, TEXT_SCALE, alpha, circle, draw_area_below, draw_axis_labels, draw_curve_line,
     draw_dot, draw_full_at, draw_grid, draw_guides, draw_text, draw_zone_texts, draw_zones, layout,
-    line, percent_text, rect, rounded, size_of, stroke, temp_text,
+    line, rect, rounded, size_of, stroke,
 };
 use geometry::{Plot, Rect};
 
@@ -135,8 +135,8 @@ pub fn describe(curve: &ChartCurve, reading: Option<Reading>, numbers: &Numbers)
                 .replace("{last}", &(last + 1).to_string())
         };
         sentences.push(
-            text.replace("{temperature}", &temp_text(p.temp))
-                .replace("{duty}", &percent_text(duty_to_percent(p.duty))),
+            text.replace("{temperature}", &units::degrees(f64::from(p.temp)))
+                .replace("{duty}", &units::percent(duty_to_percent(p.duty))),
         );
     }
     if let Some(reading) = reading {
@@ -146,7 +146,7 @@ pub fn describe(curve: &ChartCurve, reading: Option<Reading>, numbers: &Numbers)
             // now, e.g. "Now 46.0 °C, duty cycle 38 %."
             gettext("Now {temperature}, duty cycle {duty}.")
                 .replace("{temperature}", &temp)
-                .replace("{duty}", &percent_text(duty_to_percent(reading.duty))),
+                .replace("{duty}", &units::percent(duty_to_percent(reading.duty))),
         );
         if let Some(target) = curve::expected_duty(&curve.points, reading.millidegrees)
             .filter(|_| curve.in_effect)
@@ -156,7 +156,7 @@ pub fn describe(curve: &ChartCurve, reading: Option<Reading>, numbers: &Numbers)
                 // Translators: the controller changes the duty cycle
                 // gradually; {duty} is where it is heading, e.g. "40 %".
                 gettext("The fan is moving to {duty}.")
-                    .replace("{duty}", &percent_text(duty_to_percent(target))),
+                    .replace("{duty}", &units::percent(duty_to_percent(target))),
             );
         }
     }
@@ -164,14 +164,14 @@ pub fn describe(curve: &ChartCurve, reading: Option<Reading>, numbers: &Numbers)
         sentences.push(
             // Translators: the lowest duty cycle allowed for this fan, e.g. "30 %".
             gettext("Minimum duty cycle: {duty}.")
-                .replace("{duty}", &percent_text(curve.min_percent)),
+                .replace("{duty}", &units::percent(curve.min_percent)),
         );
     }
     if let Some(threshold) = curve.threshold {
         sentences.push(
             // Translators: the emergency temperature of the source, e.g. "95 °C".
             gettext("Emergency threshold: {temperature}.")
-                .replace("{temperature}", &temp_text(threshold)),
+                .replace("{temperature}", &units::degrees(f64::from(threshold))),
         );
     }
     sentences.join(" ")
@@ -559,11 +559,11 @@ impl FanChart {
                 "{temperature}",
                 &numbers.value(Kind::Temp, reading.millidegrees as f64 / 1000.0),
             )
-            .replace("{duty}", &percent_text(duty_to_percent(reading.duty)));
+            .replace("{duty}", &units::percent(duty_to_percent(reading.duty)));
         let first = layout(widget, &first, TEXT_SCALE, true);
         let second = moving.then(|| {
             let target = shown.target.round().clamp(0.0, 255.0) as u8;
-            let percent = percent_text(duty_to_percent(target));
+            let percent = units::percent(duty_to_percent(target));
             // Translators: under the label of the operating point, where
             // the fan is heading, e.g. "target 40 %".
             let text = gettext("target {duty}").replace("{duty}", &percent);

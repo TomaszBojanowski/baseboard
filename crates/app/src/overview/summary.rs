@@ -19,7 +19,7 @@ use baseboard_core::units::{self, Numbers, UNIT_SPACE};
 use gettextrs::{gettext, ngettext, pgettext};
 
 use crate::alert;
-use crate::history_chart::{self, degrees};
+use crate::history_chart;
 use crate::layout::Width;
 use crate::part_card::{CardView, Fact, PartCard};
 
@@ -115,7 +115,7 @@ pub fn card_view(
     facts.push(Fact {
         // Translators: a fact on a card, followed by a temperature.
         title: gettext("Highest since the app started"),
-        value: degrees(hero.highest),
+        value: units::degrees(hero.highest),
         warn: false,
     });
     let history = histories.get(&hero.id);
@@ -749,7 +749,7 @@ fn show_warmest(tile: &Tile, warmest: Option<Warmest>, of: impl Fn(u32) -> Strin
     } else {
         String::new()
     };
-    tile.show(&degrees(warmest.value), &sub, false);
+    tile.show(&units::degrees(warmest.value), &sub, false);
 }
 
 #[cfg(test)]

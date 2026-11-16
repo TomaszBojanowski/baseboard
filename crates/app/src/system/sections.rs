@@ -12,6 +12,7 @@ use baseboard_core::system::{
     self, Bios, Disk, GraphicsCard, Manufacturer, MemoryModule, MemorySlot, ModuleOrigin,
     NetworkCard, PciId, SystemInfo, short_cpu_name,
 };
+use baseboard_core::units;
 use gettextrs::{gettext, ngettext, pgettext};
 use gtk::glib;
 
@@ -314,10 +315,7 @@ fn memory_total(slots: Option<&[MemorySlot]>) -> Option<String> {
         Some(kind) => format!("{size} {kind}"),
         None => size,
     }];
-    parts.extend(shared(|m| {
-        m.configured_speed_mts
-            .map(|speed| format!("{speed}\u{a0}MT/s"))
-    }));
+    parts.extend(shared(|m| m.configured_speed_mts.map(units::megatransfers)));
     Some(parts.join(" · "))
 }
 
@@ -621,19 +619,18 @@ fn module_text(module: &MemoryModule) -> String {
 
 /// The configured speed, and the highest one when it differs.
 fn speed_text(module: &MemoryModule) -> Option<String> {
-    let mts = |speed: u32| format!("{speed}\u{a0}MT/s");
     match (module.configured_speed_mts, module.max_speed_mts) {
         (Some(set), Some(max)) if set != max => Some(
             // Translators: the speed a memory module runs at and its highest
             // speed, e.g. "4800 MT/s (max. 6000 MT/s)".
             gettext("{configured} (max. {max})")
-                .replace("{configured}", &mts(set))
-                .replace("{max}", &mts(max)),
+                .replace("{configured}", &units::megatransfers(set))
+                .replace("{max}", &units::megatransfers(max)),
         ),
-        (Some(set), _) => Some(mts(set)),
+        (Some(set), _) => Some(units::megatransfers(set)),
         // Translators: the highest speed of a memory module, e.g.
         // "max. 6000 MT/s".
-        (None, Some(max)) => Some(gettext("max. {}").replace("{}", &mts(max))),
+        (None, Some(max)) => Some(gettext("max. {}").replace("{}", &units::megatransfers(max))),
         (None, None) => None,
     }
 }

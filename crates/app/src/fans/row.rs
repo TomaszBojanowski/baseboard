@@ -18,12 +18,11 @@ use adw::subclass::prelude::*;
 use baseboard_core::fans::driver::Mode;
 use baseboard_core::sensors::Kind;
 use baseboard_core::summary::VISIBLE_CHANGE;
-use baseboard_core::units::{Numbers, UNIT_SPACE, duty_to_percent};
+use baseboard_core::units::{Numbers, UNIT_SPACE, duty_to_percent, percent};
 use gettextrs::{gettext, pgettext};
 use gtk::{glib, pango};
 
 use super::curve_page::mode_text;
-use super::percent;
 use super::spark::Spark;
 
 /// The small chart in a wide and in a narrow window, in pixels.

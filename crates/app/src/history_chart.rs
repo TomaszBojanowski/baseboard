@@ -16,7 +16,6 @@ use std::cell::{Cell, RefCell};
 use adw::prelude::*;
 use adw::subclass::prelude::*;
 use baseboard_core::history::{History, SPAN, Trend};
-use baseboard_core::sensors::Kind;
 use baseboard_core::units::{self, RANGE_DASH, UNIT_SPACE};
 use gettextrs::gettext;
 use gtk::{gdk, glib, graphene, gsk};
@@ -42,12 +41,6 @@ pub fn points(history: &History) -> Points {
         .points()
         .map(|(at, value)| (newest.duration_since(at).as_secs_f64(), value))
         .collect()
-}
-
-/// A temperature in whole degrees with its unit, "68 °C", as the cards
-/// show it; "–" when it could not be read.
-pub fn degrees(value: f64) -> String {
-    units::whole(Kind::Temp, value)
 }
 
 /// The lowest and highest value, as the caption shows them: "63–70 °C",
@@ -86,7 +79,7 @@ pub fn describe(points: &Points, trend: Trend) -> String {
         Trend::Steady => gettext("Last 5 minutes: {range}. Now {value}, steady."),
     };
     text.replace("{range}", &range_text(points))
-        .replace("{value}", &degrees(now))
+        .replace("{value}", &units::degrees(now))
 }
 
 /// The pieces of the line between gaps in the samples, in pixels.
@@ -311,7 +304,6 @@ mod tests {
         let quiet = super::points(&history(&[(0, 30.2), (1, 30.4)]));
         assert_eq!(range_text(&quiet), "30\u{a0}°C");
         assert_eq!(describe(&Vec::new(), Trend::Steady), "No readings yet");
-        assert_eq!(degrees(f64::NAN), units::UNREADABLE);
     }
 
     /// Time runs from the left to the right end; a gap in the samples

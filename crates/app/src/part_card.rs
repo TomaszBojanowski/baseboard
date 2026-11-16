@@ -24,6 +24,7 @@ use gtk::{glib, graphene, gsk};
 use crate::history_chart::{self, HistoryChart, Points};
 use crate::layout::Width;
 use baseboard_core::history::Trend;
+use baseboard_core::units;
 
 /// A fact under the line: what, how much, and whether it is a warning.
 #[derive(Debug, Clone, PartialEq)]
@@ -509,7 +510,7 @@ impl PartCard {
             gtk::accessible::Property::Label(&format!(
                 "{}: {}",
                 self.name,
-                history_chart::degrees(view.value)
+                units::degrees(view.value)
             )),
             gtk::accessible::Property::Description(&description.join(" ")),
         ]);

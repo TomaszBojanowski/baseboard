@@ -27,7 +27,7 @@ use baseboard_core::history::Histories;
 use baseboard_core::overview::{Name, Row, RowId, Subtitle, Visibility};
 use baseboard_core::profile::{FanRole, Profile};
 use baseboard_core::summary::{self, HeroKind};
-use baseboard_core::units::{Numbers, UNIT_SPACE};
+use baseboard_core::units::Numbers;
 use gettextrs::gettext;
 use gtk::{gdk, gio, glib, pango};
 
@@ -47,11 +47,6 @@ pub(crate) struct PageContext<'a> {
     pub numbers: &'a Numbers,
     /// The source most curves follow.
     pub source: Option<&'a SourceRow>,
-}
-
-/// A whole percent with its unit, e.g. "30 %".
-pub(crate) fn percent(value: u8) -> String {
-    format!("{value}{UNIT_SPACE}%")
 }
 
 /// The name of a temperature source, as on the Overview.
@@ -806,7 +801,6 @@ mod tests {
             name(source(Source::Unreported, None)),
             "A temperature the driver does not report"
         );
-        assert_eq!(percent(30), "30\u{a0}%");
     }
 
     /// A wrapped text never leaves fewer than three words alone on its last

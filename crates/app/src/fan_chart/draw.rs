@@ -6,7 +6,7 @@
 //! in `fan_chart.rs` puts them together and keeps the static part.
 
 use adw::prelude::*;
-use baseboard_core::units::UNIT_SPACE;
+use baseboard_core::units;
 use gettextrs::gettext;
 use gtk::{gdk, graphene, gsk, pango};
 
@@ -146,14 +146,6 @@ pub(super) fn draw_text(
     snapshot.restore();
 }
 
-pub(super) fn temp_text(temp: u8) -> String {
-    format!("{temp}{UNIT_SPACE}°C")
-}
-
-pub(super) fn percent_text(percent: u8) -> String {
-    format!("{percent}{UNIT_SPACE}%")
-}
-
 /// Under the points of the curve: the guides of the operating point to the
 /// axes, and the target when the controller is still moving to it.
 pub(super) fn draw_guides(
@@ -264,13 +256,13 @@ pub(super) fn draw_axis_labels(
     let area = plot.area;
     let tick = alpha(&palette.fg, palette.text);
     for percent in geometry::PERCENTS {
-        let text = layout(widget, &percent_text(percent), TEXT_SCALE, false);
+        let text = layout(widget, &units::percent(percent), TEXT_SCALE, false);
         let (w, _) = size_of(&text);
         let y = plot.y_percent(f64::from(percent));
         draw_text(snapshot, &text, area.x - 7.0 - w, y + 4.0, &tick);
     }
     for temp in geometry::LABEL_TEMPS {
-        let text = layout(widget, &temp_text(temp), TEXT_SCALE, false);
+        let text = layout(widget, &units::degrees(f64::from(temp)), TEXT_SCALE, false);
         let (w, _) = size_of(&text);
         draw_text(
             snapshot,
@@ -379,7 +371,7 @@ pub(super) fn draw_zone_texts(
         // Translators: the zone of a fan curve below the lowest duty
         // cycle allowed; {duty} is e.g. "30 %".
         let text = gettext("Below the minimum of {duty}")
-            .replace("{duty}", &percent_text(curve.min_percent));
+            .replace("{duty}", &units::percent(curve.min_percent));
         let label = layout(widget, &text, TEXT_SCALE, false);
         let (w, _) = size_of(&label);
         let baseline = area.bottom() - 9.0;
@@ -415,14 +407,14 @@ pub(super) fn draw_zone_texts(
             &palette.error,
             &stroke(1.5, &[5.0, 3.0], false),
         );
-        let temperature = temp_text(threshold);
+        let temperature = units::degrees(f64::from(threshold));
         let text = if curve.needs_full {
             // Translators: the emergency temperature of the source on a
             // fan curve that must reach full duty by then; e.g.
             // "Emergency threshold 95 °C: 100 % from there".
             gettext("Emergency threshold {temperature}: {duty} from there")
                 .replace("{temperature}", &temperature)
-                .replace("{duty}", &percent_text(100))
+                .replace("{duty}", &units::percent(100))
         } else {
             // Translators: the emergency temperature of the source on a
             // fan curve, e.g. "Emergency threshold 95 °C".
