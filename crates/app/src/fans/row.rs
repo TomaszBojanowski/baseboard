@@ -532,16 +532,16 @@ impl FanRow {
         self.pct.set_visible(line.duty.is_some());
         self.spark.set_curve(line.chart.clone());
         self.spark.set_now(line.now);
-        match &line.chart_description {
-            Some(text) => {
-                self.spark.set_accessible_role(gtk::AccessibleRole::Img);
-                self.spark
-                    .update_property(&[gtk::accessible::Property::Label(text)]);
-            }
-            None => self
-                .spark
-                .set_accessible_role(gtk::AccessibleRole::Presentation),
+        // The small chart keeps its role of an image (GTK cannot change a
+        // role once a screen reader has seen it); without a curve in words
+        // it is left out.
+        if let Some(text) = &line.chart_description {
+            self.spark
+                .update_property(&[gtk::accessible::Property::Label(text)]);
         }
+        self.spark.update_state(&[gtk::accessible::State::Hidden(
+            line.chart_description.is_none(),
+        )]);
         self.row.update_property(&[
             gtk::accessible::Property::Label(&line.name),
             gtk::accessible::Property::Description(&line.description(numbers)),
@@ -771,6 +771,26 @@ mod tests {
             rows[1].row.activate();
             assert_eq!(*opened.borrow(), ["cpu1"]);
             window.destroy();
+        });
+    }
+
+    /// The small chart stays an image for screen readers with and without
+    /// a curve in words: GTK cannot change the role of a widget that a
+    /// screen reader has seen. Needs a display.
+    #[test]
+    fn chart_keeps_its_role() {
+        crate::gtk_test::run("chart_keeps_its_role", || {
+            let numbers = Numbers::new(".");
+            let described = FanLine {
+                chart_description: Some("Point 1: 40 °C, 100 %.".into()),
+                ..pump()
+            };
+            let row = FanRow::new(&described, &numbers, false);
+            assert_eq!(row.spark.accessible_role(), gtk::AccessibleRole::Img);
+            row.update(&pump(), &numbers);
+            assert_eq!(row.spark.accessible_role(), gtk::AccessibleRole::Img);
+            row.update(&described, &numbers);
+            assert_eq!(row.spark.accessible_role(), gtk::AccessibleRole::Img);
         });
     }
 

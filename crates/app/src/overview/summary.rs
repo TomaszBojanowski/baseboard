@@ -245,12 +245,18 @@ struct StatusRow {
     row: adw::ActionRow,
     icon: gtk::Image,
     chevron: gtk::Image,
+    /// What the warning announced last opens: a screen reader hears each
+    /// warning once, not each new value of it.
+    announced: RefCell<Option<(&'static str, Option<String>)>>,
 }
 
 impl StatusRow {
     fn new() -> Self {
+        // One role for good and all: GTK cannot change it once a screen
+        // reader has seen it, so a warning is announced instead.
         let list = gtk::ListBox::builder()
             .selection_mode(gtk::SelectionMode::None)
+            .accessible_role(gtk::AccessibleRole::Status)
             .css_classes(["boxed-list", "status-list"])
             .build();
         let row = adw::ActionRow::builder()
@@ -271,7 +277,20 @@ impl StatusRow {
             row,
             icon,
             chevron,
+            announced: RefCell::new(None),
         }
+    }
+
+    /// What to announce for `status`: the title of a warning other than
+    /// the one announced last; nothing for the same warning with a new
+    /// value or for a status that is not a warning.
+    fn announcement(&self, status: &StatusText) -> Option<String> {
+        let mut announced = self.announced.borrow_mut();
+        if *announced == status.opens {
+            return None;
+        }
+        announced.clone_from(&status.opens);
+        status.opens.as_ref().map(|_| status.title.clone())
     }
 
     fn show(&self, status: &StatusText) {
@@ -300,13 +319,9 @@ impl StatusRow {
             }
             None => self.row.set_action_name(None),
         }
-        let role = if warning {
-            gtk::AccessibleRole::Alert
-        } else {
-            gtk::AccessibleRole::Status
-        };
-        if self.list.accessible_role() != role {
-            self.list.set_accessible_role(role);
+        if let Some(words) = self.announcement(status) {
+            self.list
+                .announce(&words, gtk::AccessibleAnnouncementPriority::High);
         }
     }
 }
@@ -899,6 +914,42 @@ mod tests {
             (fine.title.as_str(), fine.text.as_str()),
             ("Everything is fine", "Fans are speeding up.")
         );
+    }
+
+    /// The status row keeps the role of a status when a warning comes and
+    /// goes (GTK cannot change a role once a screen reader has seen it);
+    /// each warning is announced once, not each new value of it. Needs a
+    /// display.
+    #[test]
+    fn status_announces_each_warning_once() {
+        crate::gtk_test::run("status_announces_each_warning_once", || {
+            let status = |title: &str, opens: Option<(&'static str, Option<String>)>| StatusText {
+                icon: "baseboard-ok-symbolic",
+                class: "",
+                title: title.into(),
+                text: String::new(),
+                opens,
+            };
+            let fine = status("Everything is fine", None);
+            let cpu = || Some(("win.show-sensors", Some("cpu".to_owned())));
+            let hot = status("Processor is very hot: 93\u{a0}°C", cpu());
+            let hotter = status("Processor is very hot: 94\u{a0}°C", cpu());
+            let stopped = status("CPU fan stopped", Some(("win.show-fans", None)));
+
+            let row = StatusRow::new();
+            for shown in [&fine, &hot, &fine] {
+                row.show(shown);
+                assert_eq!(row.list.accessible_role(), gtk::AccessibleRole::Status);
+            }
+
+            let row = StatusRow::new();
+            assert_eq!(row.announcement(&fine), None);
+            assert_eq!(row.announcement(&hot), Some(hot.title.clone()));
+            assert_eq!(row.announcement(&hotter), None);
+            assert_eq!(row.announcement(&stopped), Some(stopped.title.clone()));
+            assert_eq!(row.announcement(&fine), None);
+            assert_eq!(row.announcement(&hot), Some(hot.title.clone()));
+        });
     }
 
     /// The cards, the tiles and the status row for a hot processor with a
