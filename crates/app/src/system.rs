@@ -100,7 +100,7 @@ fn status_group(health: &Health) -> adw::PreferencesGroup {
     let image = gtk::Image::builder()
         .icon_name(icon)
         .css_classes(["status-icon", class])
-        .valign(gtk::Align::Start)
+        .valign(gtk::Align::Center)
         .accessible_role(gtk::AccessibleRole::Presentation)
         .build();
     row.add_prefix(&image);
@@ -529,7 +529,8 @@ mod tests {
 
     /// "Diagnostics" is one list at any width (D76): in a wide window its
     /// groups stand one under another, as wide as a list of GNOME Settings.
-    /// Needs a display.
+    /// The sign of the status row is in the middle of its two lines. Needs
+    /// a display.
     #[test]
     fn diagnostics_in_one_list() {
         crate::gtk_test::run("diagnostics_in_one_list", || {
@@ -542,9 +543,10 @@ mod tests {
             imp.info.replace(Some(SystemInfo::default()));
             page.render();
             let width = 1600;
-            let bin = &*imp.diagnostics_bin;
-            let (_, height, _, _) = bin.measure(gtk::Orientation::Vertical, width);
-            bin.allocate(width, height.max(800), -1, None);
+            for bin in [&*imp.diagnostics_bin, &*imp.bin] {
+                let (_, height, _, _) = bin.measure(gtk::Orientation::Vertical, width);
+                bin.allocate(width, height.max(800), -1, None);
+            }
 
             let groups = descendants::<adw::PreferencesGroup>(imp.diagnostics.upcast_ref());
             assert!(groups.len() >= 3, "{}", groups.len());
@@ -556,6 +558,21 @@ mod tests {
                 assert_eq!(group.x(), bounds[0].x(), "{bounds:?}");
                 assert!(group.width() <= 600.0, "{bounds:?}");
             }
+
+            let status = imp.status.borrow().clone().unwrap();
+            let row = &descendants::<adw::ActionRow>(status.upcast_ref())[0];
+            assert_eq!(row.subtitle().as_deref(), Some("And 1 more problem"));
+            let icon = descendants::<gtk::Image>(row.upcast_ref())
+                .into_iter()
+                .find(|image| image.has_css_class("status-icon"))
+                .unwrap();
+            let icon = icon.compute_bounds(row).unwrap();
+            let middle = icon.y() + icon.height() / 2.0;
+            assert!(
+                (middle - row.height() as f32 / 2.0).abs() <= 1.0,
+                "{middle} in {}",
+                row.height()
+            );
         });
     }
 

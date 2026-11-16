@@ -258,7 +258,7 @@ impl StatusRow {
             .css_classes(["status-row"])
             .build();
         let icon = gtk::Image::builder()
-            .valign(gtk::Align::Start)
+            .valign(gtk::Align::Center)
             .accessible_role(gtk::AccessibleRole::Presentation)
             .css_classes(["status-icon"])
             .build();
@@ -944,6 +944,19 @@ mod tests {
             let state = State::Problems(vec![hot_cpu(), Problem::Rail(rail())]);
             widgets.update(&summary, &state, &Histories::default(), &numbers);
             assert_eq!(widgets.status().0, "Processor is very hot: 93\u{a0}°C");
+            // The sign of the status row in the middle of its two lines
+            // (D76), as the icons of other rows.
+            let list = &widgets.status.list;
+            let (_, height, _, _) = list.measure(gtk::Orientation::Vertical, 800);
+            list.allocate(800, height, -1, None);
+            let row = widgets.status.row.upcast_ref::<gtk::Widget>();
+            let icon = widgets.status.icon.compute_bounds(row).unwrap();
+            let middle = icon.y() + icon.height() / 2.0;
+            assert!(
+                (middle - row.height() as f32 / 2.0).abs() <= 1.0,
+                "{middle} in {}",
+                row.height()
+            );
             let (_, cpu) = &widgets.cards[0];
             assert!(cpu.widget.get_visible() && cpu.widget.has_css_class("hot"));
             assert!(!widgets.cards[1].1.widget.get_visible());

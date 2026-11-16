@@ -136,7 +136,6 @@ row.monospace-value .subtitle {
 
 .status-icon {
   -gtk-icon-size: 20px;
-  margin-top: 2px;
 }
 
 .status-list.warning-status row {
