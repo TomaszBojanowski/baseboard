@@ -69,6 +69,17 @@
   </branding>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.2.1" date="2026-11-16">
+      <description>
+        <p>Small improvements after 0.2.0. Baseboard still only reads: it does not change any setting.</p>
+        <ul>
+          <li>In a large window the lines of the last five minutes grow into the free room instead of leaving the bottom of the window empty</li>
+          <li>Diagnostics in one list, and icons for disks and network cards on the System page</li>
+          <li>Screen readers hear the values of rows and each new warning</li>
+        </ul>
+        <p>Fan control comes in a later version.</p>
+      </description>
+    </release>
     <release version="0.2.0" date="2026-11-14">
       <description>
         <p>A new look and a Fans page. Baseboard still only reads: it does not change any setting.</p>
