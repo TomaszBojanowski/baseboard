@@ -431,10 +431,10 @@ impl Tour {
         }
     }
 
-    /// The switch "Names from lm-sensors" changes its setting; "Visible
-    /// readings" opens its subpage, where a switch hides a reading. Both
-    /// switches are put back. "Custom names" opens an outside app, so it is
-    /// only looked for.
+    /// The switch "Names from lm-sensors" changes its setting, or is off in
+    /// a Flatpak sandbox without the host's /etc; "Visible readings" opens
+    /// its subpage, where a switch hides a reading. Both switches are put
+    /// back. "Custom names" opens an outside app, so it is only looked for.
     async fn preferences(&self, preferences: &adw::PreferencesDialog) {
         use crate::preferences::{HIDDEN, SENSORS_LABELS, row_titled};
 
@@ -444,15 +444,27 @@ impl Tour {
         self.whole_texts("Preferences");
 
         let names = settings.boolean(SENSORS_LABELS);
-        let clicked = click("Names from lm-sensors");
-        pause(300).await;
-        let changed = settings.boolean(SENSORS_LABELS) != names;
-        let clicked = clicked && click("Names from lm-sensors");
-        pause(300).await;
-        self.check(
-            clicked && changed && settings.boolean(SENSORS_LABELS) == names,
-            "Preferences \"Names from lm-sensors\" changes its setting and back",
-        );
+        if config::sandbox().is_some_and(|sandbox| !sandbox.host_etc) {
+            // There is no configuration to take names from: the switch is
+            // off and a click leaves the setting as it is.
+            let off = row("Names from lm-sensors").is_some_and(|row| !row.is_sensitive());
+            click("Names from lm-sensors");
+            pause(300).await;
+            self.check(
+                off && settings.boolean(SENSORS_LABELS) == names,
+                "Preferences \"Names from lm-sensors\" is off in Flatpak without the host's /etc",
+            );
+        } else {
+            let clicked = click("Names from lm-sensors");
+            pause(300).await;
+            let changed = settings.boolean(SENSORS_LABELS) != names;
+            let clicked = clicked && click("Names from lm-sensors");
+            pause(300).await;
+            self.check(
+                clicked && changed && settings.boolean(SENSORS_LABELS) == names,
+                "Preferences \"Names from lm-sensors\" changes its setting and back",
+            );
+        }
         self.check(
             row("Custom names").is_some(),
             "Preferences has \"Custom names\"",
