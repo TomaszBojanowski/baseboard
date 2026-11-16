@@ -6,10 +6,10 @@
 //! (`MEMORY_DEVICE_*` of the DMI device). Which properties are read is up
 //! to `core::system` and `core::overview`.
 //!
-//! One of the FFI modules with unsafe code (with `libsensors` and `i18n`).
-//! The declarations follow `libudev.h` of systemd. A udev context is not thread
-//! safe, so [`Libudev`] stays on the thread that made it (it is neither
-//! `Send` nor `Sync`). It only reads the database.
+//! One of the FFI modules with unsafe code (with `dl`, `libsensors` and
+//! `i18n`). The declarations follow `libudev.h` of systemd. A udev context
+//! is not thread safe, so [`Libudev`] stays on the thread that made it (it
+//! is neither `Send` nor `Sync`). It only reads the database.
 
 #![allow(unsafe_code, reason = "an FFI module: libudev through dlopen")]
 
@@ -20,6 +20,8 @@ use std::ptr::NonNull;
 
 use baseboard_core::udev::Udev;
 use gtk::glib;
+
+use crate::dl::Library;
 
 const LIBRARY: &CStr = c"libudev.so.1";
 
@@ -60,12 +62,17 @@ pub struct Libudev {
 impl Libudev {
     /// Loads libudev and makes a udev context.
     pub fn load() -> Result<Self, String> {
-        let library = Library::open(LIBRARY)?;
-        let new = library.symbol(c"udev_new")?;
-        let unref = library.symbol(c"udev_unref")?;
-        let device = library.symbol(c"udev_device_new_from_syspath")?;
-        let property = library.symbol(c"udev_device_get_property_value")?;
-        let device_unref = library.symbol(c"udev_device_unref")?;
+        let library = Library::open(&[LIBRARY])?;
+        let symbol = |name: &CStr| {
+            library
+                .symbol(name)
+                .ok_or_else(|| format!("libudev lacks {}", name.to_string_lossy()))
+        };
+        let new = symbol(c"udev_new")?;
+        let unref = symbol(c"udev_unref")?;
+        let device = symbol(c"udev_device_new_from_syspath")?;
+        let property = symbol(c"udev_device_get_property_value")?;
+        let device_unref = symbol(c"udev_device_unref")?;
         // SAFETY: each symbol is the libudev function of that name and each
         // type is its C signature in libudev.h. On Linux a function pointer
         // has the size and representation of a data pointer, which dlsym
@@ -124,45 +131,6 @@ impl Drop for Libudev {
         // outlives a call of `property`. The library is closed afterwards.
         unsafe { (self.unref)(self.udev.as_ptr()) };
     }
-}
-
-/// A library opened with dlopen, closed on drop.
-struct Library(NonNull<c_void>);
-
-impl Library {
-    fn open(name: &CStr) -> Result<Self, String> {
-        // SAFETY: `name` is NUL-terminated. Loading libudev runs only its
-        // own and libc's initialisers.
-        let handle = unsafe { libc::dlopen(name.as_ptr(), libc::RTLD_NOW | libc::RTLD_LOCAL) };
-        NonNull::new(handle).map(Self).ok_or_else(dlerror)
-    }
-
-    fn symbol(&self, name: &CStr) -> Result<NonNull<c_void>, String> {
-        // SAFETY: the handle stays open until drop; `name` is NUL-terminated.
-        let symbol = unsafe { libc::dlsym(self.0.as_ptr(), name.as_ptr()) };
-        NonNull::new(symbol).ok_or_else(|| format!("libudev lacks {}", name.to_string_lossy()))
-    }
-}
-
-impl Drop for Library {
-    fn drop(&mut self) {
-        // SAFETY: opened by dlopen and closed once; no pointer into the
-        // library is used after this.
-        unsafe { libc::dlclose(self.0.as_ptr()) };
-    }
-}
-
-fn dlerror() -> String {
-    // SAFETY: dlerror returns null or a message valid until the next dl*
-    // call on this thread; it is copied at once.
-    let message = unsafe { libc::dlerror() };
-    if message.is_null() {
-        return "unknown dlopen error".to_owned();
-    }
-    // SAFETY: not null and NUL-terminated (above).
-    unsafe { CStr::from_ptr(message) }
-        .to_string_lossy()
-        .into_owned()
 }
 
 #[cfg(test)]

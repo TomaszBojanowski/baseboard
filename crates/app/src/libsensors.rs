@@ -2,14 +2,15 @@
 
 //! libsensors (lm-sensors) through `dlopen` (docs/PROJEKT.md §5.1): the
 //! `ignore`, `compute` and `label` statements of /etc/sensors3.conf and
-//! /etc/sensors.d. The library is loaded at run time, so the app still
-//! starts when it is missing and reads raw sysfs instead.
+//! /etc/sensors.d. The library is loaded at run time (`dl`), so the app
+//! still starts when it is missing and reads raw sysfs instead.
 //!
-//! One of the FFI modules with unsafe code (with `libudev` and `i18n`). The
-//! declarations follow `sensors.h` of lm-sensors 3.6.0. libsensors keeps global state and
-//! is not thread safe, so there is at most one [`Libsensors`] at a time and
-//! it stays on the thread that made it (it is neither `Send` nor `Sync`).
-//! It only reads: `set` statements are never executed.
+//! One of the FFI modules with unsafe code (with `dl`, `libudev` and
+//! `i18n`). The declarations follow `sensors.h` of lm-sensors 3.6.0.
+//! libsensors keeps global state and is not thread safe, so there is at
+//! most one [`Libsensors`] at a time and it stays on the thread that made
+//! it (it is neither `Send` nor `Sync`). It only reads: `set` statements
+//! are never executed.
 
 #![allow(unsafe_code, reason = "an FFI module: libsensors through dlopen")]
 
@@ -22,6 +23,8 @@ use std::ptr::{self, NonNull};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use baseboard_core::sensors::{LmChip, LmFeature};
+
+use crate::dl::Library;
 
 /// The sonames to try: upstream 3.6 is `.so.5`, Fedora keeps `.so.4`.
 const LIBRARIES: [&CStr; 2] = [c"libsensors.so.5", c"libsensors.so.4"];
@@ -141,9 +144,9 @@ impl Libsensors {
 
     fn load_from(names: &[&CStr], config: Option<&Path>) -> Result<Self, Error> {
         let claim = Claim::take().ok_or(Error::Busy)?;
-        let library = Library::open(names)?;
+        let library = Library::open(names).map_err(Error::Library)?;
         let api = Api::resolve(&library)?;
-        let version = library.version();
+        let version = version(&library);
         let file = config.map(ConfigFile::open).transpose()?;
         let input = file.as_ref().map_or(ptr::null_mut(), |f| f.0.as_ptr());
         // SAFETY: `init` comes from the open library; `input` is null or a
@@ -338,14 +341,15 @@ struct Api {
 
 impl Api {
     fn resolve(library: &Library) -> Result<Self, Error> {
-        let init = library.symbol(c"sensors_init")?;
-        let cleanup = library.symbol(c"sensors_cleanup")?;
-        let chip_name = library.symbol(c"sensors_snprintf_chip_name")?;
-        let detected_chips = library.symbol(c"sensors_get_detected_chips")?;
-        let features = library.symbol(c"sensors_get_features")?;
-        let subfeatures = library.symbol(c"sensors_get_all_subfeatures")?;
-        let label = library.symbol(c"sensors_get_label")?;
-        let value = library.symbol(c"sensors_get_value")?;
+        let symbol = |name: &'static CStr| library.symbol(name).ok_or(Error::Symbol(name));
+        let init = symbol(c"sensors_init")?;
+        let cleanup = symbol(c"sensors_cleanup")?;
+        let chip_name = symbol(c"sensors_snprintf_chip_name")?;
+        let detected_chips = symbol(c"sensors_get_detected_chips")?;
+        let features = symbol(c"sensors_get_features")?;
+        let subfeatures = symbol(c"sensors_get_all_subfeatures")?;
+        let label = symbol(c"sensors_get_label")?;
+        let value = symbol(c"sensors_get_value")?;
         // SAFETY: each symbol is the libsensors function of that name and
         // each type is its C signature in sensors.h (3.6.0). On Linux a
         // function pointer has the size and representation of a data
@@ -369,49 +373,16 @@ impl Api {
     }
 }
 
-/// A library opened with dlopen, closed on drop.
-struct Library(NonNull<c_void>);
-
-impl Library {
-    fn open(names: &[&CStr]) -> Result<Self, Error> {
-        let mut error = String::from("no library name");
-        for name in names {
-            // SAFETY: `name` is NUL-terminated. Loading libsensors runs only
-            // its own and libc's initialisers.
-            let handle = unsafe { libc::dlopen(name.as_ptr(), libc::RTLD_NOW | libc::RTLD_LOCAL) };
-            if let Some(handle) = NonNull::new(handle) {
-                return Ok(Self(handle));
-            }
-            error = dlerror();
-        }
-        Err(Error::Library(error))
-    }
-
-    fn symbol(&self, name: &'static CStr) -> Result<NonNull<c_void>, Error> {
-        // SAFETY: the handle stays open until drop; `name` is NUL-terminated.
-        let symbol = unsafe { libc::dlsym(self.0.as_ptr(), name.as_ptr()) };
-        NonNull::new(symbol).ok_or(Error::Symbol(name))
-    }
-
-    /// The `libsensors_version` string, if the library has one.
-    fn version(&self) -> String {
-        let Ok(symbol) = self.symbol(c"libsensors_version") else {
-            return String::new();
-        };
-        // SAFETY: `libsensors_version` is a `const char *` variable; dlsym
-        // gives its address.
-        let version = unsafe { *symbol.as_ptr().cast::<*const c_char>() };
-        // SAFETY: the variable points to a static C string, or is null.
-        unsafe { text(version) }.unwrap_or_default()
-    }
-}
-
-impl Drop for Library {
-    fn drop(&mut self) {
-        // SAFETY: opened by dlopen and closed once; no function or data
-        // pointer into the library is used after this.
-        unsafe { libc::dlclose(self.0.as_ptr()) };
-    }
+/// The `libsensors_version` string of `library`, if it has one.
+fn version(library: &Library) -> String {
+    let Some(symbol) = library.symbol(c"libsensors_version") else {
+        return String::new();
+    };
+    // SAFETY: `libsensors_version` is a `const char *` variable; dlsym gives
+    // its address, valid while the library is open.
+    let version = unsafe { *symbol.as_ptr().cast::<*const c_char>() };
+    // SAFETY: the variable points to a static C string, or is null.
+    unsafe { text(version) }.unwrap_or_default()
 }
 
 /// A configuration file opened with fopen, closed on drop.
@@ -451,12 +422,6 @@ impl Drop for Claim {
     fn drop(&mut self) {
         IN_USE.store(false, Ordering::Release);
     }
-}
-
-fn dlerror() -> String {
-    // SAFETY: dlerror returns null or a message that stays valid until the
-    // next dl* call on this thread; `text` copies it at once.
-    unsafe { text(libc::dlerror()) }.unwrap_or_else(|| "unknown error".to_owned())
 }
 
 /// A copy of a C string; `None` for a null pointer.

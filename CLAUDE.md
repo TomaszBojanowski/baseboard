@@ -64,7 +64,7 @@ Obowiązuje każdą stronę, także przyszłe (podświetlenie, wydajność):
 ## Kod i jakość
 
 - Przed commitem: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings` i to samo z `--release`, `meson test` (z testem `tour`). Wymagania i automaty: `docs/PROJEKT.md` §8.
-- `unsafe` tylko w modułach FFI (libsensors, libudev, i18n: `setlocale` i `nl_langinfo`, ioctl hidraw), każdy blok z komentarzem `// SAFETY:`.
+- `unsafe` tylko w modułach FFI (dl: `dlopen` wspólny dla libsensors i libudev, libsensors, libudev, i18n: `setlocale` i `nl_langinfo`, ioctl hidraw), każdy blok z komentarzem `// SAFETY:`.
 - Pomocnik przyjmuje z D-Bus wyłącznie klucze kanałów z profilu, nigdy ścieżek. Profile czyta tylko z katalogów systemowych.
 - Każdy plik źródłowy (Rust, meson, skrypty, pliki danych, w których komentarz jest przyjęty) zaczyna się od `SPDX-License-Identifier: GPL-3.0-or-later`. Metainfo ma `CC0-1.0`. Ikon SVG nie zmieniamy.
 - Język: `docs/` po polsku; README, komentarze w kodzie i wiadomości commitów po angielsku.

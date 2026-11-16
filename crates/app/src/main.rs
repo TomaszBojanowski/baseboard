@@ -9,6 +9,7 @@ mod alert;
 mod application;
 mod board;
 mod config;
+mod dl;
 mod fan_chart;
 mod fans;
 #[cfg(test)]
