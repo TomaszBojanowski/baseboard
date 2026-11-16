@@ -271,6 +271,7 @@ impl StatusRow {
         let chevron = crate::widgets::chevron();
         row.add_prefix(&icon);
         row.add_suffix(&chevron);
+        crate::widgets::describe_row(&row, None);
         list.append(&row);
         Self {
             list,
@@ -584,6 +585,7 @@ impl SummaryWidgets {
                 .build(),
         );
         every.add_suffix(&crate::widgets::chevron());
+        crate::widgets::describe_row(&every, None);
         every.set_action_target_value(Some(&"".to_variant()));
         every.set_action_name(Some(show));
         all.append(&every);

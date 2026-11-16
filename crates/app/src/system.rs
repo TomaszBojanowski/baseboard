@@ -106,6 +106,7 @@ fn status_group(health: &Health) -> adw::PreferencesGroup {
         .build();
     row.add_prefix(&image);
     row.add_suffix(&chevron());
+    crate::widgets::describe_row(&row, None);
     let group = adw::PreferencesGroup::builder()
         .css_classes(["status-list"])
         .build();
@@ -129,6 +130,7 @@ fn details_row() -> adw::ActionRow {
         .action_target(&"details".to_variant())
         .build();
     row.add_suffix(&chevron());
+    crate::widgets::describe_row(&row, None);
     row
 }
 
@@ -153,6 +155,7 @@ fn row(line: &Line) -> adw::ActionRow {
         .use_markup(false)
         .title(&line.title)
         .build();
+    let mut value_label = None;
     match line.style {
         Style::Value => {
             // The value next to the name; it wraps in a narrow window and
@@ -170,6 +173,7 @@ fn row(line: &Line) -> adw::ActionRow {
                     .css_classes(["dimmed"])
                     .build();
                 row.add_suffix(&value);
+                value_label = Some(value);
             }
         }
         Style::Property => row.add_css_class("property"),
@@ -211,8 +215,7 @@ fn row(line: &Line) -> adw::ActionRow {
         row.add_prefix(&image);
     }
     // The title is the row's name; its value is read after it.
-    row.upcast_ref::<gtk::Widget>()
-        .update_property(&[gtk::accessible::Property::Description(&line.value)]);
+    crate::widgets::describe_row(&row, value_label.as_ref());
     row
 }
 

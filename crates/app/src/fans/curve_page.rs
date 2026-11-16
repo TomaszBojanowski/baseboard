@@ -143,6 +143,7 @@ fn info_row(icon: &str, title: &str, subtitle: &str) -> adw::ActionRow {
     let image = gtk::Image::from_icon_name(icon);
     image.set_accessible_role(gtk::AccessibleRole::Presentation);
     row.add_prefix(&image);
+    crate::widgets::describe_row(&row, None);
     row
 }
 
@@ -208,6 +209,7 @@ fn value_row(title: &str, subtitle: Option<&str>) -> (adw::ActionRow, gtk::Label
         .css_classes(["numeric", "fan-soft"])
         .build();
     row.add_suffix(&value);
+    crate::widgets::describe_row(&row, Some(&value));
     (row, value)
 }
 
@@ -341,6 +343,7 @@ fn source_group() -> (adw::PreferencesGroup, adw::ActionRow) {
         "Cannot be changed",
     ))]);
     row.add_suffix(&lock);
+    crate::widgets::describe_row(&row, None);
     source_group.add(&row);
     (source_group, row)
 }
