@@ -58,7 +58,8 @@
   </template>
   <!-- Everything Baseboard checks at start: the driver, lm-sensors, other
        fan programs, the board profile, skipped files, warnings of the
-       readings. -->
+       readings. One list of the width of the lists of GNOME Settings, as
+       the list of the Fans page, at any width of the window (D76). -->
   <object class="AdwNavigationPage" id="diagnostics_page">
     <property name="title" translatable="yes">Diagnostics</property>
     <property name="tag">diagnostics</property>
@@ -92,10 +93,13 @@
               <object class="GtkScrolledWindow">
                 <property name="hscrollbar-policy">never</property>
                 <property name="child">
-                  <object class="AdwClamp" id="diagnostics_clamp">
+                  <object class="AdwClamp">
+                    <property name="maximum-size">600</property>
+                    <property name="tightening-threshold">600</property>
                     <property name="child">
                       <object class="GtkBox" id="diagnostics">
                         <property name="orientation">vertical</property>
+                        <property name="spacing">24</property>
                         <property name="margin-top">24</property>
                         <property name="margin-bottom">36</property>
                         <property name="margin-start">12</property>

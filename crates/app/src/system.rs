@@ -7,8 +7,9 @@
 //! the sensors and fans, the board profile, skipped files, warnings of the
 //! readings) and "Technical Details" (the board, BIOS, processor and
 //! system, memory, graphics cards, disks and network cards with their
-//! codes and versions). In a wide window the groups of each are in two
-//! columns (layout.rs). The data comes from a worker thread
+//! codes and versions). In a wide window the groups of the page and of
+//! "Technical Details" are in two columns (layout.rs); "Diagnostics" is one
+//! list at any width (D76). The data comes from a worker thread
 //! (`system_reader`), the groups as data from `sections`; the text of
 //! "Copy system information" from `core::report`, always in English.
 
@@ -244,8 +245,6 @@ mod imp {
         #[template_child]
         pub diagnostics_bin: TemplateChild<adw::BreakpointBin>,
         #[template_child]
-        pub diagnostics_clamp: TemplateChild<adw::Clamp>,
-        #[template_child]
         pub diagnostics_copy: TemplateChild<adw::ButtonContent>,
         #[template_child]
         pub diagnostics: TemplateChild<gtk::Box>,
@@ -263,9 +262,8 @@ mod imp {
         pub details: TemplateChild<gtk::Box>,
         /// The status row on top of the page, to take it off again.
         pub(super) status: RefCell<Option<adw::PreferencesGroup>>,
-        /// The groups of the page and of its two views.
+        /// The groups of the page and of "Technical Details".
         pub(super) columns: Columns,
-        pub(super) diagnostics_columns: Columns,
         pub(super) details_columns: Columns,
         /// Warnings of the readings from the Overview, in words.
         pub(super) alerts: RefCell<Vec<String>>,
@@ -296,7 +294,6 @@ mod imp {
         fn constructed(&self) {
             self.parent_constructed();
             self.page.append(&self.columns.widget);
-            self.diagnostics.append(&self.diagnostics_columns.widget);
             self.details.append(&self.details_columns.widget);
             // In a narrow window the title of "Technical Details" does not
             // fit beside the buttons: a shorter one there, never a cut one.
@@ -305,23 +302,27 @@ mod imp {
                 // a narrow window, where the whole one does not fit.
                 "Details",
             );
+            // "Diagnostics" keeps the width of a list (system.ui); the page
+            // and "Technical Details" grow with the window.
             let views = [
-                (&self.bin, &self.clamp, None, None),
+                (&self.bin, Some(&self.clamp), None, None),
                 (
                     &self.diagnostics_bin,
-                    &self.diagnostics_clamp,
+                    None,
                     Some(&self.diagnostics_copy),
                     None,
                 ),
                 (
                     &self.details_bin,
-                    &self.details_clamp,
+                    Some(&self.details_clamp),
                     Some(&self.details_copy),
                     Some((&self.details_title, short)),
                 ),
             ];
             for (index, (bin, clamp, copy, title)) in views.into_iter().enumerate() {
-                layout::limit(clamp);
+                if let Some(clamp) = clamp {
+                    layout::limit(clamp);
+                }
                 let page = self.obj().downgrade();
                 // The copy button of a narrow view shows only its icon, as
                 // the one of the window does.
@@ -338,9 +339,10 @@ mod imp {
                     }
                     if let Some(page) = page.upgrade() {
                         let imp = page.imp();
-                        let columns =
-                            [&imp.columns, &imp.diagnostics_columns, &imp.details_columns];
-                        columns[index].set_two(width.columns());
+                        let columns = [Some(&imp.columns), None, Some(&imp.details_columns)];
+                        if let Some(columns) = columns[index] {
+                            columns.set_two(width.columns());
+                        }
                     }
                 });
             }
@@ -481,7 +483,6 @@ impl SystemPage {
         }
         let all = [
             (&imp.columns, &views.summary),
-            (&imp.diagnostics_columns, &views.diagnostics),
             (&imp.details_columns, &views.details),
         ];
         for (columns, sections) in all {
@@ -489,6 +490,12 @@ impl SystemPage {
             for section in sections {
                 columns.push(&group_widget(section), section.place);
             }
+        }
+        while let Some(old) = imp.diagnostics.first_child() {
+            imp.diagnostics.remove(&old);
+        }
+        for section in &views.diagnostics {
+            imp.diagnostics.append(&group_widget(section));
         }
         let details = adw::PreferencesGroup::new();
         details.add(&details_row());
@@ -505,6 +512,52 @@ mod tests {
     //! gettext without a translation gives the English text.
 
     use super::*;
+
+    /// The widgets under `widget` of the type `T`, in order.
+    fn descendants<T: IsA<gtk::Widget>>(widget: &gtk::Widget) -> Vec<T> {
+        let mut found = Vec::new();
+        let mut child = widget.first_child();
+        while let Some(current) = child {
+            if let Some(wanted) = current.downcast_ref::<T>() {
+                found.push(wanted.clone());
+            }
+            found.extend(descendants::<T>(&current));
+            child = current.next_sibling();
+        }
+        found
+    }
+
+    /// "Diagnostics" is one list at any width (D76): in a wide window its
+    /// groups stand one under another, as wide as a list of GNOME Settings.
+    /// Needs a display.
+    #[test]
+    fn diagnostics_in_one_list() {
+        crate::gtk_test::run("diagnostics_in_one_list", || {
+            crate::gtk_test::resources();
+            let page = glib::Object::new::<SystemPage>();
+            let imp = page.imp();
+            let _ = imp.board.set((Dmi::default(), Detection::Generic));
+            imp.alerts
+                .replace(vec!["CPU fan stopped".into(), "+12 V below normal".into()]);
+            imp.info.replace(Some(SystemInfo::default()));
+            page.render();
+            let width = 1600;
+            let bin = &*imp.diagnostics_bin;
+            let (_, height, _, _) = bin.measure(gtk::Orientation::Vertical, width);
+            bin.allocate(width, height.max(800), -1, None);
+
+            let groups = descendants::<adw::PreferencesGroup>(imp.diagnostics.upcast_ref());
+            assert!(groups.len() >= 3, "{}", groups.len());
+            let bounds: Vec<_> = groups
+                .iter()
+                .map(|group| group.compute_bounds(&*imp.diagnostics_bin).unwrap())
+                .collect();
+            for group in &bounds {
+                assert_eq!(group.x(), bounds[0].x(), "{bounds:?}");
+                assert!(group.width() <= 600.0, "{bounds:?}");
+            }
+        });
+    }
 
     /// The title of "Technical Details" is whole: shorter in a window of
     /// 360 px, where it does not fit beside the buttons, the whole one
