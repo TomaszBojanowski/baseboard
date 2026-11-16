@@ -754,9 +754,9 @@ Domyślna krzywa CPU z BIOS-u łamie minimum B5. Krzywą pierwotną aplikacja pr
 
 **Stan prac** (zastępowany w commicie, który kończy krok; najwyżej 250 słów, bez przebiegu prac, który jest w historii gita):
 - **Wydane:** 0.1.0 (M1; Flatpak w repozytorium flatpak.bojanowski.me; strona projektu); 0.2.0 (2026-11-14, M2a, D70): podpisany tag `v0.2.0` na `975456a`, wydanie na GitHubie z pakietem `.flatpak` (SHA-256 `66bc046cc1c2f5d5a197d583641f5b18a2459ee61cbf22afb953775be1bb366b`), w repozytorium Flatpak commit `a61f3f2` (Baseboard `5ca5e90463a1`, `.Debug` `e1d0d76d7420`, opis repozytorium ogólny, D71). Po wydaniu opublikowane strona (wdrożona z `6f0ce7d`) i README: stan łatek w jądrze ze spodziewaną wersją Linuksa (D72), nagłówek i zrzuty jak na stronie openExpress (D73), obrazy samego okna z `build-aux/window-screenshots.py` (D74), prostsza tabela poziomów.
-- **W toku:** 0.2.1 (zakres D76, M2.7): zmiany w kodzie zrobione (podział dużych plików, wykresy rosnące z wysokością okna D78, „Diagnostyka” w jednej kolumnie, ikony dysków i sieci D77, znak stanu wyśrodkowany, tour we Flatpaku bez `host-etc`, liczby w `core::units`, strzałka wierszy, moduł `dl`, `core::readings`, `toml` bez cechy `display`), pomiar CPU spełnia D29 (M2.8); dalej test z Orca i wydanie; potem M2b (pomocnik i tryb ręczny, 0.3.0, z nowymi zrzutami z kompozytorem, D75).
-- **Otwarte na 0.2.1:** test z Orca (właściciel); znak towarowy w bazach (D1).
-- **Później:** `fans::driver::read` czeka na `GetState` pomocnika (M2b, lista wyjątków w `tests/core-api-exceptions.txt`); `cargo deny` przy zgłoszeniu na Flathub (F3); M2b (pomocnik, tryb ręczny 0.3.0, edytor krzywych 0.4.0), M2c, M3–M5.
+- **W toku:** 0.2.1 (zakres D76, M2.7): zmiany w kodzie zrobione (podział dużych plików, wykresy rosnące z wysokością okna D78, „Diagnostyka” w jednej kolumnie, ikony dysków i sieci D77, znak stanu wyśrodkowany, tour we Flatpaku bez `host-etc`, liczby w `core::units`, strzałka wierszy, moduł `dl`, `core::readings`, `toml` bez cechy `display`), pomiar CPU spełnia D29, dostępność sprawdzona przez AT-SPI zamiast testu z Orca (D79, M2.8); dalej wydanie; potem M2b (pomocnik i tryb ręczny, 0.3.0, z nowymi zrzutami z kompozytorem, D75).
+- **Otwarte na 0.2.1:** kroki wydania (§10.7).
+- **Później:** znak towarowy w bazach (D1, D79); `fans::driver::read` czeka na `GetState` pomocnika (M2b, lista wyjątków w `tests/core-api-exceptions.txt`); `cargo deny` przy zgłoszeniu na Flathub (F3); M2b (pomocnik, tryb ręczny 0.3.0, edytor krzywych 0.4.0), M2c, M3–M5.
 
 Każdy etap kończy się, gdy spełnia swoje kryteria oraz wspólne wymagania z §8.
 
@@ -1052,7 +1052,7 @@ Każde wydanie według procedury z §10.7.
 - Krzywe na podglądzie równe `cat` atrybutów `pwmN_auto_point*`; cel z modelu równy `pwmN` w stanie ustalonym (krok 2).
 - Aplikacja niczego nie zapisuje i nie łączy się z pomocnikiem (`strace` jak w M1).
 - CPU (D29): cała aplikacja z widoczną stroną Wentylatory poniżej 1 % jednego rdzenia (`pidstat -t`, 60 s, build release); przy ukrytym oknie praktycznie zero. Spełnione w 0.2.1 na pulpicie (prawdziwy `/sys`, historia na kartach): 0,37 % przy małym oknie, 0,40 % przy oknie prawie na cały ekran; przy ukrytym oknie 0 (Xvfb). Czas jądra wątku czujników (odczyt sprzętu, osobno) 0,85 % i 0,90 %.
-- Orca odczytuje nazwy, wartości, tryby i opisy wykresów na stronie i podstronie (otwarte z M1).
+- Czytnik ekranu (D79, zamiast ręcznego testu z Orca): automatyczne sprawdzenie drzewa AT-SPI Przeglądu, strony Wentylatory i „Szczegółów krzywej” po polsku i po angielsku, z klawiszem Tab naciskanym przez AT-SPI. Każdy element osiągalny klawiszem Tab ma nazwę i rolę, karty i wykresy mają opis, wiersze podają wartość i podtytuł, wersja polska nie ma angielskich tekstów, a w wyjściu aplikacji nie ma ostrzeżeń GTK. Spełnione w 0.2.1. Wyjątek z libadwaita: wiersze paska bocznego (`AdwSidebar`) nie mają własnej nazwy, a czytnik dostaje tekst etykiety w środku.
 - Przy włączonym „Ogranicz animacje” brak przejść.
 
 **Tryb ręczny (0.3.0)**
