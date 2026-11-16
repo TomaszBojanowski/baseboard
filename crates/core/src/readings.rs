@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The model of the Overview page (docs/PROJEKT.md §5.1): groups, rows,
-//! names, subtitles and the rating of voltages. It has no user-visible
+//! The readings of the computer in groups, as "All Sensors" lists them
+//! (docs/PROJEKT.md §5.1), and from which the Overview's cards, the Fans
+//! page and the warnings take theirs: groups, rows, names, subtitles and
+//! the rating of voltages. It has no user-visible
 //! text: names are roles and keys, which the app turns into translated
 //! text with gettext. Device facts that the readings do not carry come
 //! from sysfs attributes and from the udev database ([`Udev`]).
@@ -975,7 +977,7 @@ mod tests {
 
     #[test]
     fn gpu_name_from_product_name_first() {
-        let root = std::env::temp_dir().join(format!("baseboard-overview-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("baseboard-readings-{}", std::process::id()));
         let device = Path::new("devices/pci0000:00/0000:03:00.0");
         std::fs::create_dir_all(root.join(device)).unwrap();
         struct Database;

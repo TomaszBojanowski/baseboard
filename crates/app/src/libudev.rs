@@ -4,7 +4,7 @@
 //! devices, such as the model name from the hardware database
 //! (`ID_MODEL_FROM_DATABASE`) or the memory slots from SMBIOS
 //! (`MEMORY_DEVICE_*` of the DMI device). Which properties are read is up
-//! to `core::system` and `core::overview`.
+//! to `core::system` and `core::readings`.
 //!
 //! One of the FFI modules with unsafe code (with `dl`, `libsensors` and
 //! `i18n`). The declarations follow `libudev.h` of systemd. A udev context

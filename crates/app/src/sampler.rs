@@ -21,8 +21,8 @@ use baseboard_core::fans::driver::{Capability, Channel, FanDriver, Mode, SysfsDr
 use baseboard_core::fans::page::{ChannelReading, CurveRead, SourceRead};
 use baseboard_core::heat::{HeatWatch, Hot, Limits};
 use baseboard_core::labels::UserLabels;
-use baseboard_core::overview::{self, Board, Context, Extremes, Group, RowId};
 use baseboard_core::profile::Profile;
+use baseboard_core::readings::{self, Board, Context, Extremes, Group, RowId};
 use baseboard_core::sensors::{self, Device, SensorSource};
 use baseboard_core::summary::{FanWatch, SpeedWatch};
 use baseboard_core::udev::{NoUdev, Udev};
@@ -227,7 +227,7 @@ impl Sampler {
             sensors_labels: self.setup.options.sensors_labels,
             labels: self.setup.labels.as_ref(),
         };
-        let mut groups = overview::build(&chips, &context);
+        let mut groups = readings::build(&chips, &context);
         self.extremes.update(&mut groups);
         let now = Instant::now();
         let stopped = self.watch.update(&groups, now);
@@ -431,7 +431,7 @@ impl Worker {
 
 #[cfg(test)]
 mod tests {
-    use baseboard_core::overview::{GroupKind, Subtitle};
+    use baseboard_core::readings::{GroupKind, Subtitle};
     use baseboard_core::sensors::Kind;
 
     use super::*;

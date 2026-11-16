@@ -20,7 +20,7 @@ use std::cell::Cell;
 use std::time::Duration;
 
 use adw::prelude::*;
-use baseboard_core::overview::GroupKind;
+use baseboard_core::readings::GroupKind;
 use gettextrs::{gettext, pgettext};
 use gtk::{gio, glib, pango};
 

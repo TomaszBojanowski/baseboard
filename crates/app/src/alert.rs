@@ -198,8 +198,8 @@ impl Alert {
 
 #[cfg(test)]
 mod tests {
-    use baseboard_core::overview::Name;
     use baseboard_core::profile::VoltageRole;
+    use baseboard_core::readings::Name;
 
     use super::*;
 

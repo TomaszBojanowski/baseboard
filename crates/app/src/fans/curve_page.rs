@@ -15,7 +15,7 @@ use adw::prelude::*;
 use baseboard_core::fans::curve;
 use baseboard_core::fans::driver::{CurvePoint, Mode, Source};
 use baseboard_core::fans::page::{Chart, Fan, SourceRow};
-use baseboard_core::overview::Subtitle;
+use baseboard_core::readings::Subtitle;
 use baseboard_core::sensors::Kind;
 use baseboard_core::units::{self, Numbers, duty_to_percent, percent};
 use gettextrs::gettext;
@@ -729,8 +729,8 @@ impl CurvePage {
 #[cfg(test)]
 mod tests {
     use baseboard_core::fans::page::{Body, FanKind};
-    use baseboard_core::overview::{Name, Row, RowId};
     use baseboard_core::profile::FanRole;
+    use baseboard_core::readings::{Name, Row, RowId};
 
     use super::*;
 

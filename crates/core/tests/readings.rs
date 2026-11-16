@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The Overview model (docs/PROJEKT.md §5.1) on the three fake sysfs trees:
+//! The model of the readings (docs/PROJEKT.md §5.1) on the three fake sysfs trees:
 //! grouping, order, hidden readings, voltage tolerances and names. The
 //! readings come from raw sysfs; duty-read needs only the file, so the
 //! trees are read in place.
@@ -11,10 +11,10 @@ use std::time::{Duration, Instant};
 
 use baseboard_core::fans::driver::{self, Mode};
 use baseboard_core::labels::{self, UserLabels};
-use baseboard_core::overview::{
+use baseboard_core::profile::{self, FanRole, Profile, TempRole, VoltageRole};
+use baseboard_core::readings::{
     self, Board, Context, Group, GroupKind, Name, Rating, Row, Subtitle, Visibility,
 };
-use baseboard_core::profile::{self, FanRole, Profile, TempRole, VoltageRole};
 use baseboard_core::sensors::{self, Chip, Kind, SensorSource, SysfsSource};
 use baseboard_core::summary::{self, FanWatch, HeroKind};
 use baseboard_core::system;
@@ -99,7 +99,7 @@ fn build_with_modes(
         sensors_labels,
         labels,
     };
-    overview::build(chips, &context)
+    readings::build(chips, &context)
 }
 
 fn model(tree: &str) -> Vec<Group> {
@@ -429,7 +429,7 @@ fn hidden_readings_and_the_rest_of_the_board() {
 fn ranges_since_the_start() {
     let tree = TREES[0];
     let profile = profile();
-    let mut extremes = overview::Extremes::default();
+    let mut extremes = readings::Extremes::default();
     let mut sample = |cpu_fan: f64, vref: f64| {
         let mut chips = chips(tree);
         let nct = chips.iter_mut().find(|c| c.name == "nct6687").unwrap();
@@ -528,7 +528,7 @@ fn graphics_card_disks_and_memory() {
             )
         })
         .unwrap();
-    assert!(overview::hidden_by_default(&sensor.id));
+    assert!(readings::hidden_by_default(&sensor.id));
 
     let memory = group(&groups, GroupKind::Memory);
     assert_eq!(
@@ -802,7 +802,7 @@ fn hidden_readings() {
         .into_iter()
         .chain(memory.iter().cloned())
         .collect();
-    let shown = overview::visible(
+    let shown = readings::visible(
         &all,
         &Visibility {
             hidden,
@@ -821,14 +821,14 @@ fn hidden_readings() {
     // Nothing turned off and every row hidden by default turned on: the
     // same model.
     let every: HashSet<String> = rows(&all)
-        .filter(|r| overview::hidden_by_default(&r.id))
+        .filter(|r| readings::hidden_by_default(&r.id))
         .map(|r| r.id.key())
         .collect();
     let all_on = Visibility {
         shown: every,
         ..Default::default()
     };
-    assert_eq!(overview::visible(&all, &all_on), all);
+    assert_eq!(readings::visible(&all, &all_on), all);
 }
 
 /// Every row of the model, the folded ones too.
@@ -849,7 +849,7 @@ fn disk_sensors_hidden_by_default() {
     let (extra, composite): (Vec<&Row>, Vec<&Row>) = disks
         .rows
         .iter()
-        .partition(|r| overview::hidden_by_default(&r.id));
+        .partition(|r| readings::hidden_by_default(&r.id));
     assert!(!extra.is_empty());
     assert!(
         extra
@@ -860,7 +860,7 @@ fn disk_sensors_hidden_by_default() {
     assert!(composite.iter().all(|r| r.id.channel == "temp1"));
 
     // By default only the composite temperatures.
-    let page = overview::visible(&all, &Visibility::default());
+    let page = readings::visible(&all, &Visibility::default());
     assert_eq!(group(&page, GroupKind::Disks).rows.len(), composite.len());
 
     // One sensor turned on.
@@ -869,7 +869,7 @@ fn disk_sensors_hidden_by_default() {
         shown: HashSet::from([key.clone()]),
         ..Default::default()
     };
-    let page = overview::visible(&all, &on);
+    let page = readings::visible(&all, &on);
     let disks_on = &group(&page, GroupKind::Disks).rows;
     assert_eq!(disks_on.len(), composite.len() + 1);
     assert!(disks_on.iter().any(|r| r.id.key() == key));
@@ -885,7 +885,7 @@ fn disk_sensors_hidden_by_default() {
     for tree in TREES {
         assert!(
             rows(&model(tree))
-                .filter(|r| overview::hidden_by_default(&r.id))
+                .filter(|r| readings::hidden_by_default(&r.id))
                 .all(|r| r.id.chip == "nvme" && r.id.channel != "temp1")
         );
     }

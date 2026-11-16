@@ -24,8 +24,8 @@ use baseboard_core::fans::driver::DriverLevel;
 use baseboard_core::fans::driver::{Mode, Source};
 use baseboard_core::fans::page::{self, Fan, FanKind, Page, SourceRow};
 use baseboard_core::history::Histories;
-use baseboard_core::overview::{Name, Row, RowId, Subtitle, Visibility};
 use baseboard_core::profile::{FanRole, Profile};
+use baseboard_core::readings::{Name, Row, RowId, Subtitle, Visibility};
 use baseboard_core::summary::{self, HeroKind};
 use baseboard_core::units::Numbers;
 use gettextrs::gettext;
@@ -590,7 +590,7 @@ impl FansPage {
         let (Some(card), Some(histories)) = (imp.card.get(), imp.histories.get()) else {
             return;
         };
-        let groups = baseboard_core::overview::visible(&sample.groups, &imp.visibility.borrow());
+        let groups = baseboard_core::readings::visible(&sample.groups, &imp.visibility.borrow());
         let top = summary::summary(&groups, &sample.stopped, sample.speeding);
         let state = summary::state(&top, &sample.groups, &sample.hot, true);
         let hero = top.heroes.iter().find(|h| h.kind == HeroKind::Cpu);

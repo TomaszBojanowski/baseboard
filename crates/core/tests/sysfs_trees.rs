@@ -16,8 +16,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use baseboard_core::fans::driver::{
     self, Capability, CurvePoint, DriverLevel, FanDriver, Mode, Source, SysfsDriver,
 };
-use baseboard_core::overview;
 use baseboard_core::profile::{self, Profile};
+use baseboard_core::readings;
 use baseboard_core::sensors::{self, Chip, Kind, SensorSource, SysfsSource};
 use baseboard_core::udev::NoUdev;
 use baseboard_core::units::Numbers;
@@ -170,10 +170,10 @@ fn unreadable_attributes() {
 
     let profile = profile();
     let channels = driver::channels(&profile, &board);
-    let context = overview::Context {
+    let context = readings::Context {
         sysfs_root: &tree.root,
         udev: &NoUdev,
-        board: Some(overview::Board {
+        board: Some(readings::Board {
             profile: &profile,
             channels: &channels,
             modes: &[],
@@ -183,9 +183,9 @@ fn unreadable_attributes() {
         sensors_labels: false,
         labels: None,
     };
-    let mut groups = overview::build(&chips, &context);
-    overview::Extremes::default().update(&mut groups);
-    let row = |kind: overview::GroupKind, channel: &str| {
+    let mut groups = readings::build(&chips, &context);
+    readings::Extremes::default().update(&mut groups);
+    let row = |kind: readings::GroupKind, channel: &str| {
         groups
             .iter()
             .find(|g| g.kind == kind)
@@ -193,16 +193,16 @@ fn unreadable_attributes() {
             .unwrap()
             .clone()
     };
-    let system = row(overview::GroupKind::Board, "temp2");
+    let system = row(readings::GroupKind::Board, "temp2");
     assert!(system.value.is_nan());
     assert_eq!(system.range, None);
-    let rail = row(overview::GroupKind::Voltages, "in0");
-    assert_eq!(rail.rating, Some(overview::Rating::Unrated));
+    let rail = row(readings::GroupKind::Voltages, "in0");
+    assert_eq!(rail.rating, Some(readings::Rating::Unrated));
     let numbers = Numbers::new(",");
     assert_eq!(numbers.value(Kind::Temp, system.value), "–");
     assert_eq!(numbers.range(Kind::Temp, f64::NAN, 40.0), "");
     // The other rows are read as before.
-    assert_eq!(row(overview::GroupKind::Board, "temp3").value, 36.0);
+    assert_eq!(row(readings::GroupKind::Board, "temp3").value, 36.0);
 }
 
 const NONE: &[&str] = &[];

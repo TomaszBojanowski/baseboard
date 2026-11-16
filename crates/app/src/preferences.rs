@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use adw::prelude::*;
-use baseboard_core::overview::{self as model, Group, RowId, Visibility};
+use baseboard_core::readings::{self as model, Group, RowId, Visibility};
 use baseboard_core::units::{Numbers, UNIT_SPACE};
 use gettextrs::gettext;
 use gtk::{gio, glib};

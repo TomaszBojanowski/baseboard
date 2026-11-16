@@ -15,8 +15,8 @@ use crate::fans::curve;
 use crate::fans::driver::{
     self, Capabilities, Channel, CurvePoint, DriverLevel, FanDriver, Mode, ReadError, Source,
 };
-use crate::overview::{Group, Row, Subtitle, Visibility};
 use crate::profile::{self, FanRole, Profile, Temp, TempRole};
+use crate::readings::{Group, Row, Subtitle, Visibility};
 
 /// What the app reads for one fan channel while the page is shown.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -393,7 +393,7 @@ mod tests {
     use super::*;
     use crate::fans::driver::Capability;
     use crate::fans::driver::model::{Attribute, ModelChannel, ModelDriver};
-    use crate::overview::{GroupKind, Name, RowId};
+    use crate::readings::{GroupKind, Name, RowId};
     use crate::sensors::Kind;
 
     fn profile() -> Profile {

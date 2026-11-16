@@ -9,7 +9,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 
-use crate::overview::{Group, RowId};
+use crate::readings::{Group, RowId};
 use crate::sensors::Kind;
 
 /// How far back a history goes.
@@ -123,8 +123,8 @@ impl Histories {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::overview::{GroupKind, Name, Row, Subtitle};
     use crate::profile::TempRole;
+    use crate::readings::{GroupKind, Name, Row, Subtitle};
 
     fn at(start: Instant, seconds: u64) -> Instant {
         start + Duration::from_secs(seconds)

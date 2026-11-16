@@ -11,8 +11,8 @@
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-use crate::overview::{self, Group, RowId};
 use crate::profile::Profile;
+use crate::readings::{self, Group, RowId};
 use crate::sensors::{Chip, Kind};
 
 /// How close to its limit a temperature has to come, in °C.
@@ -38,7 +38,7 @@ impl Limits {
         for chip in chips {
             for reading in chip.readings.iter().filter(|r| r.kind == Kind::Temp) {
                 if let Some(limit) = critical(&chip.path, reading.index) {
-                    limits.insert(overview::row_id(chip, reading), limit);
+                    limits.insert(readings::row_id(chip, reading), limit);
                 }
             }
             let Some(profile) = profile.filter(|p| p.hwmon.name == chip.name) else {
@@ -48,7 +48,7 @@ impl Limits {
                 if let (Some(limit), Some(reading)) =
                     (temp.emergency_c, chip.reading(Kind::Temp, temp.input))
                 {
-                    limits.insert(overview::row_id(chip, reading), f64::from(limit));
+                    limits.insert(readings::row_id(chip, reading), f64::from(limit));
                 }
             }
         }
@@ -143,8 +143,8 @@ impl HeatWatch {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::overview::{GroupKind, Name, Row, Subtitle};
     use crate::profile::TempRole;
+    use crate::readings::{GroupKind, Name, Row, Subtitle};
 
     fn id(channel: &str) -> RowId {
         RowId {
@@ -245,7 +245,7 @@ mod tests {
                     .readings
                     .iter()
                     .find(|r| r.kind == Kind::Temp && format!("temp{}", r.index) == channel)?;
-                limits.get(&overview::row_id(c, reading))
+                limits.get(&readings::row_id(c, reading))
             })
         };
         assert_eq!(of("nct6687", "temp1"), Some(95.0));

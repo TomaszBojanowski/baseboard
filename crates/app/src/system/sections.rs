@@ -6,8 +6,8 @@
 
 use baseboard_core::board::{Detection, Dmi, board_name, code_label};
 use baseboard_core::fans::driver::DriverLevel;
-use baseboard_core::overview::marketing_name;
 use baseboard_core::profile::Profile;
+use baseboard_core::readings::marketing_name;
 use baseboard_core::system::{
     self, Bios, Disk, GraphicsCard, Manufacturer, MemoryModule, MemorySlot, ModuleOrigin,
     NetworkCard, PciId, SystemInfo, short_cpu_name,

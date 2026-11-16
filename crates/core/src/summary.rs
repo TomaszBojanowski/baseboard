@@ -12,8 +12,8 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
 use crate::heat::Hot;
-use crate::overview::{Group, GroupKind, Name, Rating, Row, RowId, Subtitle};
 use crate::profile::{FanRole, TempRole};
+use crate::readings::{Group, GroupKind, Name, Rating, Row, RowId, Subtitle};
 use crate::sensors::Kind;
 
 /// What a card on top stands for.

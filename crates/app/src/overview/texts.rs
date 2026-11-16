@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The texts of the readings of the model (`core::overview`): the titles of
+//! The texts of the readings of the model (`core::readings`): the titles of
 //! the groups, the names and subtitles of the rows and the ratings of the
 //! rails, through gettext, with numbers through `core::units`. The Overview,
 //! "All Sensors", the Fans page, the Preferences and the warnings use them.
 
 use baseboard_core::fans::driver::Mode;
-use baseboard_core::overview::{self, Group, GroupKind, Name, Rating, Row, Subtitle};
 use baseboard_core::profile::{FanRole, TempRole, VoltageRole};
+use baseboard_core::readings::{self, Group, GroupKind, Name, Rating, Row, Subtitle};
 use baseboard_core::sensors::Kind;
 use baseboard_core::system;
 use baseboard_core::units::Numbers;
@@ -208,14 +208,14 @@ pub fn device_description(group: &Group) -> Option<String> {
     let description = group.description.as_deref()?;
     Some(match group.kind {
         GroupKind::Cpu => system::short_cpu_name(description).to_owned(),
-        GroupKind::Gpu => overview::marketing_name(description).to_owned(),
+        GroupKind::Gpu => readings::marketing_name(description).to_owned(),
         _ => description.to_owned(),
     })
 }
 
 #[cfg(test)]
 mod tests {
-    use baseboard_core::overview::RowId;
+    use baseboard_core::readings::RowId;
 
     use super::*;
 

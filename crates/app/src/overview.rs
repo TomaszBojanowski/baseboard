@@ -4,7 +4,7 @@
 //! card for each part of the computer, tiles and the row "All sensors"
 //! (`summary`); every reading on the page "All Sensors", which the window
 //! pushes over it, in one or two columns by `layout`: the groups and rows of
-//! the model from `core::overview`, with their names, subtitles and ratings
+//! the model from `core::readings`, with their names, subtitles and ratings
 //! from `texts`. A worker thread (`sampler`, started by the window) takes
 //! the samples; the page only shows them. The widgets are made again only
 //! when the rows change, otherwise their texts are set.
@@ -19,7 +19,7 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use baseboard_core::heat::Hot;
 use baseboard_core::history::Histories;
-use baseboard_core::overview::{self, Group, GroupKind, Rating, Row, RowId, Visibility};
+use baseboard_core::readings::{self, Group, GroupKind, Rating, Row, RowId, Visibility};
 use baseboard_core::sensors::Kind;
 use baseboard_core::summary::{self as top, Summary};
 use baseboard_core::units::Numbers;
@@ -523,7 +523,7 @@ impl OverviewPage {
         let (all, groups) = match last.as_deref() {
             // Still reading the first sample.
             None => return,
-            Some(all) => (all, overview::visible(all, &imp.visibility.borrow())),
+            Some(all) => (all, readings::visible(all, &imp.visibility.borrow())),
         };
         let any = !all.is_empty();
         // Without any readings the status page says more than the banner.

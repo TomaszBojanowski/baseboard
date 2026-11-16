@@ -12,7 +12,7 @@ use std::cell::{Cell, RefCell};
 
 use adw::prelude::*;
 use baseboard_core::history::{Histories, Trend};
-use baseboard_core::overview::GroupKind;
+use baseboard_core::readings::GroupKind;
 use baseboard_core::sensors::Kind;
 use baseboard_core::summary::{Hero, HeroKind, OutsideRail, Problem, State, Summary, Warmest};
 use baseboard_core::units::{self, Numbers, UNIT_SPACE};
@@ -743,8 +743,8 @@ fn show_warmest(tile: &Tile, warmest: Option<Warmest>, of: impl Fn(u32) -> Strin
 
 #[cfg(test)]
 mod tests {
-    use baseboard_core::overview::{Name, RowId};
     use baseboard_core::profile::VoltageRole;
+    use baseboard_core::readings::{Name, RowId};
     use baseboard_core::summary::{CpuFan, Fans, HotPart};
 
     use super::*;
