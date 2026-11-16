@@ -126,6 +126,8 @@ mod imp {
         pub(super) points: RefCell<Points>,
         pub(super) hot: Cell<bool>,
         pub(super) height: Cell<i32>,
+        /// Taller in free room of the page, up to as tall as it is wide.
+        pub(super) grows: Cell<bool>,
     }
 
     #[glib::object_subclass]
@@ -142,12 +144,24 @@ mod imp {
     impl ObjectImpl for HistoryChart {}
 
     impl WidgetImpl for HistoryChart {
-        fn measure(&self, orientation: gtk::Orientation, _for_size: i32) -> (i32, i32, i32, i32) {
+        fn request_mode(&self) -> gtk::SizeRequestMode {
+            gtk::SizeRequestMode::HeightForWidth
+        }
+
+        /// Its height at least; a chart that grows wants to be as tall as
+        /// it is wide, so the page gives it the room it has left, up to
+        /// that (D76). A page without room left gives it its height.
+        fn measure(&self, orientation: gtk::Orientation, for_size: i32) -> (i32, i32, i32, i32) {
             match orientation {
                 gtk::Orientation::Horizontal => (0, 0, -1, -1),
                 _ => {
                     let height = self.height.get();
-                    (height, height, -1, -1)
+                    let natural = if self.grows.get() {
+                        height.max(for_size)
+                    } else {
+                        height
+                    };
+                    (height, natural, -1, -1)
                 }
             }
         }
@@ -167,12 +181,16 @@ glib::wrapper! {
 impl HistoryChart {
     pub fn new() -> Self {
         let chart: Self = glib::Object::builder().property("hexpand", true).build();
-        chart.set_height(96);
+        chart.set_height(96, false);
         chart
     }
 
-    pub fn set_height(&self, height: i32) {
-        if self.imp().height.replace(height) != height {
+    /// `height` at least; with `grows`, taller where the page has room
+    /// left, up to as tall as it is wide.
+    pub fn set_height(&self, height: i32, grows: bool) {
+        let imp = self.imp();
+        let changed = imp.height.replace(height) != height;
+        if imp.grows.replace(grows) != grows || changed {
             self.queue_resize();
         }
     }

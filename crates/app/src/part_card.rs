@@ -445,7 +445,9 @@ impl PartCard {
             self.number.remove_css_class(class);
         }
         self.number.add_css_class(size);
-        self.chart.set_height(height);
+        // Only a wide page grows its lines into the room it has left, so
+        // that a smaller window looks as before (D76).
+        self.chart.set_height(height, width == Width::Wide);
     }
 
     pub fn update(&self, view: &CardView) {
@@ -646,6 +648,33 @@ mod tests {
             );
             let button = card.widget.downcast_ref::<gtk::Button>().unwrap();
             assert_eq!(button.action_name().as_deref(), Some("win.show-sensors"));
+        });
+    }
+
+    /// A wide page grows the line into the room it has left, up to a square
+    /// (D76): the card wants more height than it needs, and given it, the
+    /// line is as tall as it is wide; given only what it needs, the line
+    /// keeps its height. Narrower pages keep the line as it is. Needs a
+    /// display.
+    #[test]
+    fn line_grows_in_a_wide_page() {
+        crate::gtk_test::run("line_grows_in_a_wide_page", || {
+            let card = PartCard::new("baseboard-processor-symbolic", "Processor", Some("cpu"));
+            card.update(&view(false));
+            let width = 400;
+            let measure = || card.widget.measure(gtk::Orientation::Vertical, width);
+            for narrower in [Width::Compact, Width::Medium, Width::Narrow] {
+                card.set_width(narrower);
+                let (minimum, natural, _, _) = measure();
+                assert_eq!(minimum, natural, "{narrower:?}");
+            }
+            card.set_width(Width::Wide);
+            let (minimum, natural, _, _) = measure();
+            assert!(natural > minimum, "{minimum} {natural}");
+            card.widget.allocate(width, natural, -1, None);
+            assert_eq!(card.chart.height(), card.chart.width());
+            card.widget.allocate(width, minimum, -1, None);
+            assert_eq!(card.chart.height(), sizes(Width::Wide).1);
         });
     }
 
