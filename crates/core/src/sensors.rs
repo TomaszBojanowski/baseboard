@@ -327,7 +327,7 @@ fn channel_index(attr: &str, kind: Kind) -> Option<u8> {
 }
 
 /// The value in a sysfs file, in the unit of `kind`.
-fn read_value(file: &Path, kind: Kind) -> Option<f64> {
+pub fn read_value(file: &Path, kind: Kind) -> Option<f64> {
     let raw = read_trimmed(file)?;
     Some(raw.parse::<i64>().ok()? as f64 / kind.divisor())
 }

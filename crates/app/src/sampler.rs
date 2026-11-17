@@ -9,7 +9,9 @@
 //! While the Fans page is shown, each sample also has the fan modes, and
 //! the curves and their sources, read on entering the page and every 10 s
 //! (§7 M2, M2.4); while the Overview is shown, the modes only, for the
-//! subtitles of the fans (§5.5.3). Only reads sysfs and the udev database.
+//! subtitles of the fans (§5.5.3). While the window is not visible, only
+//! the processor's temperature of the cards is read, once an interval, and
+//! only from `k10temp` (D80). Only reads sysfs and the udev database.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -23,7 +25,7 @@ use baseboard_core::heat::{HeatWatch, Hot, Limits};
 use baseboard_core::labels::UserLabels;
 use baseboard_core::profile::Profile;
 use baseboard_core::readings::{self, Board, Context, Extremes, Group, RowId};
-use baseboard_core::sensors::{self, Device, SensorSource};
+use baseboard_core::sensors::{self, Device, Kind, SensorSource};
 use baseboard_core::summary::{FanWatch, SpeedWatch};
 use baseboard_core::udev::{NoUdev, Udev};
 use gtk::glib;
@@ -70,6 +72,27 @@ pub struct Setup {
 /// shown: each read of a point goes to the board's controller.
 const CURVES_EVERY: Duration = Duration::from_secs(10);
 
+/// The only chip read while the window is not visible (D80): the
+/// processor's own sensor, about 50 µs a read. A read of the board's chip
+/// would refresh all of its registers.
+const BACKGROUND_CHIP: &str = "k10temp";
+
+/// What the worker hands to the main loop.
+pub enum Delivery {
+    /// Every reading, while the window is visible.
+    Sample(Box<Sample>),
+    /// The processor's temperature alone, while it is not (D80).
+    Background(Background),
+}
+
+/// A temperature read on its own while the window is not visible.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Background {
+    pub id: RowId,
+    /// In °C.
+    pub value: f64,
+}
+
 /// What a sample reads of the fan channels besides speeds and duty
 /// cycles, for the page shown. Each mode or curve read goes to the board's
 /// controller, so only what the page shows is read.
@@ -99,6 +122,11 @@ pub struct Sampler {
     heat: HeatWatch,
     /// What to read of the fan channels.
     reads: FanReads,
+    /// The row to read while the window is not visible, if any (D80).
+    background: Option<RowId>,
+    /// The files of the temperatures of `BACKGROUND_CHIP`, from the latest
+    /// sample.
+    background_files: HashMap<RowId, PathBuf>,
     /// How many times the reader was made, for the tests.
     made: usize,
 }
@@ -160,8 +188,40 @@ impl Sampler {
             watch: FanWatch::default(),
             speed: SpeedWatch::default(),
             heat: HeatWatch::default(),
+            background: None,
+            background_files: HashMap::new(),
             made: 0,
         }
+    }
+
+    /// The row to read while the window is not visible: the processor's
+    /// temperature of the cards, or `None`.
+    pub fn set_background(&mut self, id: Option<RowId>) {
+        self.background = id;
+    }
+
+    /// Whether there is a temperature to read while the window is not
+    /// visible: a row of `BACKGROUND_CHIP` asked for.
+    fn reads_in_background(&self) -> bool {
+        self.background
+            .as_ref()
+            .is_some_and(|id| self.background_files.contains_key(id))
+    }
+
+    /// The processor's temperature read on its own while the window is not
+    /// visible (D80): one file of `BACKGROUND_CHIP` and nothing else, not
+    /// even the list of hwmon devices. It is the raw value of sysfs: a
+    /// `compute` statement of lm-sensors for that chip, which the app does
+    /// not look for (§5.1), would not apply to it. Its minimum and maximum
+    /// since the start take it in.
+    pub fn background(&mut self) -> Option<Background> {
+        let id = self.background.as_ref()?;
+        let value = sensors::read_value(self.background_files.get(id)?, Kind::Temp)?;
+        self.extremes.take(id, value);
+        Some(Background {
+            id: id.clone(),
+            value,
+        })
     }
 
     /// What to read of the fan channels from the next sample on; turning
@@ -193,6 +253,19 @@ impl Sampler {
         }
         let reader = self.reader.get_or_insert_with(|| Reader::new(&self.setup));
         let chips = reader.source.chips();
+        self.background_files = chips
+            .iter()
+            .filter(|chip| chip.name == BACKGROUND_CHIP)
+            .flat_map(|chip| {
+                chip.readings
+                    .iter()
+                    .filter(|reading| reading.kind == Kind::Temp)
+                    .map(move |reading| {
+                        let file = chip.path.join(format!("temp{}_input", reading.index));
+                        (readings::row_id(chip, reading), file)
+                    })
+            })
+            .collect();
         let missing_chip = self
             .setup
             .profile
@@ -369,6 +442,8 @@ enum Command {
     Options(Options),
     /// Another page is shown; a running worker takes a sample at once.
     Reads(FanReads),
+    /// The row to read while the window is not visible (D80).
+    Background(Option<RowId>),
 }
 
 /// The worker thread; it ends when this is dropped.
@@ -378,8 +453,9 @@ pub struct Worker {
 
 impl Worker {
     /// Starts taking samples. `deliver` gets each one in the worker thread
-    /// and passes it on to the main loop.
-    pub fn start(setup: Setup, deliver: impl Fn(Sample) + Send + 'static) -> Self {
+    /// and passes it on to the main loop: while running a sample, while
+    /// paused the temperature read in the background, if there is one.
+    pub fn start(setup: Setup, deliver: impl Fn(Delivery) + Send + 'static) -> Self {
         let (commands, received) = mpsc::channel();
         let spawned = std::thread::Builder::new()
             .name("baseboard-sensors".into())
@@ -388,9 +464,11 @@ impl Worker {
                 let mut running = true;
                 loop {
                     if running {
-                        deliver(sampler.sample());
+                        deliver(Delivery::Sample(Box::new(sampler.sample())));
+                    } else if let Some(reading) = sampler.background() {
+                        deliver(Delivery::Background(reading));
                     }
-                    let command = if running {
+                    let command = if running || sampler.reads_in_background() {
                         received.recv_timeout(sampler.options().interval)
                     } else {
                         received.recv().map_err(|_| RecvTimeoutError::Disconnected)
@@ -400,6 +478,7 @@ impl Worker {
                         Ok(Command::Pause) => running = false,
                         Ok(Command::Options(options)) => sampler.set_options(options),
                         Ok(Command::Reads(reads)) => sampler.set_reads(reads),
+                        Ok(Command::Background(id)) => sampler.set_background(id),
                         Err(RecvTimeoutError::Timeout) => {}
                         Err(RecvTimeoutError::Disconnected) => break,
                     }
@@ -430,6 +509,12 @@ impl Worker {
     /// What to read of the fan channels, for the page shown.
     pub fn set_reads(&self, reads: FanReads) {
         let _ = self.commands.send(Command::Reads(reads));
+    }
+
+    /// The temperature to read while the window is not visible (D80): the
+    /// processor's of the cards, if `k10temp` gives it.
+    pub fn set_background(&self, id: Option<RowId>) {
+        let _ = self.commands.send(Command::Background(id));
     }
 }
 
@@ -705,12 +790,82 @@ mod tests {
         std::fs::remove_dir_all(root).unwrap();
     }
 
+    /// The row of Tctl in a sample.
+    fn tctl_of(groups: &[Group]) -> RowId {
+        groups
+            .iter()
+            .flat_map(|g| &g.rows)
+            .find(|r| r.id.chip == "k10temp" && r.id.channel == "temp1")
+            .unwrap()
+            .id
+            .clone()
+    }
+
+    /// The processor's temperature read alone (D80) is the one of the
+    /// samples, from `k10temp` only: a row of the board's chip gives
+    /// nothing, and so does no row asked for.
+    #[test]
+    fn processor_read_alone() {
+        let tree = Tree::new("sysfs-ms7e61-v1", "alone");
+        let mut sampler = Sampler::new(setup(&tree, Options::default()));
+        let sample = sampler.sample();
+        let rows = || sample.groups.iter().flat_map(|g| &g.rows);
+        let tctl = tctl_of(&sample.groups);
+        let value = rows().find(|r| r.id == tctl).unwrap().value;
+        assert_eq!(sampler.background(), None);
+        sampler.set_background(Some(tctl.clone()));
+        assert!(sampler.reads_in_background());
+        assert_eq!(sampler.background(), Some(Background { id: tctl, value }));
+        let board = rows()
+            .find(|r| r.id.chip == "nct6687" && r.kind == Kind::Temp)
+            .unwrap();
+        sampler.set_background(Some(board.id.clone()));
+        assert!(!sampler.reads_in_background());
+        assert_eq!(sampler.background(), None);
+    }
+
+    /// While paused the worker reads only the processor's temperature it
+    /// was asked for (D80), once an interval, and no sample; without one,
+    /// nothing.
+    #[test]
+    fn worker_reads_the_processor_while_paused() {
+        let tree = Tree::new("sysfs-ms7e61-v1", "background");
+        let (sent, received) = mpsc::channel();
+        let fast = Options {
+            interval: Duration::from_millis(200),
+            sensors_labels: false,
+        };
+        let worker = Worker::start(setup(&tree, fast), move |delivery| {
+            let _ = sent.send(delivery);
+        });
+        let Ok(Delivery::Sample(sample)) = received.recv_timeout(Duration::from_secs(5)) else {
+            panic!("a sample first");
+        };
+        let tctl = tctl_of(&sample.groups);
+        worker.set_running(false);
+        while received.recv_timeout(Duration::from_millis(500)).is_ok() {}
+        worker.set_background(Some(tctl.clone()));
+        for _ in 0..3 {
+            match received.recv_timeout(Duration::from_secs(2)) {
+                Ok(Delivery::Background(reading)) => assert_eq!(reading.id, tctl),
+                Ok(Delivery::Sample(_)) => panic!("a sample while paused"),
+                Err(e) => panic!("no reading: {e}"),
+            }
+        }
+        worker.set_background(None);
+        while received.recv_timeout(Duration::from_millis(500)).is_ok() {}
+        assert!(received.recv_timeout(Duration::from_secs(1)).is_err());
+        drop(worker);
+    }
+
     #[test]
     fn worker_delivers_and_pauses() {
         let tree = Tree::new("sysfs-ms7e61-hwmon-next", "worker");
         let (sent, received) = mpsc::channel();
-        let worker = Worker::start(setup(&tree, Options::default()), move |sample| {
-            let _ = sent.send(sample.groups.len());
+        let worker = Worker::start(setup(&tree, Options::default()), move |delivery| {
+            if let Delivery::Sample(sample) = delivery {
+                let _ = sent.send(sample.groups.len());
+            }
         });
         let interval = Options::default().interval;
         // The first sample comes at once.
@@ -736,8 +891,10 @@ mod tests {
             interval: Duration::from_secs(60),
             sensors_labels: false,
         };
-        let worker = Worker::start(setup(&tree, slow), move |sample| {
-            let _ = sent.send(sample.groups.len());
+        let worker = Worker::start(setup(&tree, slow), move |delivery| {
+            if let Delivery::Sample(sample) = delivery {
+                let _ = sent.send(sample.groups.len());
+            }
         });
         let soon = Duration::from_secs(5);
         assert!(received.recv_timeout(soon).is_ok(), "the first sample");

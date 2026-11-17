@@ -59,18 +59,21 @@ impl Extremes {
             .iter_mut()
             .flat_map(|g| g.rows.iter_mut().chain(g.auxiliary.iter_mut()));
         for row in rows {
-            if !row.value.is_finite() {
-                row.range = self.0.get(&row.id).copied();
-                continue;
-            }
-            let range = self
-                .0
-                .entry(row.id.clone())
-                .or_insert((row.value, row.value));
-            range.0 = range.0.min(row.value);
-            range.1 = range.1.max(row.value);
-            row.range = Some(*range);
+            row.range = if row.value.is_finite() {
+                Some(self.take(&row.id, row.value))
+            } else {
+                self.0.get(&row.id).copied()
+            };
         }
+    }
+
+    /// Takes in a finite `value` of the row `id`, also one read on its own
+    /// while the window is not visible (D80), and gives the row's range.
+    pub fn take(&mut self, id: &RowId, value: f64) -> (f64, f64) {
+        let range = self.0.entry(id.clone()).or_insert((value, value));
+        range.0 = range.0.min(value);
+        range.1 = range.1.max(value);
+        *range
     }
 }
 
@@ -813,7 +816,8 @@ fn source(chip: &Chip, reading: &Reading, name: &Name) -> Subtitle {
     }
 }
 
-pub(crate) fn row_id(chip: &Chip, reading: &Reading) -> RowId {
+/// The row of `reading` of `chip`.
+pub fn row_id(chip: &Chip, reading: &Reading) -> RowId {
     RowId {
         chip: chip.name.clone(),
         device: chip.device.clone(),

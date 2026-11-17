@@ -391,6 +391,8 @@ mod imp {
         /// The limits of the temperatures, for the histories of the cards
         /// (D80).
         pub(super) limits: RefCell<Limits>,
+        /// The reading of the processor's card in the latest sample.
+        pub(super) processor: RefCell<Option<RowId>>,
         /// A board profile matches: without one the status sentence says
         /// that the readings work rather than that all is fine.
         pub(super) profile: Cell<bool>,
@@ -474,6 +476,13 @@ impl OverviewPage {
         self.display();
     }
 
+    /// The reading of the processor's card, which the sensor reader keeps
+    /// reading while the window is not visible when it is one of `k10temp`
+    /// (D80).
+    pub fn processor(&self) -> Option<RowId> {
+        self.imp().processor.borrow().clone()
+    }
+
     /// The latest sample with every row, also the hidden ones.
     pub fn groups(&self) -> Vec<Group> {
         self.imp().last.borrow().clone().unwrap_or_default()
@@ -539,6 +548,13 @@ impl OverviewPage {
         imp.banner.set_revealed(missing && any);
         let numbers = self.numbers();
         let summary = top::summary(&groups, &imp.stopped.borrow(), imp.speeding.get());
+        imp.processor.replace(
+            summary
+                .heroes
+                .iter()
+                .find(|hero| hero.kind == top::HeroKind::Cpu)
+                .map(|hero| hero.id.clone()),
+        );
         let state = top::state(&summary, all, &imp.hot.borrow(), imp.profile.get());
         imp.alerts.replace(alerts(&state, &summary, numbers));
         if groups.is_empty() {

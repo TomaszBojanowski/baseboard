@@ -4,12 +4,12 @@
 
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::time::Instant;
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
 use baseboard_core::board::{self, Detection, Dmi};
-use baseboard_core::history::Histories;
+use baseboard_core::history::{Histories, Moment};
+use baseboard_core::readings::RowId;
 use gettextrs::{gettext, ngettext};
 use gtk::{gio, glib};
 
@@ -18,7 +18,7 @@ use crate::fans::FansPage;
 use crate::layout;
 use crate::overview::OverviewPage;
 use crate::preferences::{self, DialogSetup};
-use crate::sampler::{FanReads, Sample, Setup, Worker};
+use crate::sampler::{Background, Delivery, FanReads, Sample, Setup, Worker};
 use crate::system::{self, SystemPage};
 
 /// The pages, in the order of the sidebar items in window.ui.
@@ -109,6 +109,9 @@ mod imp {
         pub worker: RefCell<Option<Worker>>,
         /// What the reader was last told to read of the fan channels.
         pub fan_reads: Cell<Option<FanReads>>,
+        /// What the reader was last told to read while the window is not
+        /// visible (D80).
+        pub background: RefCell<Option<RowId>>,
         /// The last five minutes of the temperatures (D67), for the cards
         /// of the Overview and the Fans page.
         pub histories: Rc<RefCell<Histories>>,
@@ -313,11 +316,14 @@ impl BaseboardWindow {
         imp.fans.set_visibility(visibility.clone());
         imp.overview.set_visibility(visibility);
         let window = glib::SendWeakRef::from(self.downgrade());
-        let worker = Worker::start(setup, move |sample| {
+        let worker = Worker::start(setup, move |delivery| {
             let window = window.clone();
             glib::idle_add_once(move || {
                 if let Some(window) = window.upgrade() {
-                    window.show_sample(sample);
+                    match delivery {
+                        Delivery::Sample(sample) => window.show_sample(*sample),
+                        Delivery::Background(reading) => window.take_background(&reading),
+                    }
                 }
             });
         });
@@ -330,12 +336,31 @@ impl BaseboardWindow {
         let imp = self.imp();
         imp.histories
             .borrow_mut()
-            .update(&sample.groups, Instant::now());
+            .update(&sample.groups, Moment::now());
         imp.fans.show(&sample);
         imp.overview.show(sample);
         // The warnings of the readings for the status row of the System
         // page (D64, D65).
         imp.system.set_alerts(imp.overview.alerts());
+        // While the window is not visible, the reader reads the processor's
+        // temperature of the cards alone, when `k10temp` gives it (D80).
+        let processor = imp.overview.processor();
+        if *imp.background.borrow() != processor
+            && let Some(worker) = imp.worker.borrow().as_ref()
+        {
+            worker.set_background(processor.clone());
+            imp.background.replace(processor);
+        }
+    }
+
+    /// The processor's temperature read while the window is not visible
+    /// (D80): only its history takes it; the pages show it once the window
+    /// is back, with the first sample.
+    fn take_background(&self, reading: &Background) {
+        self.imp()
+            .histories
+            .borrow_mut()
+            .push(&reading.id, Moment::now(), reading.value);
     }
 
     /// Opens a view of the System page over it: "diagnostics" or

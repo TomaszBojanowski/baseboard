@@ -909,9 +909,9 @@ mod tests {
             }]
         };
         let mut histories = Histories::default();
-        histories.update(&sample(41.0, 35.0), std::time::Instant::now());
+        histories.update(&sample(41.0, 35.0), baseboard_core::history::Moment::now());
         assert_eq!(cards_scale(&summary, &histories), (30.0, 100.0));
-        histories.update(&sample(42.0, 29.0), std::time::Instant::now());
+        histories.update(&sample(42.0, 29.0), baseboard_core::history::Moment::now());
         assert_eq!(cards_scale(&summary, &histories), (20.0, 100.0));
     }
 

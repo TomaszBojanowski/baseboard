@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The last five minutes of every temperature (docs/PROJEKT.md §5.1, D67):
-//! one point a sample, kept from the start of the app in memory only, never
-//! on disk. While the window is hidden there are no samples, so the
-//! history has a gap there. The cards of the Overview and of the Fans page
-//! draw it.
+//! The last five minutes of every temperature (docs/PROJEKT.md §5.1, D67,
+//! D80): one point a sample, kept from the start of the app in memory only,
+//! never on disk. While the window is hidden there are no samples, so the
+//! history has a gap there; only the processor's temperature of the cards
+//! is read on its own then. A time the computer slept is a gap too. The
+//! cards of the Overview and of the Fans page draw it.
 
 use std::collections::{HashMap, VecDeque};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use crate::readings::{Group, RowId};
 use crate::sensors::Kind;
@@ -18,6 +19,26 @@ pub const SPAN: Duration = Duration::from_secs(300);
 /// A change of at least this many degrees over [`TREND_OVER`] is a trend.
 const TREND_MIN: f64 = 1.0;
 const TREND_OVER: Duration = Duration::from_secs(60);
+
+/// A sleep shorter than this is not told apart from a late sample.
+const SLEPT_MIN: Duration = Duration::from_secs(3);
+
+/// When a reading was taken: on the monotonic clock, which stands still
+/// while the computer sleeps, and on the wall clock, which does not.
+#[derive(Debug, Clone, Copy)]
+pub struct Moment {
+    pub at: Instant,
+    pub wall: SystemTime,
+}
+
+impl Moment {
+    pub fn now() -> Self {
+        Self {
+            at: Instant::now(),
+            wall: SystemTime::now(),
+        }
+    }
+}
 
 /// Where a temperature is going over the last minute.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -69,6 +90,16 @@ impl History {
         Some(values.fold((first, first), |(lo, hi), v| (lo.min(v), hi.max(v))))
     }
 
+    /// Moves every point `back` in time; a point that would be before the
+    /// start of the monotonic clock goes.
+    fn shift(&mut self, back: Duration) {
+        self.points = self
+            .points
+            .drain(..)
+            .filter_map(|(at, value)| Some((at.checked_sub(back)?, value)))
+            .collect();
+    }
+
     /// The newest value against the oldest one of the last minute.
     pub fn trend(&self) -> Trend {
         let Some((now, value)) = self.last() else {
@@ -94,12 +125,15 @@ impl History {
 #[derive(Debug, Clone, Default)]
 pub struct Histories {
     rows: HashMap<RowId, History>,
+    /// When the latest reading was taken.
+    last: Option<Moment>,
 }
 
 impl Histories {
     /// Adds the temperatures of the sample taken at `now`, also of the
     /// hidden rows; a row that is gone from the sample is forgotten.
-    pub fn update(&mut self, groups: &[Group], now: Instant) {
+    pub fn update(&mut self, groups: &[Group], now: Moment) {
+        self.catch_up(now);
         let temps: Vec<_> = groups
             .iter()
             .flat_map(|g| g.rows.iter().chain(&g.auxiliary))
@@ -111,7 +145,31 @@ impl Histories {
             self.rows
                 .entry(row.id.clone())
                 .or_default()
-                .push(now, row.value);
+                .push(now.at, row.value);
+        }
+    }
+
+    /// Adds one temperature read on its own while the window is not
+    /// visible (D80); the other rows keep their histories.
+    pub fn push(&mut self, id: &RowId, now: Moment, value: f64) {
+        self.catch_up(now);
+        self.rows.entry(id.clone()).or_default().push(now.at, value);
+    }
+
+    /// Moves the histories back by the time the computer slept since the
+    /// latest reading, which the monotonic clock does not count: the line
+    /// has a gap there, and what is now older than five minutes goes with
+    /// the next reading.
+    fn catch_up(&mut self, now: Moment) {
+        let Some(last) = self.last.replace(now) else {
+            return;
+        };
+        let monotonic = now.at.saturating_duration_since(last.at);
+        let wall = now.wall.duration_since(last.wall).unwrap_or_default();
+        if let Some(slept) = wall.checked_sub(monotonic).filter(|s| *s >= SLEPT_MIN) {
+            for history in self.rows.values_mut() {
+                history.shift(slept);
+            }
         }
     }
 
@@ -199,18 +257,71 @@ mod tests {
         }]
     }
 
+    /// `seconds` after `start` on the monotonic clock, and `slept` more on
+    /// the wall clock.
+    fn moment(start: Moment, seconds: u64, slept: u64) -> Moment {
+        Moment {
+            at: at(start.at, seconds),
+            wall: start.wall + Duration::from_secs(seconds + slept),
+        }
+    }
+
     #[test]
     fn every_temperature_of_the_samples() {
-        let start = Instant::now();
+        let start = Moment::now();
         let mut histories = Histories::default();
         histories.update(
             &sample(vec![temp("temp1", 60.0), temp("temp3", 50.0)]),
             start,
         );
-        histories.update(&sample(vec![temp("temp1", 61.0)]), at(start, 1));
+        histories.update(&sample(vec![temp("temp1", 61.0)]), moment(start, 1, 0));
         let tctl = histories.get(&temp("temp1", 0.0).id).unwrap();
         assert_eq!(tctl.range(), Some((60.0, 61.0)));
         // A row gone from the sample is forgotten.
         assert!(histories.get(&temp("temp3", 0.0).id).is_none());
+    }
+
+    /// While the window is not visible the processor's temperature comes
+    /// alone (D80): it joins its history, the others keep theirs.
+    #[test]
+    fn one_reading_on_its_own() {
+        let start = Moment::now();
+        let mut histories = Histories::default();
+        histories.update(
+            &sample(vec![temp("temp1", 60.0), temp("temp3", 50.0)]),
+            start,
+        );
+        let tctl = temp("temp1", 0.0).id;
+        histories.push(&tctl, moment(start, 1, 0), 62.0);
+        histories.push(&tctl, moment(start, 2, 0), 63.0);
+        assert_eq!(histories.get(&tctl).unwrap().points().count(), 3);
+        let other = histories.get(&temp("temp3", 0.0).id).unwrap();
+        assert_eq!(other.points().count(), 1);
+    }
+
+    /// A time the computer slept is a gap of that length (D80), though the
+    /// monotonic clock stood still; after a sleep longer than five minutes
+    /// only the new reading is left. A late sample is no sleep.
+    #[test]
+    fn a_sleep_is_a_gap() {
+        let start = Moment::now();
+        let tctl = temp("temp1", 0.0).id;
+        let ages = |histories: &Histories| -> Vec<u64> {
+            let history = histories.get(&tctl).unwrap();
+            let (newest, _) = history.last().unwrap();
+            history
+                .points()
+                .map(|(at, _)| newest.duration_since(at).as_secs())
+                .collect()
+        };
+        let mut histories = Histories::default();
+        histories.push(&tctl, start, 60.0);
+        histories.push(&tctl, moment(start, 1, 0), 60.0);
+        histories.push(&tctl, moment(start, 2, 2), 60.0);
+        assert_eq!(ages(&histories), [2, 1, 0], "late by 2 s: no sleep");
+        histories.push(&tctl, moment(start, 3, 32), 61.0);
+        assert_eq!(ages(&histories), [33, 32, 31, 0], "slept 30 s");
+        histories.push(&tctl, moment(start, 4, 632), 62.0);
+        assert_eq!(ages(&histories), [0], "slept 10 minutes");
     }
 }
