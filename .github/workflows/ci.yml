@@ -99,6 +99,22 @@ jobs:
           xvfb-run -a -s "-screen 0 1920x1200x24"
           meson test -C build --print-errorlogs --timeout-multiplier 3
 
+      # A scenario of the tour run twice for the race in the icon cache of
+      # GTK (tests/tour.sh) passes, but not quietly: a warning on the run
+      # and the log of its first try, with the backtraces.
+      - name: Scenarios of the tour run twice
+        if: always()
+        run: |
+          [ -f build/meson-logs/testlog.txt ] || exit 0
+          awk '
+            /^== [^ ]+$/ { block = "" }
+            { block = block $0 "\n" }
+            / RETRIED: / {
+              printf "%s", block
+              print "::warning title=Tour scenario run twice::" substr($0, 4)
+            }
+          ' build/meson-logs/testlog.txt
+
       - name: Tests on the real /sys, with what does not apply here
         env:
           BASEBOARD_TESTS_STRICT: "1"

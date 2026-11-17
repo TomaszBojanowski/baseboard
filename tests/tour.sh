@@ -15,8 +15,9 @@
 #
 # With BASEBOARD_TOUR_GDB=1 (set in CI) the app runs under gdb with GLib
 # criticals fatal: at the first critical or crash the log of the scenario
-# gets the backtraces of every thread. A failed scenario ends with its name
-# and the last step of the tour it printed.
+# gets the backtraces of every thread, and a scenario that stops on the
+# race in the icon cache of GTK runs once more (gtk_icon_race). A failed
+# scenario ends with its name and the last step of the tour it printed.
 #
 # Usage: tour.sh BINARY. `meson test` sets GSETTINGS_SCHEMA_DIR,
 # BASEBOARD_BOARDS_DIR and BASEBOARD_LOCALEDIR.
@@ -75,6 +76,36 @@ if [ "$gdb" = 1 ]; then
 fi
 
 failed=0
+retried=
+
+# The one crash that is not the app's own: a race in the icon cache of GTK
+# 4.24 (https://gitlab.gnome.org/GNOME/gtk/-/work_items/8286). The main
+# thread takes a reference on an icon in icon_cache_lookup() while another
+# thread finalizes the same icon. Under gdb a scenario whose log shows
+# exactly this runs once more, with a warning; every other failure, and
+# this one a second time, fails the tour. `gtk_icon_race LOG` holds when the
+# only warning in LOG is this critical, no check of the tour failed before
+# it, and the backtraces have the same icon in g_object_ref() under
+# icon_cache_lookup() in the main thread and in
+# gtk_icon_paintable_finalize() in another thread.
+gtk_icon_race() {
+    [ "$gdb" = 1 ] || return 1
+    grep -q '^baseboard: tour: FAILED' "$1" && return 1
+    [ "$(grep -Ec -- '-(WARNING|CRITICAL|ERROR) \*\*' "$1")" = 1 ] || return 1
+    grep -Fq "GLib-GObject-CRITICAL **" "$1" || return 1
+    grep -Fq "object_ref: assertion '!object_already_finalized' failed" "$1" || return 1
+    awk '
+        /^Thread [0-9]+ \(Thread / { main = ($2 == 1) }
+        main && / icon_cache_lookup \(/ { lookup = 1 }
+        main && match($0, / g_object_ref \(_object=0x[0-9a-f]+/) {
+            taken = substr($0, RSTART + 23, RLENGTH - 23)
+        }
+        !main && match($0, / gtk_icon_paintable_finalize \(object=0x[0-9a-f]+/) {
+            finalized = substr($0, RSTART + 37, RLENGTH - 37)
+        }
+        END { exit !(lookup && taken != "" && taken == finalized) }
+    ' "$1"
+}
 
 # The v1 tree with the processor at 93 °C, close to its limit of 95 °C in
 # the profile: the status sentence warns of it (docs/PROJEKT.md §5.1).
@@ -99,6 +130,30 @@ tour() {
     else
         set -- timeout 120 "$binary"
     fi
+    try=1
+    while :; do
+        tour_once "$@"
+        if [ -n "$problems" ] && [ "$try" = 1 ] && gtk_icon_race "$home/log"; then
+            echo "== $name RETRIED: the race in the icon cache of GTK" \
+                "(https://gitlab.gnome.org/GNOME/gtk/-/work_items/8286); the scenario runs once more"
+            retried="$retried $name"
+            try=2
+            continue
+        fi
+        break
+    done
+    if [ -n "$problems" ]; then
+        # The step that failed is the one after the last printed.
+        last=$(grep '^baseboard: tour' "$home/log" | tail -n 1)
+        echo "== $name FAILED:$problems last step of the tour: ${last:-none}"
+        failed=1
+    fi
+}
+
+# One run of the scenario of `tour` with the command "$@", in a home of its
+# own; prints its log and sets `problems`.
+tour_once() {
+    rm -rf "$home"
     mkdir -p "$home/runtime" "$home/config/gtk-4.0" "$home/data" "$home/cache" "$home/state"
     chmod 700 "$home/runtime"
     # The font of a GNOME session (its default, Adwaita Sans 11, with
@@ -130,12 +185,6 @@ tour() {
         problems="$problems warnings of GTK or GLib;"
     grep -q '^baseboard: tour done$' "$home/log" ||
         problems="$problems the tour did not pass;"
-    if [ -n "$problems" ]; then
-        # The step that failed is the one after the last printed.
-        last=$(grep '^baseboard: tour' "$home/log" | tail -n 1)
-        echo "== $name FAILED:$problems last step of the tour: ${last:-none}"
-        failed=1
-    fi
 }
 
 # Every width of the pages (D67: one card a row at 1024 px, denser at
@@ -156,5 +205,8 @@ if locale -a | grep -qx 'pl_PL.utf8'; then
 else
     echo "== no Polish locale (pl_PL.UTF-8): the tour runs in English only"
     [ "${BASEBOARD_TESTS_STRICT:-}" = 1 ] && failed=1
+fi
+if [ -n "$retried" ]; then
+    echo "== WARNING: run twice for the race in the icon cache of GTK:$retried"
 fi
 exit $failed
