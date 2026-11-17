@@ -41,11 +41,12 @@ use gettextrs::gettext;
 use gtk::{gdk, glib, gsk};
 
 use draw::{
-    Palette, TEXT_SCALE, alpha, circle, draw_area_below, draw_axis_labels, draw_curve_line,
-    draw_dot, draw_full_at, draw_grid, draw_guides, draw_text, draw_zone_texts, draw_zones, layout,
-    line, rect, rounded, size_of, stroke,
+    Palette, draw_area_below, draw_axis_labels, draw_curve_line, draw_dot, draw_full_at, draw_grid,
+    draw_guides, draw_zone_texts, draw_zones, rect, rounded,
 };
 use geometry::{Plot, Rect};
+
+use crate::paint::{TEXT_SCALE, alpha, circle, draw_text, layout, line, size_of, stroke};
 
 /// What the chart draws apart from the live reading.
 #[derive(Debug, Clone, PartialEq)]

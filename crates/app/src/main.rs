@@ -20,6 +20,7 @@ mod layout;
 mod libsensors;
 mod libudev;
 mod overview;
+mod paint;
 mod part_card;
 mod preferences;
 mod sampler;
