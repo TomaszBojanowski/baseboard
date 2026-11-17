@@ -81,7 +81,7 @@ Fan control (M2) will need a system helper that cannot be part of a Flatpak; it 
 
 Fan control on these boards depends on the `nct6683` kernel driver. Baseboard does not check the kernel version. It reads the sysfs attributes of each fan channel and decides from them what the driver allows, and shows this level on the System page. Since 0.2.0 it shows the fan curves where the driver reports them; fan control comes in a later version. From then on each level below unlocks by itself once the kernel provides it, without a new release of Baseboard.
 
-Choosing the temperature source will be enabled only for the interface that is sent to the mailing list.
+Choosing the temperature source will follow the interface of the patch on the mailing list, and only after a test on this board.
 
 | Level | What Baseboard does | What it needs from the kernel | State in the kernel |
 |---|---|---|---|
@@ -89,9 +89,9 @@ Choosing the temperature source will be enabled only for the interface that is s
 | Manual control | Lets you set each fan to a fixed speed, in percent (a later Baseboard version) | Writable `pwmN` and `pwmN_enable` | In `hwmon-next`, the hwmon maintainer's tree; not in a released kernel yet |
 | Curve view | Shows the fan curves stored in the board and the temperature each one follows (Baseboard 0.2.0) | Readable `pwmN_auto_point*` and `pwmN_auto_channels_temp` | In `hwmon-next`; not in a released kernel yet |
 | Curve editing | Lets you change the fan curves; the board keeps running them when the app is closed (a later Baseboard version) | Writable `pwmN_auto_point*` | In `hwmon-next` since 2026-11-14 ([v1 thread](https://lore.kernel.org/linux-hwmon/20261109223442.509238-1-tomasz@bojanowski.me/)); not in a released kernel yet |
-| Temperature source | Lets you choose the temperature a fan curve follows (a later Baseboard version) | Writable `pwmN_auto_channels_temp` | Planned, not sent yet |
+| Temperature source | Lets you choose the temperature a fan curve follows (a later Baseboard version) | Writable `pwmN_auto_channels_temp` | Sent to the hwmon mailing list ([v2](https://patchwork.kernel.org/project/linux-hwmon/patch/20261117071645.587863-1-tomasz@bojanowski.me/)), waiting for review; not in `hwmon-next` yet |
 
-Everything in `hwmon-next` is expected in Linux 7.5, whose release is expected around March 2027, and after that in distributions. The fan code from `hwmon-next` was tested on the MAG B850M MORTAR WIFI on 2026-11-15: writing fan curves and going back to automatic control work.
+The changes in `hwmon-next` are accepted by the hwmon maintainer, but they are not in a released kernel yet. If they go into the next merge window as usual, they are expected in Linux 7.5, whose release is expected in late February or early March 2027; this is a forecast, not a promise, and distributions follow after that release. Control of the extra fan header EZ Conn (JAF_1), `pwm4`, is not in the kernel at all yet. The fan code from `hwmon-next` was tested on the MAG B850M MORTAR WIFI on 2026-11-15: writing fan curves and going back to automatic control work.
 
 ### Next
 
@@ -120,6 +120,7 @@ hwmon (sensors and fans):
 
 - In the mainline tree, not in a released kernel yet: the board added to the [list of tested boards](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=f9c5d495e22f77c0455dacfca627e06219f05881) in the `nct6683` documentation (`f9c5d495e22f`).
 - In `hwmon-next`: a [driver for the voltage sensors of the RGB controller](https://patch.msgid.link/20261107082821.8257-1-tomasz@bojanowski.me) (`msi_mystic_light`) with documentation and a MAINTAINERS entry; in `nct6683`, the [32 mV voltage scale removed](https://patch.msgid.link/20261107150619.297999-1-tomasz@bojanowski.me), the [fan curves reported](https://patch.msgid.link/20261109015759.24284-1-tomasz@bojanowski.me) with documentation and [manual fan control restored after resume](https://patch.msgid.link/20261109163328.61787-1-tomasz@bojanowski.me), the [fan configuration transaction factored out](https://patch.msgid.link/20261109223442.509238-2-tomasz@bojanowski.me) and the [fan curves made writable](https://patch.msgid.link/20261109223442.509238-3-tomasz@bojanowski.me) with documentation; Tested-by on [four changes to the `msi_mystic_light` driver](https://patchwork.kernel.org/series/1205153/).
+- Sent to the mailing list, waiting for review: in `nct6683`, the [temperature source of the fan curves made writable](https://patchwork.kernel.org/project/linux-hwmon/patch/20261117071645.587863-1-tomasz@bojanowski.me/) (v2).
 
 Sound:
 

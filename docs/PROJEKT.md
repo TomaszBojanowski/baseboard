@@ -459,7 +459,8 @@ Zasady obowiązują od M2b (pierwszy zapis przez pomocnika). Testy odwołują si
 |---|---|---|
 | **Przyjęte w `hwmon-next`** (jeszcze nie w drzewie Linusa; stan w §7 M2, M2.2) | seria Hamzy: tryb ręczny dla kanałów CPU, pompy i SYS przy customer ID 0x20D; `25447f635e86`: odczyt krzywych; `3ae11c0f39c6`: odtworzenie trybu ręcznego po wznowieniu; `ea8c6b17c9b5`: powrót do automatu przy wyładowaniu na kanałach przełączonych przez sysfs na tryb ręczny | `pwm1`, `pwm2`, `pwm13–16`: `pwmN` i `pwmN_enable` 0644 (1 = ręczny, 2 = automat z bieżącą krzywą); `pwmN_auto_point[1-7]_temp` (milistopnie), `_pwm` (0–255) i `pwmN_auto_channels_temp` (maska `tempX`) 0444 |
 | **Przyjęte w `hwmon-next` 2026-11-14** (nasza seria v1: `07fb058cc090`, `09e30fd080f9`) | zapis punktów krzywej w trybie 1 i 2; przycinanie do 0–127 °C, 0–255 i do sąsiednich punktów; `-EIO` przy odrzuceniu przez EC (wraca krzywa sprzed zapisu); odtwarzanie zapisanych krzywych po wznowieniu | `pwmN_auto_point[1-7]_{temp,pwm}` 0644 dla kanałów, których krzywa przy ładowaniu ma niemalejące temperatury (≤ 127 °C) i wypełnienia; dla pozostałych 0444 |
-| **Nieustalone** | łatka 5: wybór źródła temperatury krzywej (projekt: jeden bit, tylko temperatury raportowane przez sterownik; na MS-7E61 temp1–temp4); EZ Conn (`pwm4`, wymaga wentylatora na JAF_1) | `pwmN_auto_channels_temp` 0644 (projekt); brak `pwm4_enable` |
+| **Wysłane, czeka na recenzję** (stan 2026-11-17 według właściciela) | łatka 5: wybór źródła temperatury krzywej; v1 wysłana 2026-11-17, po uwadze opiekuna o kodzie błędu v2 tego samego dnia („[PATCH v2] hwmon: (nct6683) Make pwmN_auto_channels_temp of NCT6687D-R writable”, lista linux-hwmon) | `pwmN_auto_channels_temp` 0644 według łatki |
+| **Jeszcze nie ma** | sterowanie złączem EZ Conn (JAF_1), `pwm4` (wymaga wentylatora na tym złączu) | brak `pwm4_enable` |
 
 Aplikacja **nie wymaga** żadnego poziomu: korzysta z tego, co znajdzie (§5.5.2). Gdyby zachowania z `hwmon-next` zmieniły się przed wejściem do drzewa Linusa, zależy od nich tylko warstwa sterownika (§3.7).
 
@@ -504,7 +505,7 @@ Według poziomu sterownika, wydania (D47) i tego, czy jest pomocnik. Flatpak wyg
 | Baner „Zmiany działają także po zamknięciu aplikacji, do restartu komputera” | nigdy | gdy któryś kanał jest w trybie ręcznym ustawionym przez Baseboard | jak `manual` | jak `manual` albo gdy któryś kanał ma krzywą inną niż pierwotna |
 | Strona System, poziom obsługi | „Sterowanie wentylatorami niedostępne” z tym samym zdaniem co wyżej, bez ikony ostrzeżenia (D60, D66) | „Tryb ręczny” | „Tryb ręczny i podgląd krzywych” | „Krzywe w kontrolerze płyty” |
 
-Złącze bez wpisu w `tested_writes` (na MS-7E61 pompa, D52) ma zamiast przełącznika ramkę „Tylko podgląd: złącza nie sprawdzono na tej płycie.”. Nieistniejące `pwm3` jest w każdym przypadku tylko do odczytu. Wentylator dodatkowy (EZ Conn, `pwm4`) jest tylko do odczytu, dopóki sterownik nie obejmie tego kanału (`pwm4_enable`) i zapis nie zostanie sprawdzony na sprzęcie (D32). Oba z wyjaśnieniem.
+Złącze bez wpisu w `tested_writes` (na MS-7E61 pompa, D52) ma zamiast przełącznika ramkę „Tylko podgląd: złącza nie sprawdzono na tej płycie.”. Nieistniejące `pwm3` jest w każdym przypadku tylko do odczytu. Wentylator dodatkowy (EZ Conn (JAF_1), `pwm4`) jest tylko do odczytu, dopóki sterownik nie obejmie tego kanału (`pwm4_enable`) i zapis nie zostanie sprawdzony na sprzęcie (D32). Oba z wyjaśnieniem.
 
 #### 5.5.4 Strona Wentylatory
 
@@ -684,7 +685,7 @@ Aplikacja **nie flashuje** BIOS-u (§1.3, D7). Pomaga przygotować aktualizację
 | `cpu1` | CPU_FAN1 | fan1 | pwm1 | cpu | tak | tak (v1) | nie (O5) | 30 % | pewne (pomiar) |
 | `pump1` | PUMP_SYS1 | fan2 | pwm2 | pump | tak | tak (v1) | nie (O5) | 50 % | wg analizy, niesprawdzone fizycznie |
 | – | brak złącza | fan3 | pwm3 | ukryty | nie | nie | – | – | wniosek |
-| `ezconn` | JAF_1 (EZ Conn) | fan4 | pwm4 | aux | nie (sterownik nie obejmuje kanału) | nie | – | – | wg analizy, niesprawdzone fizycznie |
+| `ezconn` | EZ Conn (JAF_1) | fan4 | pwm4 | aux | nie (sterownik nie obejmuje kanału) | nie | – | – | wg analizy, niesprawdzone fizycznie |
 | `sys1` | SYS_FAN1 | fan16 | pwm16 | sys | tak | tak (v1) | **tryb ręczny i krzywa, także po S3** (2026-11-06, 2026-11-09) | 0 % | pewne (test fizyczny) |
 | `sys2` | SYS_FAN2 | fan15 | pwm15 | sys | tak | tak (v1) | nie | 0 % | pewne |
 | `sys3` | SYS_FAN3 | fan14 | pwm14 | sys | tak | tak (v1) | nie | 0 % | pewne |
@@ -757,7 +758,7 @@ Domyślna krzywa CPU z BIOS-u łamie minimum B5. Krzywą pierwotną aplikacja pr
 - **Wydane:** 0.1.0 (M1; Flatpak w repozytorium flatpak.bojanowski.me; strona projektu); 0.2.0 (2026-11-14, M2a, D70; tag `v0.2.0` na `975456a`); 0.2.1 (2026-11-16, zakres D76): podpisany tag `v0.2.1` na `218a403`, wydanie na GitHubie z pakietem `.flatpak` (SHA-256 `4fa884cd329a6de6eed261cba4ad377459c88acbadff7b1f25aa34d5935cd5d4`), w repozytorium Flatpak commit `5c4a220` (Baseboard `eb63f288c5ad`, opis repozytorium ogólny, D71). W nim wykresy rosnące z wysokością okna (D78), „Diagnostyka” w jednej liście, ikony dysków i sieci (D77), znak stanu wyśrodkowany, dostępność sprawdzona przez AT-SPI zamiast testu z Orca (D79, `build-aux/a11y/`) i pomiar CPU (D29, M2.8).
 - **W toku:** awarie `tour` w CI (na `a28c52c` kod 139; na `a18e409` ślad stosu w przebiegu 44180809727, krok „Test log”) to wyścig w pamięci podręcznej ikon GTK 4.24.1 (`gtk/gtkicontheme.c`: wątek główny bierze ikonę, którą wątek puli GTK właśnie zwalnia; otwarte zgłoszenie GTK #8286), nie błąd Baseboard. Dotyczy potencjalnie każdej wersji, także 0.2.1 (runtime GNOME 51 ma GTK 4.24.1); nie blokuje 0.3.0. CI ponawia raz scenariusz z tym podpisem, z ostrzeżeniem (§8). Wykres historii według D80 wdrożony i przyjęty; potem M2.8 i M2b.
 - **Otwarte na 0.3.0:** pomocnik `baseboard-helper` (COPR) i tryb ręczny; polskie powody błędów libsensors (D76); sprawdzenie, czy wątek czujników czyta tylko potrzebne pliki sysfs (M2.8); nowe zrzuty z kompozytorem (D75).
-- **Później:** znak towarowy w bazach (D1, D79); `fans::driver::read` czeka na `GetState` pomocnika (M2b, lista wyjątków w `tests/core-api-exceptions.txt`); `cargo deny` przy zgłoszeniu na Flathub (F3); edytor krzywych (0.4.0), M2c, M3–M5.
+- **Później:** znak towarowy w bazach (D1, D79); `fans::driver::read` czeka na `GetState` pomocnika (M2b, lista wyjątków w `tests/core-api-exceptions.txt`); `cargo deny` przy zgłoszeniu na Flathub (F3); edytor krzywych (0.4.0), M2c (łatka 5 v2 wysłana, czeka na recenzję), M3–M5.
 
 Każdy etap kończy się, gdy spełnia swoje kryteria oraz wspólne wymagania z §8.
 
@@ -808,7 +809,7 @@ Każdy etap kończy się, gdy spełnia swoje kryteria oraz wspólne wymagania z 
 - instrukcja tej płyty: nazwa modelu, nazwy i liczba złączy wentylatorów;
 - publiczny schemat kanałów jej rodziny (§6.4 pkt 2).
 
-Przynależność płyty do rodziny też musi wynikać ze źródła publicznego. Danych z notatek z analizy interoperacyjności (§2) profil nie zawiera. Każdy wentylator ma `verified = false` i puste `tested_writes`, więc profil daje podgląd bez sterowania (§6.4 pkt 3, D16). Gdy źródła się różnią, rozstrzyga instrukcja. Przykład: schemat rodziny ma kanał EZ Conn, a instrukcja nie wymienia takiego złącza, więc profil go nie pokazuje.
+Przynależność płyty do rodziny też musi wynikać ze źródła publicznego. Danych z notatek z analizy interoperacyjności (§2) profil nie zawiera. Każdy wentylator ma `verified = false` i puste `tested_writes`, więc profil daje podgląd bez sterowania (§6.4 pkt 3, D16). Gdy źródła się różnią, rozstrzyga instrukcja. Przykład: schemat rodziny ma kanał EZ Conn (JAF_1), a instrukcja nie wymienia takiego złącza, więc profil go nie pokazuje.
 
 **Kandydaci na profile niesprawdzone.** Każdą płytę potwierdzamy w jej własnej instrukcji. `[match]` wymienia nazwę modelu (D28).
 
@@ -816,7 +817,7 @@ Przynależność płyty do rodziny też musi wynikać ze źródła publicznego. 
 |---|---|---|
 | MS-7E56 | B850 GAMING PLUS WIFI | do potwierdzenia w instrukcji |
 | MS-7E56 | MAG B850 GAMING PLUS MAX WIFI | do potwierdzenia w instrukcji |
-| MS-7E56 | PRO B850-P WIFI | do potwierdzenia w instrukcji; przy D28 bez złącza JAF_1 |
+| MS-7E56 | PRO B850-P WIFI | do potwierdzenia w instrukcji; przy D28 bez złącza EZ Conn (JAF_1) |
 | MS-7E75 | B850 GAMING PLUS WIFI PZ | do potwierdzenia w instrukcji |
 | MS-7E80 | B850 GAMING PLUS WIFI6E | do potwierdzenia w instrukcji |
 | MS-7E80 | PRO B850-S WIFI6E | do potwierdzenia w instrukcji |
@@ -842,13 +843,13 @@ Płyty o tym samym kodzie i tym samym zestawie złączy według instrukcji mogą
 
 #### M2.2 Zależności od jądra
 
-Stan z lokalnego drzewa jądra właściciela 2026-11-15; `hwmon-next` to `9cb64fddec6e` (gałąź opiekuna bywa przepisywana, hashe sprawdzamy przed każdym wydaniem).
+Stan z lokalnego drzewa jądra właściciela 2026-11-15; `hwmon-next` to `9cb64fddec6e` (gałąź opiekuna bywa przepisywana, hashe sprawdzamy przed każdym wydaniem). Spodziewana wersja (D72) sprawdzona 2026-11-17 na git.kernel.org: `hwmon-next` stoi na 7.4-rc2, a drzewo Linusa na 7.4-rc3, więc jego zawartość trafi zwykle do okna scalania 7.5. Wydanie 7.5 według ostatnich cykli (63–70 dni): koniec lutego albo początek marca 2027 r.; to przewidywanie.
 
 | Gdzie | Zmiany w `nct6683` | Poziom na MS-7E61 | Co daje Baseboard |
 |---|---|---|---|
 | Wydane jądra (7.3; Fedora 7.3.3) i drzewo Linusa do v7.4-rc2 | odczyty; w v7.4-rc2 m.in. `c4a01c2a80b2` (poprawka rzutowania w `show_pwm()` i `store_pwm()`), `f9c5d495e22f` i `04f4079ee61a` (listy płyt) | `read-only`: `pwm1–4` 0444, bez `pwmN_enable` i krzywych | M2a: karty z obrotami i wypełnieniem, wyjaśnienie |
 | `hwmon-next` | `5410a1257e26` sterowanie wentylatorami płyt MSI z NCT6687D-R (seria Hamzy), `f62e305a9b72` wypełnienie wentylatorów SYS, `25447f635e86` odczyt krzywych, `3ae11c0f39c6` tryb ręczny po wznowieniu, `e557208cc48d`, `c5d0e09bad58`; od 2026-11-14 nasza seria v1 (`07fb058cc090`, `09e30fd080f9`: zapis punktów krzywych; `pwmN_auto_channels_temp` dalej 0444) i seria Dahlina (`ea8c6b17c9b5`: powrót do automatu przy wyładowaniu modułu na kanałach przełączonych przez sysfs na tryb ręczny; pozostałe jej łatki dotyczą płyt ASRock) | `curves` | M2a: podgląd krzywych i źródła; M2b: tryb ręczny i edytor krzywych |
-| Łatka 5 | nienapisana | `curves+source` | M2c: wybór źródła |
+| Łatka 5 | wysłana na linux-hwmon (v2 2026-11-17, według właściciela), czeka na recenzję | `curves+source` | M2c: wybór źródła |
 
 - **Co działa u użytkowników dziś:** na wydanych jądrach tylko `read-only`. Wyższe poziomy wymagają modułu spoza drzewa (u właściciela `hwmon-next`, przetestowany na MS-7E61 2026-11-15) albo jądra, do którego trafi `hwmon-next`, a potem dystrybucji z tym jądrem.
 - **Zapis krzywych jest w `hwmon-next`** (warunek wydania edytora z D47 spełniony 2026-11-14). Przyjęty kod v1 jest taki jak wysłany, a seria Dahlina nie zmienia atrybutów, więc warstwa sterownika i próbki w `tests/fixtures/` nie wymagają zmian.
@@ -868,7 +869,7 @@ Każdy krok kończy się działającym buildem, zielonymi sprawdzeniami z §8 i 
 | 1 | Warstwa sterownika do odczytu: cecha `FanDriver` (tryb, wypełnienie, krzywa, źródło), `SysfsDriver` i `ModelDriver` do odczytu, milistopnie ↔ °C, maska `pwmN_auto_channels_temp` → klucz temperatury z profilu. Kodu zapisu w tym kroku nie ma. | testy na trzech drzewach z M1 i na `tryby-mieszane`; na MS-7E61 z modułem v1 krzywe i źródła sześciu kanałów równe `cat` (odczyt). **Zrobione.** | – |
 | 2 | Model krzywej w `core`: n punktów z liczby plików, interpolacja liniowa, wartości poza skrajnymi punktami, cel w punkcie pracy, źródło → próg awaryjny, opis krzywej dla czytnika ekranu. | testy jednostkowe; na MS-7E61 cel z modelu równy `pwmN` w stanie ustalonym na sześciu kanałach, w spoczynku i po krótkim obciążeniu procesora (odczyt, bez zapisu do sprzętu); wynik w §4. **Zrobione.** | właściciel: trzy obciążenia po 60 s (zrobione) |
 | 3 | Widżet wykresu `app::fan_chart` (M2.4): miniatura i duży wykres, strefy, punkt pracy, przejścia, tryb podglądu bez uchwytów. Geometria, rozmieszczanie etykiet i opis dla czytnika jako czyste funkcje z testami. | testy; zrzut debug wykresu zgodny z makietą w obu stylach; koszt CPU zmierzony. **Zrobione.** | – |
-| 4 | Strona Wentylatory w podglądzie (dziś w układzie D62: lista z dużą temperaturą), stany `read-only`, `manual`, `manual+curve-view` i `curves` bez pomocnika, złącze puste, wentylator stoi, „Tylko odczyt” dla JAF_1, podstrona krzywej w podglądzie, wpis w pasku bocznym. Odczyt trybu przy każdej próbce tylko przy widocznej stronie, krzywych przy wejściu i co 10 s. | zrzuty prawdziwej aplikacji na module v1 (jasny i ciemny styl, EN i PL, szerokie i wąskie okno) obok renderów makiet, z listą różnic; natywnie i we Flatpaku. **Zrobione.** | wygląd z modułem v1 i z modułem Fedory (przeładowanie przy otwartej stronie, `sudo`), Orca na stronie i podstronie |
+| 4 | Strona Wentylatory w podglądzie (dziś w układzie D62: lista z dużą temperaturą), stany `read-only`, `manual`, `manual+curve-view` i `curves` bez pomocnika, złącze puste, wentylator stoi, „Tylko odczyt” dla EZ Conn (JAF_1), podstrona krzywej w podglądzie, wpis w pasku bocznym. Odczyt trybu przy każdej próbce tylko przy widocznej stronie, krzywych przy wejściu i co 10 s. | zrzuty prawdziwej aplikacji na module v1 (jasny i ciemny styl, EN i PL, szerokie i wąskie okno) obok renderów makiet, z listą różnic; natywnie i we Flatpaku. **Zrobione.** | wygląd z modułem v1 i z modułem Fedory (przeładowanie przy otwartej stronie, `sudo`), Orca na stronie i podstronie |
 | 5 | Przegląd: tryb w podtytule wentylatora przy `mode` (§5.5.3). | testy modelu; zrzut. **Zrobione.** | wygląd Przeglądu z modułem Fedory i v1, natywnie i we Flatpaku (w tym kroku Flatpak nie był budowany); pomiar CPU Przeglądu bez pracy na pulpicie |
 | 6 | Domknięcie M2a: tłumaczenia, metainfo (opis wydania, zrzuty w `website/screenshots/0.2.0/`), README i strona, kryteria M2a (M2.8), wydanie 0.2.0 według §10.7. | kryteria M2a | push, tag, wydanie, publikacja w repozytorium Flatpak |
 
@@ -924,7 +925,7 @@ Wszystkie w jasnym i ciemnym stylu, w szerokim (1200 px) i wąskim oknie (400 px
 **Strona (D62, D67)**, nowoczesny minimalizm: zwykłe słowa, typografia zamiast ramek, jeden kolor akcentu. W szerokim i gęstszym oknie dwie kolumny (karta po lewej, lista po prawej, od tej samej wysokości), węziej jedna. Od góry:
 - karta „Procesor”, ta sama co na Przeglądzie (§5.1, D67): temperatura procesora z profilu w pełnych stopniach, historia o stałej wysokości (§5 „Wysokość”, D80), wentylator procesora i najwyższa temperatura od uruchomienia, bez zdań oceniających. Zakłada jedno wspólne źródło krzywych (notatka w M2c);
 - pod faktami karty zawsze zarezerwowane zdanie „Wentylatory przyspieszają” (zwykły przygaszony kolor tekstu), widoczne, gdy co najmniej jeden wentylator dochodzi do wyższego celu o co najmniej 5 punktów procentowych; dzięki rezerwie lista się nie przesuwa. Na sterowniku bez sterowania pod kartą zdanie „Ten system na razie tylko odczytuje wentylatory. Sterowanie pojawi się w jednej z przyszłych wersji Linuksa.” z linkiem „Stan w jądrze” do sekcji o jądrze na stronie projektu (pogrubiony, w kolorze akcentu, bez podkreślenia, z ikoną otwarcia na zewnątrz; nigdy nie łamie się w środku, w razie potrzeby przechodzi cały do następnego wiersza); to stały stan, więc może zajmować więcej;
-- lista wentylatorów (boxed list libadwaita) w kolumnie do 600 sp (rośnie z rozmiarem tekstu), w kolejności złączy na płycie; złącza bez sterowania (JAF_1) w tej samej liście, bez wykresu;
+- lista wentylatorów (boxed list libadwaita) w kolumnie do 600 sp (rośnie z rozmiarem tekstu), w kolejności złączy na płycie; złącza bez sterowania, czyli EZ Conn (JAF_1), w tej samej liście, bez wykresu;
 - stopka „Baseboard na razie tylko pokazuje ustawienia wentylatorów z BIOS-u.” (0.2.0, na każdym poziomie sterownika poza „tylko odczyt”, przy którym stoi zdanie o jądrze).
 Bez banera i ramek u góry, bez grupy „Źródło temperatury” i bez legendy nad listą.
 
@@ -1002,7 +1003,7 @@ Bez banera i ramek u góry, bez grupy „Źródło temperatury” i bez legendy 
 - **Próg osiągalny w kilka sekund (O10).** Przy wentylatorze procesora w trybie ręcznym na minimum temperatura może dojść do progu w kilka sekund, a B4 reaguje po 3 odczytach. Wyjście w automacie dochodzi do celu stopniowo (§4), więc samo przejście na automat chłodzi wolno. Dlatego D48: przy progu od razu 100 % na kanałach sterowanych ręcznie przez Baseboard, a warunek dla procesora „osiągnie” zamiast „przekroczy”, bo procesor dławi przy Tjmax 95 °C i temp1 może stanąć dokładnie na progu. Procesor chroni się też sam (dławienie przy Tjmax). Test: D53.
 - **Krzywa z BIOS-u łamiąca B5** (domyślna krzywa CPU, §6.3). Podgląd (M2a) pokazuje ją bez ostrzeżenia, bo to ustawienie firmware. Edytor pokazuje ją bez zmian, wskazuje punkt 1 („Poniżej minimum 30 %”) i blokuje „Zastosuj” (makieta `bios-cpu`). „Przywróć krzywą BIOS”, `SetAllAuto` i powrót w B17(b) zapisują ją bez walidacji (B18). Test automatyczny na tej krzywej; na sprzęcie tylko przy domyślnych ustawieniach BIOS-u.
 - **Zapis sprawdzony tylko na SYS_FAN1.** Profil ma dziś `tested_writes` tylko dla `sys1`. SYS_FAN2–4 dostają wpis po teście w kroku 13, CPU_FAN1 po teście D53. Do tego czasu karta pokazuje „Tylko podgląd: zapisu na tym złączu nie sprawdzono na tej płycie”.
-- **Puste złącza pompy i wentylatora dodatkowego.** Na PUMP_SYS1 nic nie jest podłączone (0 rpm przy 100 %), więc nie da się sprawdzić ani przypisania (O3), ani zapisu (O5); pompa zostaje bez sterowania (D52). B11 nie reaguje, bo złącze nie miało obrotów. Strona mówi „Brak obrotów od uruchomienia aplikacji. Złącze może być puste.”, a pustego złącza od pompy, która nie ruszyła, nie odróżnia. JAF_1: bez `pwm4_enable` w sterowniku, tylko odczyt (D32).
+- **Puste złącza pompy i wentylatora dodatkowego.** Na PUMP_SYS1 nic nie jest podłączone (0 rpm przy 100 %), więc nie da się sprawdzić ani przypisania (O3), ani zapisu (O5); pompa zostaje bez sterowania (D52). B11 nie reaguje, bo złącze nie miało obrotów. Strona mówi „Brak obrotów od uruchomienia aplikacji. Złącze może być puste.”, a pustego złącza od pompy, która nie ruszyła, nie odróżnia. EZ Conn (JAF_1): bez `pwm4_enable` w sterowniku, tylko odczyt (D32).
 - **Awaria pomocnika:** B3(b) przywraca automat kanałom w trybie ręcznym; krzywe w EC działają dalej. Aplikacja dostaje zniknięcie nazwy z magistrali, pokazuje „Pomocnik systemowy przestał działać” i nie wznawia trybu ręcznego sama.
 - **Zamknięcie aplikacji:** nic się nie zmienia. Pomocnik nadzoruje tryb ręczny dalej (B4, B11, B13), krzywe działają w EC; baner i opis strony o tym mówią.
 - **Uśpienie:** bez zmian przed uśpieniem (D13); po wybudzeniu B12 (sterownik z `3ae11c0f39c6` zwykle odtwarza tryb ręczny sam). Hibernacja: O4.
@@ -1374,7 +1375,7 @@ Decyzje z datami są w `docs/DECYZJE.md`; odwołania „Dxx” w tym dokumencie 
 |---|---|---|---|
 | O1 | Które złącza RGB fizycznie są na płycie i jakim strefom raportu 0x50 odpowiadają | instrukcja płyty + test z urządzeniem ARGB | M3 |
 | O2 | Czy stan RGB z RAM (store = 0) przeżywa ciepły restart | test | M3 |
-| O3 | Przypisanie PUMP_SYS1 → fan2/pwm2 i JAF_1 → fan4/pwm4. Oba złącza są na MS-7E61 puste, więc do testu pompa zostaje bez sterowania (D52) | wentylator podłączany kolejno do obu złączy | M1 (etykieta), M2b (sterowanie) |
+| O3 | Przypisanie PUMP_SYS1 → fan2/pwm2 i EZ Conn (JAF_1) → fan4/pwm4. Oba złącza są na MS-7E61 puste, więc do testu pompa zostaje bez sterowania (D52) | wentylator podłączany kolejno do obu złączy | M1 (etykieta), M2b (sterowanie) |
 | O4 | ~~Zachowanie `pwmN_enable` i wypełnienia po uśpieniu i po ciepłym restarcie~~. **Częściowo rozstrzygnięte (testy sterownika, 2026-11-09):** po S3 BIOS cofa tryb ręczny (EC w automacie); sterownik z `3ae11c0f39c6` go odtwarza. Krzywa zapisana przez v1 jest po S3 taka jak przed uśpieniem, ale na tej płycie nie da się rozróżnić, czy zachował ją EC, czy odtworzył sterownik. Po restarcie EC ma ustawienia BIOS-u. Otwarte: czy BIOS przy S3 nadpisuje krzywe; S4 (hibernacja). | test S4 za zgodą | M2b |
 | O5 | Zapis na CPU_FAN1 i PUMP_SYS1, w trybie ręcznym i w krzywej (dotąd sprawdzono tylko SYS_FAN1); dla kanałów 0–1 otwarte jest też uzgadnianie w sterowniku (notatki z projektu sterownika) | CPU_FAN1: test według procedury z §7 M2, M2.5 (D53), uruchamia właściciel; PUMP_SYS1: po podłączeniu wentylatora albo pompy (D52) | M2b (D16) |
 | O6 | Jak powiadamiać o zdarzeniach awaryjnych, gdy aplikacja nie działa (np. mały proces w tle z autostartem albo portal Background). W M2 bez procesu w tle (D54): blokada awaryjna jest trwała w `/run`, a aplikacja pokazuje ją po uruchomieniu | prototyp | po M2 |
@@ -1387,7 +1388,7 @@ Decyzje z datami są w `docs/DECYZJE.md`; odwołania „Dxx” w tym dokumencie 
 | O13 | Odczyt wersji firmware kontrolera RGB na MS-7E61: czy kontroler odpowiada, format odpowiedzi, czy pole `bcdDevice` urządzenia USB (dziś 0001) ma z nią związek | test na sprzęcie (tylko odczyt) | M3 |
 | O14 | ~~Nazwa producenta modułu pamięci, gdy SMBIOS podaje „Unknown”~~. **Rozstrzygnięte (D8):** hwdata nie ma tablicy nazw JEDEC; pokazujemy surowy identyfikator (na tej maszynie „Bank 8, Hex 0x5D”) obok numeru części; od D37 tylko w tekście do schowka. | – | M1 |
 | O15 | Tempo dochodzenia wyjścia do celu w automacie na pozostałych kanałach i przy innych czasach Step Up/Down. **Częściowo rozstrzygnięte (2026-11-11, M2a krok 2, obciążenie bez żadnego zapisu):** SYS Fan 1 i 2 ok. 5 jednostek/s, CPU Fan 1 ok. 3,3 jednostki/s (ze 124 do 255 w ok. 40 s), w obu kierunkach. Otwarte: pompa (złącze puste), SYS 3 i 4 (ich krzywe są płaskie, więc obciążenie nic nie zmienia), inne ustawienia Step Up/Down. | odczyty `pwmN` co sekundę przy obciążeniu, bez dodatkowych zapisów | M2b (D14) |
-| O16 | ~~Ostateczny kształt ABI zapisu krzywych po recenzji v1 i łatki 5~~. **Częściowo rozstrzygnięte (2026-11-14):** v1 przyjęta do `hwmon-next` bez zmian (§5.5.1). Otwarte: ABI wyboru źródła temperatury (łatka 5). | lista linux-hwmon | M2c |
+| O16 | ~~Ostateczny kształt ABI zapisu krzywych po recenzji v1 i łatki 5~~. **Częściowo rozstrzygnięte (2026-11-14):** v1 przyjęta do `hwmon-next` bez zmian (§5.5.1). Otwarte: ABI wyboru źródła temperatury (łatka 5, v2 wysłana 2026-11-17, czeka na recenzję). | lista linux-hwmon | M2c |
 | O17 | Czy krzywa zapisana przez v1 przetrwa hibernację (S4) i ciepły restart przez kexec | test za zgodą | M2b |
 | O18 | RGB z Flatpaka: hidraw jest dostępny tylko przez `--device=all`, które odsłania też `/dev/port` i inne urządzenia. Czy RGB przenieść do pomocnika (§3.4), czy wymagać instalacji natywnej, czy przyjąć `--device=all` | decyzja przed M3 | M3 |
 | O19 | Czy polkit z `auth_admin_keep` (D3) działa dla wywołań z Flatpaka przez pośrednika D-Bus tak jak dla aplikacji natywnej (jedno hasło na kilka minut); zapamiętanie autoryzacji może dotyczyć procesu pośrednika | test w kroku 13: natywnie i we Flatpaku, ile razy w ciągu 5 minut pojawia się pytanie o hasło (§7 M2, M2.6) | M2b |

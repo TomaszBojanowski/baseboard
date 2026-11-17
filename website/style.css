@@ -469,11 +469,6 @@ h3 {
     color: var(--pill-amber-fg);
 }
 
-.pill-planned {
-    background: var(--button);
-    color: var(--text);
-}
-
 .state-note {
     display: block;
     margin-top: 0.3rem;
