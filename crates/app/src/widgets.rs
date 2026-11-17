@@ -19,6 +19,30 @@ pub fn chevron() -> gtk::Image {
         .build()
 }
 
+/// Shows the icon `name` in `image`, unless it shows it already. GTK clears
+/// an image on every call, also with the same name, and looks its icon up
+/// again in the icon cache, where a race of GTK 4.24 can end the app (GTK
+/// issue 8286); readings shown once a second would do that every second.
+pub fn set_icon(image: &gtk::Image, name: &str) {
+    if image.icon_name().as_deref() != Some(name) {
+        image.set_icon_name(Some(name));
+    }
+}
+
+/// Gives `widget` the style classes `classes`, unless it has just these,
+/// in any order. GTK takes every class off and puts them back on every
+/// call, so that the style is worked out again also when nothing changes.
+pub fn set_classes(widget: &impl IsA<gtk::Widget>, classes: &[&str]) {
+    let current = widget.css_classes();
+    let same = current.len() == classes.len()
+        && classes
+            .iter()
+            .all(|class| current.iter().any(|now| now == class));
+    if !same {
+        widget.set_css_classes(classes);
+    }
+}
+
 /// Gives `row` the description a screen reader says after its title, and
 /// keeps it up to date: the value on its right, if it has one, and its
 /// subtitle. libadwaita describes a row by a relation to its subtitle that
@@ -62,6 +86,31 @@ fn row_description(row: &adw::ActionRow, value: Option<&gtk::Label>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::gtk_test::notifications;
+
+    /// The same icon and the same classes, in any order, leave the image as
+    /// it is; another icon or another class changes it. Needs a display.
+    #[test]
+    fn icons_and_classes_only_change_when_they_differ() {
+        crate::gtk_test::run("icons_and_classes_only_change_when_they_differ", || {
+            let image = gtk::Image::from_icon_name("go-next-symbolic");
+            image.set_css_classes(&["status-icon", "success"]);
+            let icon = |name: &str| notifications(&image, "icon-name", || set_icon(&image, name));
+            assert_eq!(icon("go-next-symbolic"), 0);
+            assert_eq!(icon("dialog-warning-symbolic"), 1);
+            assert_eq!(
+                image.icon_name().as_deref(),
+                Some("dialog-warning-symbolic")
+            );
+            let classes =
+                |list: &[&str]| notifications(&image, "css-classes", || set_classes(&image, list));
+            assert_eq!(classes(&["status-icon", "success"]), 0);
+            assert_eq!(classes(&["success", "status-icon"]), 0);
+            assert_eq!(classes(&["status-icon", "warning"]), 1);
+            assert!(image.has_css_class("warning") && !image.has_css_class("success"));
+            assert_eq!(classes(&["status-icon"]), 1);
+        });
+    }
 
     /// A screen reader hears the value of a row and its subtitle after its
     /// title, each where there is one. Needs a display.

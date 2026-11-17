@@ -447,11 +447,14 @@ impl PartCard {
                 widget.remove_css_class("hot");
             }
         }
-        self.badge.set_icon_name(Some(if hot {
-            "dialog-warning-symbolic"
-        } else {
-            self.icon
-        }));
+        crate::widgets::set_icon(
+            &self.badge,
+            if hot {
+                "dialog-warning-symbolic"
+            } else {
+                self.icon
+            },
+        );
         self.chart.set_view(
             view.points.clone(),
             hot,
@@ -642,6 +645,31 @@ mod tests {
             );
             let button = card.widget.downcast_ref::<gtk::Button>().unwrap();
             assert_eq!(button.action_name().as_deref(), Some("win.show-sensors"));
+        });
+    }
+
+    /// A new temperature, as every sample brings, leaves the badge as it is
+    /// (`widgets::set_icon`); close to the limit it shows the sign of
+    /// warnings, and back. Needs a display.
+    #[test]
+    fn a_new_temperature_keeps_the_badge() {
+        crate::gtk_test::run("a_new_temperature_keeps_the_badge", || {
+            let card = PartCard::new("baseboard-processor-symbolic", "Processor", Some("cpu"));
+            let mut shown = view(false);
+            card.update(&shown);
+            let mut changes = |hot: bool| {
+                shown.value += 0.5;
+                shown.hot = hot;
+                crate::gtk_test::notifications(&card.badge, "icon-name", || card.update(&shown))
+            };
+            assert_eq!(changes(false), 0);
+            assert_eq!(changes(true), 1);
+            assert_eq!(
+                card.badge.icon_name().as_deref(),
+                Some("dialog-warning-symbolic")
+            );
+            assert_eq!(changes(true), 0);
+            assert_eq!(changes(false), 1);
         });
     }
 

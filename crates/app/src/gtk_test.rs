@@ -103,6 +103,24 @@ pub fn in_app_style(f: impl FnOnce()) {
     gtk::style_context_remove_provider_for_display(&display, &css);
 }
 
+/// How many times `object` notifies `property` while `f` runs.
+pub fn notifications(
+    object: &impl glib::prelude::IsA<glib::Object>,
+    property: &str,
+    f: impl FnOnce(),
+) -> u32 {
+    use glib::prelude::ObjectExt;
+
+    let count = std::rc::Rc::new(std::cell::Cell::new(0));
+    let seen = count.clone();
+    let handler = object.connect_notify_local(Some(property), move |_, _| {
+        seen.set(seen.get() + 1);
+    });
+    f();
+    object.disconnect(handler);
+    count.get()
+}
+
 /// Runs `test` on the thread of GTK; a failure there fails the test.
 /// Without a display the test is skipped.
 pub fn run(name: &str, test: impl FnOnce() + Send + 'static) {

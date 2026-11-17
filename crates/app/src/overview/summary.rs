@@ -329,8 +329,8 @@ impl StatusRow {
         if self.row.subtitle().as_deref() != Some(status.text.as_str()) {
             self.row.set_subtitle(&status.text);
         }
-        self.icon.set_icon_name(Some(status.icon));
-        self.icon.set_css_classes(&["status-icon", status.class]);
+        crate::widgets::set_icon(&self.icon, status.icon);
+        crate::widgets::set_classes(&self.icon, &["status-icon", status.class]);
         let warning = status.opens.is_some();
         if warning {
             self.list.add_css_class("warning-status");
@@ -455,11 +455,14 @@ impl Tile {
                 widget.remove_css_class(class);
             }
         }
-        self.badge.set_icon_name(Some(if warn {
-            "dialog-warning-symbolic"
-        } else {
-            self.icon
-        }));
+        crate::widgets::set_icon(
+            &self.badge,
+            if warn {
+                "dialog-warning-symbolic"
+            } else {
+                self.icon
+            },
+        );
         let title = self
             .button
             .child()
@@ -504,7 +507,7 @@ impl Tile {
             } else {
                 "off"
             };
-            current.set_css_classes(&["fan-bar", class]);
+            crate::widgets::set_classes(&current, &["fan-bar", class]);
             bar = current.next_sibling();
             count += 1;
         }
@@ -1149,6 +1152,40 @@ mod tests {
             widgets.set_width(Width::Narrow);
             assert_eq!(row_of(&widgets.memory), 1);
             window.destroy();
+        });
+    }
+
+    /// The same sample again leaves the icons and the style classes of the
+    /// status row, the tiles and the bars of the fans as they are
+    /// (`widgets::set_icon`, `widgets::set_classes`). Needs a display.
+    #[test]
+    fn the_same_sample_keeps_icons_and_classes() {
+        crate::gtk_test::run("the_same_sample_keeps_icons_and_classes", || {
+            use crate::gtk_test::notifications;
+
+            let numbers = Numbers::new(",");
+            let column = gtk::Box::new(gtk::Orientation::Vertical, 0);
+            let widgets = SummaryWidgets::new(&column);
+            let summary = summary();
+            let state = State::Problems(vec![hot_cpu(), Problem::Rail(rail())]);
+            let update =
+                || widgets.update(&summary, &state, &Histories::default(), &numbers, &|_| None);
+            update();
+            let status = &widgets.status.icon;
+            assert_eq!(notifications(status, "icon-name", update), 0);
+            assert_eq!(notifications(status, "css-classes", update), 0);
+            for tile in [&widgets.fans, &widgets.memory] {
+                assert_eq!(notifications(&tile.badge, "icon-name", update), 0);
+            }
+            let bars = widgets.fans.bars.as_ref().unwrap();
+            let mut bar = bars.first_child();
+            let mut count = 0;
+            while let Some(current) = bar {
+                assert_eq!(notifications(&current, "css-classes", update), 0);
+                bar = current.next_sibling();
+                count += 1;
+            }
+            assert_eq!(count, 2);
         });
     }
 
