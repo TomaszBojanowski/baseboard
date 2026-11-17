@@ -11,7 +11,7 @@
 use std::cell::{Cell, RefCell};
 
 use adw::prelude::*;
-use baseboard_core::history::{Histories, Trend};
+use baseboard_core::history::{Histories, History, Trend};
 use baseboard_core::readings::GroupKind;
 use baseboard_core::sensors::Kind;
 use baseboard_core::summary::{Hero, HeroKind, OutsideRail, Problem, State, Summary, Warmest};
@@ -19,7 +19,7 @@ use baseboard_core::units::{self, Numbers, UNIT_SPACE};
 use gettextrs::{gettext, ngettext, pgettext};
 
 use crate::alert;
-use crate::history_chart;
+use crate::history_chart::{self, Limit, Scale};
 use crate::layout::Width;
 use crate::part_card::{CardView, Fact, PartCard};
 
@@ -77,16 +77,18 @@ fn is_hot(kind: HeroKind, state: &State) -> bool {
     }))
 }
 
-/// What the card of `hero` shows: its temperature and history, one number
-/// of the part, and the highest temperature since the app started, all in
-/// whole units (D67); a rail outside its tolerance keeps its decimals, as
-/// "11 V" would not say how far it is off.
+/// What the card of `hero` shows: its temperature and history with the
+/// part's `limit` (D80), one number of the part, the range of the history
+/// and the highest temperature since the app started, all in whole units
+/// (D67); a rail outside its tolerance keeps its decimals, as "11 V" would
+/// not say how far it is off.
 pub fn card_view(
     hero: &Hero,
     summary: &Summary,
     state: &State,
     histories: &Histories,
     numbers: &Numbers,
+    limit: Option<f64>,
 ) -> CardView {
     let mut facts = Vec::new();
     match hero.kind {
@@ -112,21 +114,47 @@ pub fn card_view(
             facts.extend(summary.power.as_deref().map(|rails| power(rails, numbers)))
         }
     }
+    let history = histories.get(&hero.id);
+    let points = history.map(history_chart::points).unwrap_or_default();
+    if let Some(range) = history.and_then(History::range) {
+        facts.push(Fact {
+            title: history_chart::period(&points),
+            value: from_to(Kind::Temp, range),
+            warn: false,
+        });
+    }
     facts.push(Fact {
         // Translators: a fact on a card, followed by a temperature.
         title: gettext("Highest since the app started"),
         value: units::degrees(hero.highest),
         warn: false,
     });
-    let history = histories.get(&hero.id);
     CardView {
         value: hero.value,
-        points: history.map(history_chart::points).unwrap_or_default(),
+        points,
         trend: history.map_or(Trend::Steady, |h| h.trend()),
         hot: is_hot(hero.kind, state),
+        limit: limit.map(|value| Limit {
+            value,
+            words: alert::limit_words(hero.kind == HeroKind::Cpu, value),
+        }),
+        scale: cards_scale(summary, histories),
         facts,
         note: None,
     }
+}
+
+/// The one scale of the lines of the cards (D80), from the histories of
+/// all of them, so that the processor's card on the Fans page has the same
+/// as on the Overview.
+fn cards_scale(summary: &Summary, histories: &Histories) -> Scale {
+    history_chart::scale(
+        summary
+            .heroes
+            .iter()
+            .filter_map(|hero| histories.get(&hero.id))
+            .flat_map(|history| history.points().map(|(_, value)| value)),
+    )
 }
 
 /// The rated rails on the board's card.
@@ -608,19 +636,23 @@ impl SummaryWidgets {
         self.arrange();
     }
 
+    /// Shows the sample; `limit_of` gives the limit a card draws on its
+    /// history (D80).
     pub fn update(
         &self,
         summary: &Summary,
         state: &State,
         histories: &Histories,
         numbers: &Numbers,
+        limit_of: &dyn Fn(&Hero) -> Option<f64>,
     ) {
         self.status.show(&status_text(state, summary, numbers));
         for (kind, card) in &self.cards {
             let hero = summary.heroes.iter().find(|h| h.kind == *kind);
             card.widget.set_visible(hero.is_some());
             if let Some(hero) = hero {
-                card.update(&card_view(hero, summary, state, histories, numbers));
+                let view = card_view(hero, summary, state, histories, numbers, limit_of(hero));
+                card.update(&view);
             }
         }
         match &summary.fans {
@@ -636,7 +668,9 @@ impl SummaryWidgets {
                     // Overview while the duty cycle of one of them rises.
                     pgettext("fans", "Speeding up")
                 } else {
-                    fans.speeds.map(speeds).unwrap_or_default()
+                    fans.speeds
+                        .map(|speeds| from_to(Kind::Fan, speeds))
+                        .unwrap_or_default()
                 };
                 self.fans.show(&value, &sub, fans.cpu_stopped);
                 self.fans.show_bars(&fans.bars);
@@ -720,19 +754,20 @@ impl SummaryWidgets {
     }
 }
 
-/// "From 750 to 1010 rpm", or one speed. The line breaks only before the
-/// higher speed, and never between a number and its unit: the other spaces
-/// are non-breaking.
-fn speeds((low, high): (f64, f64)) -> String {
-    let high = units::whole(Kind::Fan, high);
-    let low = units::whole(Kind::Fan, low);
+/// "From 750 to 1010 rpm" or "From 72 to 88 °C" in whole units, or one
+/// value. The line breaks only before the higher value, and never between
+/// a number and its unit: the other spaces are non-breaking.
+fn from_to(kind: Kind, (low, high): (f64, f64)) -> String {
+    let high = units::whole(kind, high);
+    let low = units::whole(kind, low);
     if low == high {
         return high;
     }
     let (low_number, _) = low.split_once(UNIT_SPACE).unwrap_or((&low, ""));
-    // Translators: under the number of fans that spin on the Overview;
-    // {high} has its unit, e.g. "From 750 to 1010 rpm". The line may break
-    // only before {high}.
+    // Translators: under the number of fans that spin on the Overview, and
+    // the range of a temperature on a card; {high} has its unit, e.g. "From
+    // 750 to 1010 rpm" or "From 72 to 88 °C". The line may break only
+    // before {high}.
     let text = gettext("From {low} to {high}").replace("{low}", low_number);
     let hold = |text: &str| text.replace(' ', &UNIT_SPACE.to_string());
     match text.split_once("{high}") {
@@ -772,13 +807,17 @@ mod tests {
             assert_eq!(group_of_key(group_key(kind)), Some(kind));
         }
         assert_eq!(group_of_key(""), None);
-        // The line breaks only before the higher speed, which keeps its
-        // unit.
+        // The line breaks only before the higher value, which keeps its
+        // unit; temperatures as speeds, in whole degrees (D80).
         assert_eq!(
-            speeds((750.4, 1013.0)),
+            from_to(Kind::Fan, (750.4, 1013.0)),
             "From\u{a0}750\u{a0}to 1013\u{a0}rpm"
         );
-        assert_eq!(speeds((890.0, 890.2)), "890\u{a0}rpm");
+        assert_eq!(from_to(Kind::Fan, (890.0, 890.2)), "890\u{a0}rpm");
+        assert_eq!(
+            from_to(Kind::Temp, (71.6, 88.4)),
+            "From\u{a0}72\u{a0}to 88\u{a0}°C"
+        );
         // Six bars of 10 px as on the render, eight narrower in the same room.
         assert_eq!(bar_width(6), 10);
         assert_eq!(bar_width(8), 6);
@@ -827,6 +866,53 @@ mod tests {
             }),
             disks: None,
         }
+    }
+
+    /// The cards share one scale of their lines (D80): a graphics card
+    /// resting under 30 °C lowers it for the processor's card too, on the
+    /// Overview and on the Fans page alike.
+    #[test]
+    fn one_scale_for_the_cards() {
+        use baseboard_core::readings::{Group, Name, Row, Subtitle};
+        let mut summary = summary();
+        let cpu = summary.heroes[0].id.clone();
+        let gpu = RowId {
+            chip: "amdgpu".into(),
+            device: None,
+            channel: "temp1".into(),
+        };
+        summary.heroes.push(Hero {
+            kind: HeroKind::Gpu,
+            id: gpu.clone(),
+            value: 29.0,
+            highest: 29.0,
+        });
+        let row = |id: &RowId, value: f64| Row {
+            id: id.clone(),
+            name: Name::GpuChip,
+            role: Name::GpuChip,
+            subtitle: Subtitle::Source {
+                driver: id.chip.clone(),
+                channel: id.channel.clone(),
+            },
+            kind: Kind::Temp,
+            value,
+            rating: None,
+            range: None,
+        };
+        let sample = |cpu_value: f64, gpu_value: f64| {
+            [Group {
+                kind: GroupKind::Gpu,
+                description: None,
+                rows: vec![row(&cpu, cpu_value), row(&gpu, gpu_value)],
+                auxiliary: Vec::new(),
+            }]
+        };
+        let mut histories = Histories::default();
+        histories.update(&sample(41.0, 35.0), std::time::Instant::now());
+        assert_eq!(cards_scale(&summary, &histories), (30.0, 100.0));
+        histories.update(&sample(42.0, 29.0), std::time::Instant::now());
+        assert_eq!(cards_scale(&summary, &histories), (20.0, 100.0));
     }
 
     /// The board's card: "Normal", a rail with its value as on the render,
@@ -984,7 +1070,7 @@ mod tests {
             let widgets = SummaryWidgets::new(&column);
             let summary = summary();
             let state = State::Problems(vec![hot_cpu(), Problem::Rail(rail())]);
-            widgets.update(&summary, &state, &Histories::default(), &numbers);
+            widgets.update(&summary, &state, &Histories::default(), &numbers, &|_| None);
             assert_eq!(widgets.status().0, "Processor is very hot: 93\u{a0}°C");
             // The sign of the status row in the middle of its two lines
             // (D76), as the icons of other rows.
@@ -1032,7 +1118,7 @@ mod tests {
                 kind: HeroKind::Gpu,
                 ..gpu.heroes[0].clone()
             });
-            widgets.update(&gpu, &state, &Histories::default(), &numbers);
+            widgets.update(&gpu, &state, &Histories::default(), &numbers, &|_| None);
             assert_eq!(
                 widgets.cards[1].1.facts()[0],
                 ("Power draw".to_owned(), "12\u{a0}W".to_owned())
@@ -1044,16 +1130,16 @@ mod tests {
             if let Some(fans) = &mut changed.fans {
                 fans.speeding = true;
             }
-            widgets.update(&changed, &state, &Histories::default(), &numbers);
+            widgets.update(&changed, &state, &Histories::default(), &numbers, &|_| None);
             assert_eq!(widgets.fans.sub.label(), "Speeding up");
             assert!(!widgets.fans.button.has_css_class("warning-tile"));
             if let Some(fans) = &mut changed.fans {
                 fans.cpu_stopped = true;
             }
-            widgets.update(&changed, &state, &Histories::default(), &numbers);
+            widgets.update(&changed, &state, &Histories::default(), &numbers, &|_| None);
             assert_eq!(widgets.fans.sub.label(), "CPU fan stopped");
             assert!(widgets.fans.button.has_css_class("warning-tile"));
-            widgets.update(&summary, &state, &Histories::default(), &numbers);
+            widgets.update(&summary, &state, &Histories::default(), &numbers, &|_| None);
             assert!(!widgets.fans.button.has_css_class("warning-tile"));
 
             // Two tiles in a row when wide, one a row when narrow.
@@ -1092,7 +1178,7 @@ mod tests {
                     fans.bars = vec![(1880.0, false); 8];
                 }
                 let state = State::Problems(vec![hot_cpu(), Problem::Rail(rail())]);
-                widgets.update(&summary, &state, &Histories::default(), &numbers);
+                widgets.update(&summary, &state, &Histories::default(), &numbers, &|_| None);
                 let margins = 24;
                 for (width, page) in [
                     (Width::Wide, 1100),

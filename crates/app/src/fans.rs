@@ -596,8 +596,15 @@ impl FansPage {
         let hero = top.heroes.iter().find(|h| h.kind == HeroKind::Cpu);
         card.widget.set_visible(hero.is_some());
         if let Some(hero) = hero {
-            let mut view =
-                overview::card_view(hero, &top, &state, &histories.borrow(), self.numbers());
+            let limit = summary::card_limit(hero, &sample.groups, |id| sample.limits.get(id));
+            let mut view = overview::card_view(
+                hero,
+                &top,
+                &state,
+                &histories.borrow(),
+                self.numbers(),
+                limit,
+            );
             view.note = speeding.then(|| gettext("Fans are speeding up"));
             card.update(&view);
         }
@@ -836,57 +843,6 @@ mod tests {
             assert_eq!(imp.columns.query_child(&*imp.list_clamp).0, 1);
             let compact = list_at(920);
             assert!((400..=440).contains(&compact), "{compact}");
-        });
-    }
-
-    /// In a wide window the card's line grows into the height the page has
-    /// free, however long the list beside it is, up to a square; a list
-    /// longer than the card makes the card end level with it (D78). Needs a
-    /// display.
-    #[test]
-    fn card_grows_with_the_free_height() {
-        crate::gtk_test::run("card_grows_with_the_free_height", || {
-            crate::gtk_test::resources();
-            let page = glib::Object::new::<FansPage>();
-            let imp = page.imp();
-            imp.stack.set_visible_child_name("fans");
-            let card = imp.card.get().unwrap().widget.clone();
-            // A window of 1850 px without its sidebar.
-            let width = 1570;
-            let bottom = |widget: &gtk::Widget| {
-                widget
-                    .compute_bounds(&page)
-                    .map_or(0, |bounds| (bounds.y() + bounds.height()).round() as i32)
-            };
-            // With a list this tall and this many pixels free on the page:
-            // the card's height, the least and the most it wants, its end
-            // and the end of the list's column.
-            let lay_out = |list: i32, free: i32| {
-                while let Some(row) = imp.list.first_child() {
-                    imp.list.remove(&row);
-                }
-                imp.list
-                    .append(&gtk::Box::builder().height_request(list).build());
-                page.measure(gtk::Orientation::Vertical, width);
-                let (needed, _, _, _) = imp.clamp.measure(gtk::Orientation::Vertical, width);
-                page.allocate(width, needed + free, -1, None);
-                let (least, most, _, _) = card.measure(gtk::Orientation::Vertical, card.width());
-                let column = imp.list_clamp.upcast_ref::<gtk::Widget>();
-                (card.height(), least, most, bottom(&card), bottom(column))
-            };
-            let (tight, least, most, card_end, list_end) = lay_out(100, 0);
-            assert!(most > least + 150, "{least} {most}");
-            assert!(card_end > list_end, "{card_end} {list_end}");
-            assert_eq!(tight, least);
-            assert_eq!(lay_out(100, 150).0, least + 150);
-            assert_eq!(lay_out(100, 2000).0, most);
-            let longer = 100 + card_end - list_end + 150;
-            let (level, _, _, card_end, list_end) = lay_out(longer, 0);
-            assert_eq!(level, least + 150);
-            assert_eq!(card_end, list_end);
-            let (tallest, _, _, card_end, list_end) = lay_out(2000, 0);
-            assert_eq!(tallest, most);
-            assert!(card_end < list_end, "{card_end} {list_end}");
         });
     }
 

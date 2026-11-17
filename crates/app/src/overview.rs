@@ -17,7 +17,7 @@ use std::rc::Rc;
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
-use baseboard_core::heat::Hot;
+use baseboard_core::heat::{Hot, Limits};
 use baseboard_core::history::Histories;
 use baseboard_core::readings::{self, Group, GroupKind, Rating, Row, RowId, Visibility};
 use baseboard_core::sensors::Kind;
@@ -388,6 +388,9 @@ mod imp {
         pub(super) speeding: Cell<bool>,
         /// The temperatures close to their limit in the latest sample.
         pub(super) hot: RefCell<Vec<Hot>>,
+        /// The limits of the temperatures, for the histories of the cards
+        /// (D80).
+        pub(super) limits: RefCell<Limits>,
         /// A board profile matches: without one the status sentence says
         /// that the readings work rather than that all is fine.
         pub(super) profile: Cell<bool>,
@@ -494,6 +497,7 @@ impl OverviewPage {
         imp.stopped.replace(sample.stopped);
         imp.speeding.set(sample.speeding);
         imp.hot.replace(sample.hot);
+        imp.limits.replace(sample.limits);
         if imp.reading.borrow().as_ref() != Some(&sample.status) {
             self.show_status(&sample.status);
             if let Some(f) = imp.on_status.borrow().as_ref() {
@@ -565,7 +569,9 @@ impl OverviewPage {
             widgets.update(group, numbers);
         }
         if let (Some(widgets), Some(histories)) = (imp.summary.get(), imp.histories.get()) {
-            widgets.update(&summary, &state, &histories.borrow(), numbers);
+            let limits = imp.limits.borrow();
+            let limit_of = |hero: &top::Hero| top::card_limit(hero, all, |id| limits.get(id));
+            widgets.update(&summary, &state, &histories.borrow(), numbers, &limit_of);
         }
         imp.stack.set_visible_child_name("summary");
     }

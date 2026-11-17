@@ -15,7 +15,6 @@ crates/app/src/overview.rs
 crates/app/src/overview.ui
 crates/app/src/overview/summary.rs
 crates/app/src/overview/texts.rs
-crates/app/src/part_card.rs
 crates/app/src/preferences.rs
 crates/app/src/shortcuts-dialog.ui
 crates/app/src/system.rs

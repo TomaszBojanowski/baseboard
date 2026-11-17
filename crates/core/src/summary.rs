@@ -279,6 +279,27 @@ pub fn summary(groups: &[Group], stopped: &[RowId], speeding: bool) -> Summary {
     }
 }
 
+/// The limit the card of `hero` draws on its history (D80): for the
+/// processor the emergency threshold of the profile's processor sensor,
+/// the one whose warning the card shows (Tctl itself has none); for another
+/// part its own. `groups` has the hidden rows too, `limit_of` gives the
+/// limit of a reading (`crate::heat::Limits`).
+pub fn card_limit(
+    hero: &Hero,
+    groups: &[Group],
+    limit_of: impl Fn(&RowId) -> Option<f64>,
+) -> Option<f64> {
+    match hero.kind {
+        HeroKind::Cpu => groups
+            .iter()
+            .filter(|g| g.kind == GroupKind::Cpu)
+            .flat_map(|g| &g.rows)
+            .find(|r| r.role == Name::Temp(TempRole::Cpu))
+            .and_then(|r| limit_of(&r.id)),
+        HeroKind::Gpu | HeroKind::Board => limit_of(&hero.id),
+    }
+}
+
 /// A rated rail outside its tolerance, with the range it should be in.
 fn outside(row: &Row) -> Option<OutsideRail> {
     let Some(Rating::Rated {
@@ -804,6 +825,48 @@ mod tests {
         assert!(stopped.fans.unwrap().cpu_stopped);
         let speeding = super::summary(&page(), &[], true);
         assert!(speeding.fans.unwrap().speeding);
+    }
+
+    /// The limit on a card's history (D80): the processor's card takes the
+    /// threshold of the profile's processor sensor, not one of Tctl, and
+    /// has none without that sensor; the others take their own.
+    #[test]
+    fn limits_of_the_cards() {
+        let tctl = RowId {
+            chip: "k10temp".into(),
+            ..id("temp1")
+        };
+        let board_cpu = id("temp1");
+        let mut groups = vec![
+            group(
+                GroupKind::Cpu,
+                vec![
+                    Row {
+                        id: tctl.clone(),
+                        ..row("temp1", Name::CpuTctl, Kind::Temp, 68.2)
+                    },
+                    row("temp1", Name::Temp(TempRole::Cpu), Kind::Temp, 66.0),
+                ],
+            ),
+            group(
+                GroupKind::Board,
+                vec![row("temp2", Name::Temp(TempRole::System), Kind::Temp, 37.5)],
+            ),
+        ];
+        let limits = HashMap::from([(board_cpu, 95.0), (id("temp2"), 80.0), (tctl.clone(), 1.0)]);
+        let limit_of = |id: &RowId| limits.get(id).copied();
+        let hero = |kind, id: RowId| Hero {
+            kind,
+            id,
+            value: 50.0,
+            highest: 50.0,
+        };
+        let cpu = hero(HeroKind::Cpu, tctl);
+        assert_eq!(card_limit(&cpu, &groups, limit_of), Some(95.0));
+        let board = hero(HeroKind::Board, id("temp2"));
+        assert_eq!(card_limit(&board, &groups, limit_of), Some(80.0));
+        groups[0].rows.pop();
+        assert_eq!(card_limit(&cpu, &groups, limit_of), None);
     }
 
     /// The sentence about a hot processor (D67): at full speed only at the

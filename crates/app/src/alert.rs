@@ -75,11 +75,7 @@ pub fn hot_warning(part: &HotPart, fans: FansNow, numbers: &Numbers) -> (String,
                 // cycle of a fan still rises; {limit} is e.g. "95 °C".
                 "At {limit} it slows down to avoid overheating. Fans are speeding up.",
             ),
-            FansNow::Unsaid => gettext(
-                // Translators: under "Processor is very hot"; {limit} is
-                // e.g. "95 °C".
-                "At {limit} it slows down to avoid overheating.",
-            ),
+            FansNow::Unsaid => return (title, limit_words(true, part.limit)),
         };
         (title, text.replace("{limit}", &limit))
     } else {
@@ -88,10 +84,25 @@ pub fn hot_warning(part: &HotPart, fans: FansNow, numbers: &Numbers) -> (String,
         let title = gettext("Very hot: {name}, {value}")
             .replace("{name}", &overview::name(&part.name, numbers))
             .replace("{value}", &value);
-        // Translators: under "Very hot"; {limit} is e.g. "94 °C".
-        let text = gettext("The limit is {limit}.").replace("{limit}", &limit);
-        (title, text)
+        (title, limit_words(false, part.limit))
     }
+}
+
+/// The limit of a part in words: the processor slows down at it, another
+/// part just has it. The status sentence and the history on a card (D80)
+/// say it alike.
+pub fn limit_words(processor: bool, limit: f64) -> String {
+    let text = if processor {
+        // Translators: under "Processor is very hot", and read by screen
+        // readers after the history of the processor's temperature;
+        // {limit} is e.g. "95 °C".
+        gettext("At {limit} it slows down to avoid overheating.")
+    } else {
+        // Translators: under "Very hot", and read by screen readers after
+        // the history of a temperature; {limit} is e.g. "94 °C".
+        gettext("The limit is {limit}.")
+    };
+    text.replace("{limit}", &units::degrees(limit))
 }
 
 // The status sentence on the Overview and the status row of the System

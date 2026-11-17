@@ -206,7 +206,7 @@
   const speedingUp = fans.some(f => f.shown && f.target > f.duty);
   const stopped = fans.some(f => f.stopped);
   const cpu = window.Karta.card({
-    name: "Procesor", icon: "cpu", value: S.cpu, highest: S.highest,
+    name: "Procesor", icon: "cpu", value: S.cpu, highest: S.highest, limit: 95,
     values: window.Karta.processor(S.cpu, { load: S.temp > 80, stopped }),
     facts: [["Wentylator procesora", stopped ? "Stoi" : `${fans[0].rpm}${NB}rpm`, stopped]],
     note: S.curves ? { text: "Wentylatory przyspieszają", shown: speedingUp } : null,
@@ -258,5 +258,6 @@
       const box = el.querySelector("[data-spark]");
       if (box) box.outerHTML = narrow ? spark(f, 84, 28) : spark(f, 192, 36);
     }
+    window.Karta.draw();
   });
 })();

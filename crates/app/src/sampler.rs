@@ -134,6 +134,9 @@ pub struct Sample {
     /// The temperatures close to their limit (D67), also when their rows
     /// are hidden; the closest first.
     pub hot: Vec<Hot>,
+    /// The limits of the temperatures, for the lines on the histories of
+    /// the cards (D80).
+    pub limits: Limits,
 }
 
 /// How the sample was read, for the notes on the pages (§5.1, §5.4).
@@ -246,6 +249,7 @@ impl Sampler {
             stopped,
             speeding,
             hot,
+            limits: limits.clone(),
         }
     }
 

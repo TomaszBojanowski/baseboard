@@ -1,27 +1,26 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The card of a part of the computer (docs/PROJEKT.md §5.1, D67): its
+//! The card of a part of the computer (docs/PROJEKT.md §5.1, D67, D80): its
 //! name, its temperature in large type, the last five minutes as a line
-//! with their range, a few facts in plain words (one number of the part,
-//! the highest temperature since the app started), and a note under them.
-//! The processor's card is the same on the Overview and on the Fans page.
-//! Close to its limit the card says so with the icon, the number and the
-//! line in the color of warnings.
+//! (`history_chart`), a few facts in plain words (one number of the part,
+//! the range of the line, the highest temperature since the app started),
+//! and a note under them. The processor's card is the same on the Overview
+//! and on the Fans page. Close to its limit the card says so with the icon,
+//! the number and the line in the color of warnings.
 //!
 //! In a window of one card a row (`Width::Medium`) the temperature and the
-//! facts stand beside the line; otherwise they are above and under it. The
-//! title of a fact never breaks: where the widest fact of the card does not
-//! fit on one line, every value of the card goes under its title
-//! (`FactLine`).
+//! facts stand beside the line, which is as tall as they are; otherwise
+//! they are above and under it, and the line has a fixed height. The title
+//! of a fact never breaks: where the widest fact of the card does not fit
+//! on one line, every value of the card goes under its title (`FactLine`).
 
 use std::cell::{Cell, OnceCell, RefCell};
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
-use gettextrs::gettext;
 use gtk::{glib, graphene, gsk};
 
-use crate::history_chart::{self, HistoryChart, Points};
+use crate::history_chart::{self, HistoryChart, Limit, Points, Scale};
 use crate::layout::Width;
 use baseboard_core::history::Trend;
 use baseboard_core::units;
@@ -43,6 +42,10 @@ pub struct CardView {
     pub trend: Trend,
     /// Close to its limit.
     pub hot: bool,
+    /// The limit on the line (D80), when the part has one.
+    pub limit: Option<Limit>,
+    /// The scale of every card's line (D80).
+    pub scale: Scale,
     pub facts: Vec<Fact>,
     pub note: Option<String>,
 }
@@ -243,8 +246,6 @@ pub struct PartCard {
     number: gtk::Box,
     value: gtk::Label,
     chart: HistoryChart,
-    history: gtk::Box,
-    range: gtk::Label,
     facts: gtk::Box,
     rows: RefCell<Vec<FactRow>>,
     note: gtk::Label,
@@ -258,12 +259,15 @@ pub struct PartCard {
 /// The narrowest column of the temperature and the facts beside the line.
 const SIDE: i32 = 210;
 
-/// The numbers and the line by the width of the page.
-fn sizes(width: Width) -> (&'static str, i32) {
+/// The numbers and the height of the line by the width of the page (D80);
+/// `None` makes the line as tall as the temperature and the facts beside
+/// it.
+fn sizes(width: Width) -> (&'static str, Option<i32>) {
     match width {
-        Width::Wide => ("large", 170),
-        Width::Compact | Width::Medium => ("medium", 96),
-        Width::Narrow => ("small", 70),
+        Width::Wide => ("large", Some(160)),
+        Width::Compact => ("medium", Some(160)),
+        Width::Medium => ("medium", None),
+        Width::Narrow => ("small", Some(120)),
     }
 }
 
@@ -309,28 +313,6 @@ impl PartCard {
         number.append(&unit);
 
         let chart = HistoryChart::new();
-        // Translators: under the line of a temperature on its card.
-        let span = gtk::Label::builder()
-            .label(gettext("Last 5 minutes"))
-            .xalign(0.0)
-            .hexpand(true)
-            .css_classes(["caption", "dimmed"])
-            .build();
-        let range = gtk::Label::builder()
-            .xalign(1.0)
-            .css_classes(["caption", "dimmed", "numeric"])
-            .build();
-        let caption = gtk::Box::builder().spacing(8).build();
-        caption.append(&span);
-        caption.append(&range);
-        let history = gtk::Box::builder()
-            .orientation(gtk::Orientation::Vertical)
-            .spacing(4)
-            .hexpand(true)
-            .valign(gtk::Align::End)
-            .build();
-        history.append(&chart);
-        history.append(&caption);
 
         // Beside the line the facts take the width of their titles on one
         // line and the line has the rest: the box does not take the
@@ -379,8 +361,6 @@ impl PartCard {
             number,
             value,
             chart,
-            history,
-            range,
             facts,
             rows: RefCell::new(Vec::new()),
             note,
@@ -409,7 +389,7 @@ impl PartCard {
         for part in [
             self.head.upcast_ref::<gtk::Widget>(),
             self.number.upcast_ref(),
-            self.history.upcast_ref(),
+            self.chart.upcast_ref(),
             self.facts.upcast_ref(),
             self.note.upcast_ref(),
         ] {
@@ -420,18 +400,22 @@ impl PartCard {
         self.grid.attach(&self.head, 0, 0, 2, 1);
         if width == Width::Medium {
             // The temperature and the facts beside the line, in a column
-            // of at least 210 px and as wide as the facts on one line.
+            // of at least 210 px and as wide as the facts on one line; the
+            // line from the top of the temperature to the bottom of the
+            // last fact (D80).
             self.number.set_size_request(SIDE, -1);
             self.facts.set_size_request(SIDE, -1);
             self.grid.attach(&self.number, 0, 1, 1, 1);
             self.grid.attach(&self.facts, 0, 2, 1, 1);
-            self.grid.attach(&self.history, 1, 1, 1, 2);
+            self.grid.attach(&self.chart, 1, 1, 1, 2);
             self.grid.attach(&self.note, 0, 3, 2, 1);
+            self.chart.set_valign(gtk::Align::Fill);
         } else {
+            self.chart.set_valign(gtk::Align::Start);
             self.number.set_size_request(-1, -1);
             self.facts.set_size_request(-1, -1);
             self.grid.attach(&self.number, 0, 1, 2, 1);
-            self.grid.attach(&self.history, 0, 2, 2, 1);
+            self.grid.attach(&self.chart, 0, 2, 2, 1);
             self.grid.attach(&self.facts, 0, 3, 2, 1);
             self.grid.attach(&self.note, 0, 4, 2, 1);
         }
@@ -440,9 +424,7 @@ impl PartCard {
             self.number.remove_css_class(class);
         }
         self.number.add_css_class(size);
-        // Only a wide page grows its lines into the room it has left, so
-        // that a smaller window looks as before (D76).
-        self.chart.set_height(height, width == Width::Wide);
+        self.chart.set_height(height);
     }
 
     pub fn update(&self, view: &CardView) {
@@ -470,11 +452,12 @@ impl PartCard {
         } else {
             self.icon
         }));
-        self.chart.set_points(view.points.clone(), hot);
-        let range = history_chart::range_text(&view.points);
-        if self.range.label() != range {
-            self.range.set_label(&range);
-        }
+        self.chart.set_view(
+            view.points.clone(),
+            hot,
+            view.limit.as_ref().map(|limit| limit.value),
+            view.scale,
+        );
         self.show_facts(&view.facts);
         match &view.note {
             Some(note) => {
@@ -489,14 +472,21 @@ impl PartCard {
             .update_state(&[gtk::accessible::State::Hidden(view.note.is_none())]);
 
         // For screen readers: the name with the temperature, then the line
-        // and the facts in words.
-        let history = history_chart::describe(&view.points, view.trend);
+        // and the facts in words; the line already says its range, so the
+        // fact with it is not said twice.
+        let history = history_chart::describe(
+            &view.points,
+            view.trend,
+            view.limit.as_ref().map(|limit| limit.words.as_str()),
+        );
         self.chart
             .update_property(&[gtk::accessible::Property::Label(&history)]);
+        let period = history_chart::period(&view.points);
         let mut description = vec![history];
         description.extend(
             view.facts
                 .iter()
+                .filter(|fact| fact.title != period)
                 .map(|fact| format!("{}: {}", fact.title, fact.value)),
         );
         description.extend(view.note.clone());
@@ -586,7 +576,7 @@ impl PartCard {
     /// other (tests).
     #[cfg(test)]
     pub fn side_by_side(&self) -> bool {
-        self.grid.query_child(&self.history).0 == 1
+        self.grid.query_child(&self.chart).0 == 1
     }
 }
 
@@ -600,10 +590,20 @@ mod tests {
             points: vec![(120.0, 63.0), (60.0, 66.0), (0.0, 68.2)],
             trend: Trend::Rising,
             hot,
+            limit: Some(Limit {
+                value: 95.0,
+                words: "At 95\u{a0}°C it slows down to avoid overheating.".into(),
+            }),
+            scale: (30.0, 100.0),
             facts: vec![
                 Fact {
                     title: "CPU fan".into(),
                     value: "890\u{a0}rpm".into(),
+                    warn: false,
+                },
+                Fact {
+                    title: "Last 3 minutes".into(),
+                    value: "From 63 to 68\u{a0}°C".into(),
                     warn: false,
                 },
                 Fact {
@@ -616,9 +616,9 @@ mod tests {
         }
     }
 
-    /// A card: the temperature in whole degrees, the facts, the range of
-    /// the line, the warning colors close to the limit, and one row a card
-    /// with its parts side by side in a window of about 1024 px. For
+    /// A card: the temperature in whole degrees, the facts with the range
+    /// of the line, the warning colors close to the limit, and one row a
+    /// card with its parts side by side in a window of about 1024 px. For
     /// screen readers the name with the temperature and the rest in words.
     /// Needs a display.
     #[test]
@@ -628,8 +628,7 @@ mod tests {
             card.set_width(Width::Wide);
             card.update(&view(false));
             assert_eq!(card.value(), "68");
-            assert_eq!(card.range.label(), "63–68\u{a0}°C");
-            assert_eq!(card.facts().len(), 2);
+            assert_eq!(card.facts().len(), 3);
             assert!(!card.widget.has_css_class("hot"));
             assert!(!card.side_by_side());
             card.set_width(Width::Medium);
@@ -646,30 +645,42 @@ mod tests {
         });
     }
 
-    /// A wide page grows the line into the room it has left, up to a square
-    /// (D76): the card wants more height than it needs, and given it, the
-    /// line is as tall as it is wide; given only what it needs, the line
-    /// keeps its height. Narrower pages keep the line as it is. Needs a
+    /// The line has a height of its own, whatever the window (D80): the
+    /// same wide and denser, 40 px less narrow, and given more room than
+    /// the card needs it stays so. In a card of one row it reaches from the
+    /// top of the temperature to the bottom of the last fact. Needs a
     /// display.
     #[test]
-    fn line_grows_in_a_wide_page() {
-        crate::gtk_test::run("line_grows_in_a_wide_page", || {
-            let card = PartCard::new("baseboard-processor-symbolic", "Processor", Some("cpu"));
-            card.update(&view(false));
-            let width = 400;
-            let measure = || card.widget.measure(gtk::Orientation::Vertical, width);
-            for narrower in [Width::Compact, Width::Medium, Width::Narrow] {
-                card.set_width(narrower);
-                let (minimum, natural, _, _) = measure();
-                assert_eq!(minimum, natural, "{narrower:?}");
-            }
-            card.set_width(Width::Wide);
-            let (minimum, natural, _, _) = measure();
-            assert!(natural > minimum, "{minimum} {natural}");
-            card.widget.allocate(width, natural, -1, None);
-            assert_eq!(card.chart.height(), card.chart.width());
-            card.widget.allocate(width, minimum, -1, None);
-            assert_eq!(card.chart.height(), sizes(Width::Wide).1);
+    fn heights_of_the_line() {
+        crate::gtk_test::run("heights_of_the_line", || {
+            crate::gtk_test::in_app_style(|| {
+                let card = PartCard::new("baseboard-processor-symbolic", "Processor", Some("cpu"));
+                card.update(&view(false));
+                let lay_out = |width: i32, more: i32| {
+                    let (minimum, natural, _, _) =
+                        card.widget.measure(gtk::Orientation::Vertical, width);
+                    assert_eq!(minimum, natural);
+                    card.widget.allocate(width, natural + more, -1, None);
+                    card.chart.height()
+                };
+                card.set_width(Width::Wide);
+                let wide = lay_out(620, 0);
+                assert_eq!(lay_out(900, 400), wide);
+                card.set_width(Width::Compact);
+                assert_eq!(lay_out(400, 0), wide);
+                card.set_width(Width::Narrow);
+                assert_eq!(lay_out(340, 0), wide - 40);
+
+                card.set_width(Width::Medium);
+                lay_out(700, 0);
+                let bounds = |widget: &gtk::Widget| widget.compute_bounds(&card.widget).unwrap();
+                let chart = bounds(card.chart.upcast_ref());
+                let number = bounds(card.number.upcast_ref());
+                let facts = bounds(card.facts.upcast_ref());
+                assert_eq!(chart.y(), number.y());
+                assert_eq!(chart.y() + chart.height(), facts.y() + facts.height());
+                assert!(chart.height() > 150.0, "{}", chart.height());
+            });
         });
     }
 
@@ -682,8 +693,12 @@ mod tests {
         crate::gtk_test::run("facts_on_one_line", || {
             crate::gtk_test::in_app_style(|| {
                 for titles in [
-                    ["CPU fan", "Highest since the app started"],
-                    ["Wentylator procesora", "Najwyższa od uruchomienia"],
+                    ["CPU fan", "Last 5 minutes", "Highest since the app started"],
+                    [
+                        "Wentylator procesora",
+                        "Ostatnie 5 minut",
+                        "Najwyższa od uruchomienia",
+                    ],
                 ] {
                     let card =
                         PartCard::new("baseboard-processor-symbolic", "Processor", Some("cpu"));
@@ -701,7 +716,7 @@ mod tests {
                         assert_eq!(lines, 1, "{:?} on {lines} lines", row.title.label());
                     }
                     assert!(card.facts.width() >= SIDE);
-                    assert!(card.history.width() >= 200, "{}", card.history.width());
+                    assert!(card.chart.width() >= 200, "{}", card.chart.width());
                 }
             });
         });
@@ -719,18 +734,22 @@ mod tests {
                 for facts in [
                     [
                         ("Power", "Normal"),
+                        ("Last 5 minutes", "From 36 to 38\u{a0}°C"),
                         ("Highest since the app started", "38\u{a0}°C"),
                     ],
                     [
                         ("Zasilanie", "W normie"),
+                        ("Ostatnie 5 minut", "Od 36 do 38\u{a0}°C"),
                         ("Najwyższa od uruchomienia", "38\u{a0}°C"),
                     ],
                     [
                         ("CPU fan", "1880\u{a0}rpm"),
+                        ("Last 2 minutes", "From 72 to 93\u{a0}°C"),
                         ("Highest since the app started", "93\u{a0}°C"),
                     ],
                     [
                         ("Wentylator procesora", "1880\u{a0}rpm"),
+                        ("Ostatnie 2 minuty", "Od 72 do 93\u{a0}°C"),
                         ("Najwyższa od uruchomienia", "93\u{a0}°C"),
                     ],
                 ] {

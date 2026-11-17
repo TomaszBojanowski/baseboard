@@ -113,6 +113,10 @@
       ${statusRow}
       <div class="o-cards n${cards.length}">${cards.map(c => card({
         ...c, value: S[c.key], values: SERIES[c.key], highest: S.highest[c.key], opens: true,
+        // The limits on the lines (D80): of the processor the threshold of
+        // the profile's processor sensor, of the graphics card its edge
+        // temp1_crit, of the board the profile's system temperature.
+        limit: { cpu: S.profile ? 95 : null, gpu: 100, board: 80 }[c.key],
       })).join("")}</div>
       <div class="o-tiles n${tiles.length}">${tiles.map(i => `
         <div class="tile${i.warn ? " warn" : ""}" role="button">
@@ -137,5 +141,6 @@
       const footer = win.querySelector(".sidebar-footer .lines div");
       if (footer) footer.textContent = "PRO B650M-A WIFI (MS-7D77)";
     }
+    window.Karta.draw();
   });
 })();
