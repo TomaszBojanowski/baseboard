@@ -8,6 +8,10 @@
 # output, which says what does not apply there. Actions are pinned to
 # commits and the runner to a version of its system; the tests run in the
 # container of a release of Fedora, whose packages dnf brings up to date.
+# The tour runs under gdb (BASEBOARD_TOUR_GDB=1, tests/tour.sh), with the
+# debugging symbols of GLib, Pango, GTK and libadwaita: a crash or a GLib
+# critical of the app leaves the backtraces of every thread in the log,
+# since the runner keeps no core dump.
 name: CI
 
 on:
@@ -54,7 +58,15 @@ jobs:
           xorg-x11-server-Xvfb xorg-x11-xauth dbus-daemon
           glibc-langpack-pl
           adwaita-sans-fonts google-noto-sans-vf-fonts google-noto-sans-mono-vf-fonts
-          mesa-dri-drivers
+          mesa-dri-drivers gdb
+
+      # Without them the backtraces name only the exported functions of
+      # these libraries, without their files and lines.
+      - name: Debugging symbols for the backtraces of the tour
+        run: >
+          dnf install -y --setopt=install_weak_deps=False
+          --enablerepo=fedora-debuginfo --enablerepo=updates-debuginfo
+          glib2-debuginfo pango-debuginfo gtk4-debuginfo libadwaita-debuginfo
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -79,8 +91,13 @@ jobs:
       - name: Configure
         run: meson setup build
 
+      # Under gdb the tour takes longer than its time limit allows.
       - name: Tests, with the tour
-        run: xvfb-run -a -s "-screen 0 1920x1200x24" meson test -C build --print-errorlogs
+        env:
+          BASEBOARD_TOUR_GDB: "1"
+        run: >
+          xvfb-run -a -s "-screen 0 1920x1200x24"
+          meson test -C build --print-errorlogs --timeout-multiplier 3
 
       - name: Tests on the real /sys, with what does not apply here
         env:

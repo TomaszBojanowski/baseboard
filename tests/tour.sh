@@ -13,11 +13,17 @@
 # cache folders and the settings in memory: it touches neither the session
 # nor the files of the user who runs the tests.
 #
+# With BASEBOARD_TOUR_GDB=1 (set in CI) the app runs under gdb with GLib
+# criticals fatal: at the first critical or crash the log of the scenario
+# gets the backtraces of every thread. A failed scenario ends with its name
+# and the last step of the tour it printed.
+#
 # Usage: tour.sh BINARY. `meson test` sets GSETTINGS_SCHEMA_DIR,
 # BASEBOARD_BOARDS_DIR and BASEBOARD_LOCALEDIR.
 set -eu
 binary=$1
 fixtures=$(cd "$(dirname "$0")" && pwd)/fixtures
+gdb=${BASEBOARD_TOUR_GDB:-}
 
 # Without a tool the tour is skipped (77), but never under
 # BASEBOARD_TESTS_STRICT=1, which `meson test` sets (docs/PROJEKT.md §8).
@@ -28,6 +34,10 @@ for tool in xvfb-run dbus-run-session timeout; do
         exit 77
     fi
 done
+if [ "$gdb" = 1 ] && ! command -v gdb > /dev/null; then
+    echo "gdb not found: BASEBOARD_TOUR_GDB=1 needs it"
+    exit 1
+fi
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
@@ -43,6 +53,27 @@ printf '%s\n' \
     '  </policy>' \
     '</busconfig>' > "$work/bus.conf"
 
+# For BASEBOARD_TOUR_GDB=1: when the app stops on a signal (a fatal
+# critical, a crash) gdb prints the backtraces of every thread and ends with
+# status 1; otherwise it ends with the status of the app. No symbols are
+# downloaded during the tour.
+if [ "$gdb" = 1 ]; then
+    # shellcheck disable=SC2016 # gdb's own variables, not the shell's
+    printf '%s\n' \
+        'set debuginfod enabled off' \
+        'set pagination off' \
+        'set print thread-events off' \
+        'handle SIGPIPE nostop noprint pass' \
+        'run' \
+        'if $_isvoid($_exitcode)' \
+        '  echo == the app stopped; the backtraces of every thread:\n' \
+        '  thread apply all bt' \
+        '  kill' \
+        '  quit 1' \
+        'end' \
+        'quit $_exitcode' > "$work/gdb.cmd"
+fi
+
 failed=0
 
 # The v1 tree with the processor at 93 °C, close to its limit of 95 °C in
@@ -53,12 +84,21 @@ echo 93000 > "$work/sysfs-ms7e61-hot/devices/platform/nct6683.2592/hwmon/hwmon7/
 # tour TREE LANGUAGE LOCALE SIZE CURVES; CURVES is how many fans of the
 # tree open their curve.
 tour() {
-    name=$1-$2-$4
+    tree=$1 language=$2 locale=$3 size=$4 curves=$5
+    name=$tree-$language-$size
     home=$work/$name
-    root=$fixtures/sysfs-ms7e61-$1
-    [ -d "$root" ] || root=$work/sysfs-ms7e61-$1
+    root=$fixtures/sysfs-ms7e61-$tree
+    [ -d "$root" ] || root=$work/sysfs-ms7e61-$tree
     hot=
-    [ "$1" = hot ] && hot=1
+    [ "$tree" = hot ] && hot=1
+    # Under gdb the app is slower.
+    if [ "$gdb" = 1 ]; then
+        set -- env G_DEBUG=fatal-criticals timeout 300 \
+            gdb -q -batch -nx -iex 'set auto-load python-scripts off' \
+            -iex 'set auto-load gdb-scripts off' -x "$work/gdb.cmd" --args "$binary"
+    else
+        set -- timeout 120 "$binary"
+    fi
     mkdir -p "$home/runtime" "$home/config/gtk-4.0" "$home/data" "$home/cache" "$home/state"
     chmod 700 "$home/runtime"
     # The font of a GNOME session (its default, Adwaita Sans 11, with
@@ -75,13 +115,13 @@ tour() {
         XDG_RUNTIME_DIR="$home/runtime" XDG_CONFIG_HOME="$home/config" \
         XDG_DATA_HOME="$home/data" XDG_CACHE_HOME="$home/cache" \
         XDG_STATE_HOME="$home/state" \
-        LC_ALL="$3" LANGUAGE="$2" \
+        LC_ALL="$locale" LANGUAGE="$language" \
         BASEBOARD_SYSFS_ROOT="$root" \
-        BASEBOARD_DEBUG_SIZE="$4" BASEBOARD_DEBUG_SHOW_CONTENT=1 \
-        BASEBOARD_DEBUG_TOUR=1 BASEBOARD_TOUR_CURVES="$5" BASEBOARD_TOUR_HOT="$hot" \
+        BASEBOARD_DEBUG_SIZE="$size" BASEBOARD_DEBUG_SHOW_CONTENT=1 \
+        BASEBOARD_DEBUG_TOUR=1 BASEBOARD_TOUR_CURVES="$curves" BASEBOARD_TOUR_HOT="$hot" \
         xvfb-run -a -s "-screen 0 1920x1200x24" \
         dbus-run-session --config-file="$work/bus.conf" -- \
-        timeout 120 "$binary" > "$home/log" 2>&1 || status=$?
+        "$@" > "$home/log" 2>&1 || status=$?
     echo "== $name"
     cat "$home/log"
     problems=
@@ -91,7 +131,9 @@ tour() {
     grep -q '^baseboard: tour done$' "$home/log" ||
         problems="$problems the tour did not pass;"
     if [ -n "$problems" ]; then
-        echo "== $name FAILED:$problems"
+        # The step that failed is the one after the last printed.
+        last=$(grep '^baseboard: tour' "$home/log" | tail -n 1)
+        echo "== $name FAILED:$problems last step of the tour: ${last:-none}"
         failed=1
     fi
 }
