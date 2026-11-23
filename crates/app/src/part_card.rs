@@ -398,6 +398,11 @@ mod list_imp {
         pub(super) number: OnceCell<NumberLine>,
         /// The fact with the range of the line.
         pub(super) range: RefCell<Option<FactLine>>,
+        /// The lists of the other cards of the page.
+        pub(super) others: RefCell<Vec<glib::WeakRef<super::FactList>>>,
+        /// The cards stand side by side: this list is as tall as the
+        /// tallest of them.
+        pub(super) level: Cell<bool>,
     }
 
     #[glib::object_subclass]
@@ -422,20 +427,27 @@ mod list_imp {
         }
 
         /// As wide as its widest fact, also the one of the range, which
-        /// comes back when the temperature leaves it no room; as tall as
-        /// the facts shown at this width.
+        /// comes back when the temperature leaves it no room. As tall as the
+        /// facts shown at this width, and with cards side by side as the
+        /// tallest list of them, so that their lines have one height and
+        /// the same temperature stands at the same level on each.
         fn measure(&self, orientation: gtk::Orientation, for_size: i32) -> (i32, i32, i32, i32) {
             let obj = self.obj();
-            let (mut least, mut best) = (0, 0);
-            for line in obj.lines() {
-                if orientation == gtk::Orientation::Horizontal {
+            if orientation == gtk::Orientation::Horizontal {
+                let (mut least, mut best) = (0, 0);
+                for line in obj.lines() {
                     let (minimum, natural, _, _) = line.measure(orientation, -1);
                     least = least.max(minimum);
                     best = best.max(natural);
-                } else if obj.shows(&line, for_size) {
-                    let (minimum, natural, _, _) = line.measure(orientation, for_size);
-                    least += minimum;
-                    best += natural;
+                }
+                return (least, best, -1, -1);
+            }
+            let (mut least, mut best) = obj.own_height(for_size);
+            if self.level.get() {
+                for other in obj.others() {
+                    let (minimum, natural) = other.own_height(for_size);
+                    least = least.max(minimum);
+                    best = best.max(natural);
                 }
             }
             (least, best, -1, -1)
@@ -479,7 +491,46 @@ impl FactList {
     fn set_range(&self, line: Option<FactLine>) {
         if *self.imp().range.borrow() != line {
             self.imp().range.replace(line);
-            self.queue_resize();
+            self.changed();
+        }
+    }
+
+    /// The lists of the other cards that are shown.
+    fn others(&self) -> Vec<Self> {
+        self.imp()
+            .others
+            .borrow()
+            .iter()
+            .filter_map(glib::WeakRef::upgrade)
+            .filter(|other| {
+                other
+                    .parent()
+                    .and_then(|grid| grid.parent())
+                    .is_some_and(|card| card.get_visible())
+            })
+            .collect()
+    }
+
+    /// The least and the natural height of the facts shown at `width`.
+    fn own_height(&self, width: i32) -> (i32, i32) {
+        let (mut least, mut best) = (0, 0);
+        for line in self.lines() {
+            if self.shows(&line, width) {
+                let (minimum, natural, _, _) = line.measure(gtk::Orientation::Vertical, width);
+                least += minimum;
+                best += natural;
+            }
+        }
+        (least, best)
+    }
+
+    /// Its height changed, and with it maybe that of the lists beside it.
+    fn changed(&self) {
+        self.queue_resize();
+        for other in self.imp().others.borrow().iter() {
+            if let Some(other) = other.upgrade() {
+                other.queue_resize();
+            }
         }
     }
 
@@ -707,8 +758,27 @@ impl PartCard {
         }
         self.number.add_css_class(size);
         self.number.set_beside(width.columns());
-        self.facts.queue_resize();
+        self.facts.imp().level.set(width.columns());
+        self.facts.changed();
         self.chart.set_height(height);
+    }
+
+    /// `cards` stand side by side on one page: with room for it their lines
+    /// have one height.
+    pub fn level(cards: &[&Self]) {
+        for card in cards {
+            let others = cards
+                .iter()
+                .filter(|other| other.facts != card.facts)
+                .map(|other| other.facts.downgrade())
+                .collect();
+            card.facts.imp().others.replace(others);
+        }
+    }
+
+    /// The card was shown or hidden: the cards beside it measure again.
+    pub fn neighbours_changed(&self) {
+        self.facts.changed();
     }
 
     pub fn update(&self, view: &CardView) {
@@ -723,7 +793,7 @@ impl PartCard {
         if self.value.label() != value {
             self.value.set_label(&value);
             // A wider number can send the range back among the facts.
-            self.facts.queue_resize();
+            self.facts.changed();
         }
         let hot = view.hot;
         for widget in [self.widget.clone(), self.badge.clone().upcast()] {
@@ -851,6 +921,13 @@ impl PartCard {
         for row in rows.iter() {
             row.row.queue_resize();
         }
+        self.facts.changed();
+    }
+
+    /// The width and the height of the plot, after a layout (tests).
+    #[cfg(test)]
+    pub fn plot_size(&self) -> (i32, i32) {
+        self.chart.plot_size()
     }
 
     /// Whether the range stands beside the temperature, after a layout

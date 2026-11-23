@@ -577,7 +577,8 @@ impl SummaryWidgets {
                 card.widget.set_visible(false);
                 (kind, card)
             })
-            .collect();
+            .collect::<Vec<_>>();
+        PartCard::level(&cards.iter().map(|(_, card)| card).collect::<Vec<_>>());
         let tiles_grid = gtk::Grid::builder()
             .column_spacing(14)
             .row_spacing(14)
@@ -728,6 +729,7 @@ impl SummaryWidgets {
         };
         for (_, card) in &self.cards {
             card.set_width(width);
+            card.neighbours_changed();
         }
         place(
             &self.cards_grid,
@@ -1190,6 +1192,51 @@ mod tests {
                 count += 1;
             }
             assert_eq!(count, 2);
+        });
+    }
+
+    /// The lines of cards side by side have one height, with or without
+    /// free room on the page, also when one card has fewer facts: the same
+    /// temperature stands at the same level on each (D81). Needs a display.
+    #[test]
+    fn lines_of_the_cards_have_one_height() {
+        crate::gtk_test::run("lines_of_the_cards_have_one_height", || {
+            crate::gtk_test::in_app_style(|| {
+                let numbers = Numbers::new(",");
+                let column = gtk::Box::new(gtk::Orientation::Vertical, 0);
+                let widgets = SummaryWidgets::new(&column);
+                let mut summary = summary();
+                let hero = summary.heroes[0].clone();
+                for kind in [HeroKind::Gpu, HeroKind::Board] {
+                    summary.heroes.push(Hero {
+                        kind,
+                        ..hero.clone()
+                    });
+                }
+                // The graphics card has no number of its own: a fact fewer.
+                summary.gpu_power = None;
+                let state = State::Problems(vec![hot_cpu()]);
+                widgets.update(&summary, &state, &Histories::default(), &numbers, &|_| None);
+                for (layout, width) in [(Width::Compact, 900), (Width::Wide, 1320)] {
+                    widgets.set_width(layout);
+                    let (needed, _, _, _) = column.measure(gtk::Orientation::Vertical, width);
+                    for free in [0, 60, 2000] {
+                        column.allocate(width, needed + free, -1, None);
+                        let heights: Vec<i32> = widgets
+                            .cards
+                            .iter()
+                            .map(|(_, card)| card.plot_size().1)
+                            .collect();
+                        // Three columns can differ by a pixel of width, and
+                        // a plot as tall as it is wide with them.
+                        let (low, high) = (heights.iter().min(), heights.iter().max());
+                        assert!(
+                            high.unwrap() - low.unwrap() <= 1,
+                            "{layout:?}, {free} px free: {heights:?}"
+                        );
+                    }
+                }
+            });
         });
     }
 
