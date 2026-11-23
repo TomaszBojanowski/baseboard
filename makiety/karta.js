@@ -128,11 +128,13 @@
 
   // `part`: { name, icon, value, values, highest, limit, facts: [[title,
   // value, warn]], hot, opens, note: { text, shown } }. The range of the
-  // line and the highest temperature since the app started are the last
-  // facts.
+  // line stands beside the temperature and, in a page of one card a row or
+  // narrower, among the facts (karta.css); the highest temperature since
+  // the app started is the last fact.
   function card(part) {
     const highest = Math.max(part.highest, ...part.values);
-    const facts = [...part.facts, ["Ostatnie 5 minut", fromTo(part.values)],
+    const span = ["Ostatnie 5 minut", fromTo(part.values)];
+    const facts = [...part.facts, span,
       ["Najwyższa od uruchomienia", `${whole(highest)}${NB}°C`]];
     const note = part.note
       ? `<div class="pc-note${part.note.shown ? "" : " reserved"}"${part.note.shown ? "" : ' aria-hidden="true"'}>${part.note.text}</div>`
@@ -141,9 +143,12 @@
         <div class="pc-head"><span class="badge${part.hot ? " warn" : ""}"><i data-ic="${part.hot ? "warning" : part.icon}"></i></span>
           <span class="pc-name">${part.name}</span>${part.opens ? `<i data-ic="chevron" class="chev"></i>` : ""}</div>
         <div class="pc-main">
-          <div class="pc-num"><div class="n">${whole(part.value)}<span class="u">°C</span></div></div>
-          <div class="facts">${facts.map(([t, v, warn]) =>
-            `<div class="fact${warn ? " warn" : ""}"><span>${t}</span><b>${warn ? `<i data-ic="warning"></i>` : ""}${v}</b></div>`).join("")}</div>
+          <div class="pc-num"><div class="n">${whole(part.value)}<span class="u">°C</span></div>
+            <div class="pc-range" aria-hidden="true"><span>${span[0]}</span><b>${span[1]}</b></div></div>
+          <div class="facts">${facts.map(fact => {
+            const [t, v, warn] = fact;
+            return `<div class="fact${warn ? " warn" : ""}${fact === span ? " range" : ""}"><span>${t}</span><b>${warn ? `<i data-ic="warning"></i>` : ""}${v}</b></div>`;
+          }).join("")}</div>
           <div class="pc-hist">${chart(part.values, part.limit, part.icon === "cpu")}</div>
         </div>
         ${note}

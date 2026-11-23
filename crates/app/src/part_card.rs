@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The card of a part of the computer (docs/PROJEKT.md §5.1, D67, D80): its
-//! name, its temperature in large type, the last five minutes as a line
+//! The card of a part of the computer (docs/PROJEKT.md §5.1, D67, D80, D81):
+//! its name, its temperature in large type, the last five minutes as a line
 //! (`history_chart`), a few facts in plain words (one number of the part,
 //! the range of the line, the highest temperature since the app started),
 //! and a note under them. The processor's card is the same on the Overview
@@ -10,9 +10,13 @@
 //!
 //! In a window of one card a row (`Width::Medium`) the temperature and the
 //! facts stand beside the line, which is as tall as they are; otherwise
-//! they are above and under it, and the line has a fixed height. The title
-//! of a fact never breaks: where the widest fact of the card does not fit
-//! on one line, every value of the card goes under its title (`FactLine`).
+//! they are above and under it, and the line has a fixed height. In a page
+//! with cards side by side the range of the line stands beside the
+//! temperature where it fits (`NumberLine`), and among the facts where it
+//! does not (`FactList`): both follow from the width alone, so that the
+//! card never lays itself out twice. The title of a fact never breaks:
+//! where the widest fact of the card does not fit on one line, every value
+//! of the card goes under its title (`FactLine`).
 
 use std::cell::{Cell, OnceCell, RefCell};
 
@@ -63,6 +67,13 @@ struct FactRow {
 const FACT_SPACING: i32 = 12;
 /// Between a title and the value under it.
 const FACT_STACKED_GAP: i32 = 2;
+/// Between the temperature and the range beside it.
+const RANGE_GAP: i32 = 12;
+
+/// A transform that moves a child to (`x`, `y`).
+fn at(x: i32, y: i32) -> gsk::Transform {
+    gsk::Transform::new().translate(&graphene::Point::new(x as f32, y as f32))
+}
 
 mod fact_imp {
     use super::*;
@@ -121,9 +132,6 @@ mod fact_imp {
                 return;
             };
             let (title_size, value_size) = (obj.title_size(), obj.value_size());
-            let at = |x: i32, y: i32| {
-                Some(gsk::Transform::new().translate(&graphene::Point::new(x as f32, y as f32)))
-            };
             let (x, y, line) = if obj.stacked(width) {
                 title.allocate(width, title_size.1, -1, None);
                 (0, title_size.1 + FACT_STACKED_GAP, value_size.1)
@@ -134,11 +142,11 @@ mod fact_imp {
             let mut x = x;
             if icon.get_visible() {
                 let (_, icon_width, _, _) = icon.measure(gtk::Orientation::Horizontal, -1);
-                icon.allocate(icon_width, line, -1, at(x, y));
+                icon.allocate(icon_width, line, -1, Some(at(x, y)));
                 x += icon_width + FACT_SPACING;
             }
             let (_, value_width, _, _) = value.measure(gtk::Orientation::Horizontal, -1);
-            value.allocate(value_width, line, -1, at(x, y));
+            value.allocate(value_width, line, -1, Some(at(x, y)));
         }
     }
 }
@@ -210,21 +218,296 @@ impl FactLine {
     }
 
     /// Whether at `width` the value goes under the title: when the widest
-    /// fact of the card does not fit on one line, so that all facts of a
-    /// card are laid out alike.
+    /// fact shown on the card does not fit on one line, so that all facts of
+    /// a card are laid out alike.
     fn stacked(&self, width: i32) -> bool {
         if width < 0 {
             return false;
         }
-        let mut widest = self.line_width();
-        let mut sibling = self.parent().and_then(|parent| parent.first_child());
-        while let Some(widget) = sibling {
-            if let Some(line) = widget.downcast_ref::<Self>() {
-                widest = widest.max(line.line_width());
-            }
-            sibling = widget.next_sibling();
-        }
+        let widest = self
+            .parent()
+            .and_downcast::<FactList>()
+            .map_or_else(|| self.line_width(), |list| list.widest(width));
         width < widest
+    }
+}
+
+mod number_imp {
+    use super::*;
+
+    #[derive(Default)]
+    pub struct NumberLine {
+        pub(super) number: OnceCell<gtk::Box>,
+        pub(super) range: OnceCell<gtk::Box>,
+        pub(super) title: OnceCell<gtk::Label>,
+        pub(super) value: OnceCell<gtk::Label>,
+        /// The layout of the card lets the range stand here.
+        pub(super) beside: Cell<bool>,
+    }
+
+    #[glib::object_subclass]
+    impl ObjectSubclass for NumberLine {
+        const NAME: &'static str = "BaseboardNumberLine";
+        type Type = super::NumberLine;
+        type ParentType = gtk::Widget;
+    }
+
+    impl ObjectImpl for NumberLine {
+        fn dispose(&self) {
+            let obj = self.obj();
+            while let Some(child) = obj.first_child() {
+                child.unparent();
+            }
+        }
+    }
+
+    impl WidgetImpl for NumberLine {
+        fn request_mode(&self) -> gtk::SizeRequestMode {
+            gtk::SizeRequestMode::HeightForWidth
+        }
+
+        /// The temperature is all it needs: the range takes only room that
+        /// is left.
+        fn measure(&self, orientation: gtk::Orientation, for_size: i32) -> (i32, i32, i32, i32) {
+            let (Some(number), Some(range)) = (self.number.get(), self.range.get()) else {
+                return (0, 0, -1, -1);
+            };
+            let obj = self.obj();
+            let (number_width, number_height) = natural(number);
+            if orientation == gtk::Orientation::Horizontal {
+                let best = if self.beside.get() && range.get_visible() {
+                    number_width + RANGE_GAP + natural(range).0
+                } else {
+                    number_width
+                };
+                return (number_width, best, -1, -1);
+            }
+            let height = if obj.range_fits(for_size) {
+                number_height.max(natural(range).1)
+            } else {
+                number_height
+            };
+            (height, height, -1, -1)
+        }
+
+        fn size_allocate(&self, width: i32, height: i32, _baseline: i32) {
+            let (Some(number), Some(range)) = (self.number.get(), self.range.get()) else {
+                return;
+            };
+            number.allocate(natural(number).0, height, -1, None);
+            let fits = self.obj().range_fits(width);
+            range.set_child_visible(fits);
+            if fits {
+                let (range_width, range_height) = natural(range);
+                range.allocate(
+                    range_width,
+                    range_height,
+                    -1,
+                    Some(at(width - range_width, height - range_height)),
+                );
+            }
+        }
+    }
+}
+
+glib::wrapper! {
+    /// The temperature, and on its right, at the bottom, the range of the
+    /// line where the layout allows it and the width has room for it.
+    pub struct NumberLine(ObjectSubclass<number_imp::NumberLine>)
+        @extends gtk::Widget,
+        @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
+}
+
+impl NumberLine {
+    fn new(number: &gtk::Box) -> Self {
+        let line: Self = glib::Object::new();
+        let title = gtk::Label::builder()
+            .xalign(1.0)
+            .css_classes(["part-range-title"])
+            .build();
+        let value = gtk::Label::builder()
+            .xalign(1.0)
+            .css_classes(["heading", "numeric"])
+            .build();
+        let range = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .visible(false)
+            .css_classes(["part-range"])
+            .build();
+        range.append(&title);
+        range.append(&value);
+        // The description of the card already says the range.
+        for widget in [
+            range.upcast_ref::<gtk::Widget>(),
+            title.upcast_ref(),
+            value.upcast_ref(),
+        ] {
+            widget.update_state(&[gtk::accessible::State::Hidden(true)]);
+        }
+        number.set_parent(&line);
+        range.set_parent(&line);
+        let imp = line.imp();
+        let _ = imp.number.set(number.clone());
+        let _ = imp.range.set(range);
+        let _ = imp.title.set(title);
+        let _ = imp.value.set(value);
+        line
+    }
+
+    /// Whether the layout of the card lets the range stand here.
+    fn set_beside(&self, beside: bool) {
+        if self.imp().beside.replace(beside) != beside {
+            self.queue_resize();
+        }
+    }
+
+    /// The fact with the range of the line, if there is one.
+    fn show_range(&self, fact: Option<&Fact>) {
+        let imp = self.imp();
+        let (Some(range), Some(title), Some(value)) =
+            (imp.range.get(), imp.title.get(), imp.value.get())
+        else {
+            return;
+        };
+        range.set_visible(fact.is_some());
+        if let Some(fact) = fact {
+            title.set_label(&fact.title);
+            value.set_label(&fact.value);
+        }
+    }
+
+    /// Whether at `width` the range stands beside the temperature.
+    fn range_fits(&self, width: i32) -> bool {
+        let imp = self.imp();
+        let (Some(number), Some(range)) = (imp.number.get(), imp.range.get()) else {
+            return false;
+        };
+        imp.beside.get()
+            && range.get_visible()
+            && width >= natural(number).0 + RANGE_GAP + natural(range).0
+    }
+}
+
+mod list_imp {
+    use super::*;
+
+    #[derive(Default)]
+    pub struct FactList {
+        /// The temperature, which may have the range beside it.
+        pub(super) number: OnceCell<NumberLine>,
+        /// The fact with the range of the line.
+        pub(super) range: RefCell<Option<FactLine>>,
+    }
+
+    #[glib::object_subclass]
+    impl ObjectSubclass for FactList {
+        const NAME: &'static str = "BaseboardFactList";
+        type Type = super::FactList;
+        type ParentType = gtk::Widget;
+    }
+
+    impl ObjectImpl for FactList {
+        fn dispose(&self) {
+            let obj = self.obj();
+            while let Some(child) = obj.first_child() {
+                child.unparent();
+            }
+        }
+    }
+
+    impl WidgetImpl for FactList {
+        fn request_mode(&self) -> gtk::SizeRequestMode {
+            gtk::SizeRequestMode::HeightForWidth
+        }
+
+        /// As wide as its widest fact, also the one of the range, which
+        /// comes back when the temperature leaves it no room; as tall as
+        /// the facts shown at this width.
+        fn measure(&self, orientation: gtk::Orientation, for_size: i32) -> (i32, i32, i32, i32) {
+            let obj = self.obj();
+            let (mut least, mut best) = (0, 0);
+            for line in obj.lines() {
+                if orientation == gtk::Orientation::Horizontal {
+                    let (minimum, natural, _, _) = line.measure(orientation, -1);
+                    least = least.max(minimum);
+                    best = best.max(natural);
+                } else if obj.shows(&line, for_size) {
+                    let (minimum, natural, _, _) = line.measure(orientation, for_size);
+                    least += minimum;
+                    best += natural;
+                }
+            }
+            (least, best, -1, -1)
+        }
+
+        fn size_allocate(&self, width: i32, _height: i32, _baseline: i32) {
+            let obj = self.obj();
+            let mut y = 0;
+            for line in obj.lines() {
+                let shown = obj.shows(&line, width);
+                line.set_child_visible(shown);
+                if shown {
+                    let (_, height, _, _) = line.measure(gtk::Orientation::Vertical, width);
+                    line.allocate(width, height, -1, Some(at(0, y)));
+                    y += height;
+                }
+            }
+        }
+    }
+}
+
+glib::wrapper! {
+    /// The facts of a card, one under another, without the fact of the
+    /// range at a width where it stands beside the temperature.
+    pub struct FactList(ObjectSubclass<list_imp::FactList>)
+        @extends gtk::Widget,
+        @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
+}
+
+impl FactList {
+    fn new(number: &NumberLine) -> Self {
+        let list: Self = glib::Object::builder()
+            .property("hexpand", false)
+            .property("valign", gtk::Align::End)
+            .build();
+        let _ = list.imp().number.set(number.clone());
+        list
+    }
+
+    /// Which of the facts is the range of the line.
+    fn set_range(&self, line: Option<FactLine>) {
+        if *self.imp().range.borrow() != line {
+            self.imp().range.replace(line);
+            self.queue_resize();
+        }
+    }
+
+    fn lines(&self) -> Vec<FactLine> {
+        let mut lines = Vec::new();
+        let mut child = self.first_child();
+        while let Some(widget) = child {
+            child = widget.next_sibling();
+            lines.extend(widget.downcast::<FactLine>());
+        }
+        lines
+    }
+
+    /// Whether `line` is shown at `width`: all but the fact of the range
+    /// while that stands beside the temperature.
+    fn shows(&self, line: &FactLine, width: i32) -> bool {
+        let imp = self.imp();
+        imp.range.borrow().as_ref() != Some(line)
+            || !imp.number.get().is_some_and(|n| n.range_fits(width))
+    }
+
+    /// The widest fact on one line among those shown at `width`.
+    fn widest(&self, width: i32) -> i32 {
+        self.lines()
+            .iter()
+            .filter(|line| self.shows(line, width))
+            .map(FactLine::line_width)
+            .max()
+            .unwrap_or(0)
     }
 }
 
@@ -243,10 +526,10 @@ pub struct PartCard {
     grid: gtk::Grid,
     head: gtk::Box,
     badge: gtk::Image,
-    number: gtk::Box,
+    number: NumberLine,
     value: gtk::Label,
     chart: HistoryChart,
-    facts: gtk::Box,
+    facts: FactList,
     rows: RefCell<Vec<FactRow>>,
     note: gtk::Label,
     /// The note keeps its place while it is not shown, so that what is
@@ -308,20 +591,17 @@ impl PartCard {
             .valign(gtk::Align::Start)
             .css_classes(["part-unit"])
             .build();
-        let number = gtk::Box::builder().halign(gtk::Align::Start).build();
-        number.append(&value);
-        number.append(&unit);
+        let temperature = gtk::Box::builder().halign(gtk::Align::Start).build();
+        temperature.append(&value);
+        temperature.append(&unit);
+        let number = NumberLine::new(&temperature);
 
         let chart = HistoryChart::new();
 
         // Beside the line the facts take the width of their titles on one
-        // line and the line has the rest: the box does not take the
+        // line and the line has the rest: the list does not take the
         // expanding of the titles from them.
-        let facts = gtk::Box::builder()
-            .orientation(gtk::Orientation::Vertical)
-            .hexpand(false)
-            .valign(gtk::Align::End)
-            .build();
+        let facts = FactList::new(&number);
         let note = gtk::Label::builder()
             .xalign(0.0)
             .wrap(true)
@@ -424,6 +704,8 @@ impl PartCard {
             self.number.remove_css_class(class);
         }
         self.number.add_css_class(size);
+        self.number.set_beside(width.columns());
+        self.facts.queue_resize();
         self.chart.set_height(height);
     }
 
@@ -438,6 +720,8 @@ impl PartCard {
         };
         if self.value.label() != value {
             self.value.set_label(&value);
+            // A wider number can send the range back among the facts.
+            self.facts.queue_resize();
         }
         let hot = view.hot;
         for widget in [self.widget.clone(), self.badge.clone().upcast()] {
@@ -461,7 +745,10 @@ impl PartCard {
             view.limit.as_ref().map(|limit| limit.value),
             view.scale,
         );
-        self.show_facts(&view.facts);
+        let period = history_chart::period(&view.points);
+        self.number
+            .show_range(view.facts.iter().find(|fact| fact.title == period));
+        self.show_facts(&view.facts, &period);
         match &view.note {
             Some(note) => {
                 self.note.set_label(note);
@@ -484,7 +771,6 @@ impl PartCard {
         );
         self.chart
             .update_property(&[gtk::accessible::Property::Label(&history)]);
-        let period = history_chart::period(&view.points);
         let mut description = vec![history];
         description.extend(
             view.facts
@@ -504,7 +790,8 @@ impl PartCard {
         self.shown.replace(Some(view.clone()));
     }
 
-    fn show_facts(&self, facts: &[Fact]) {
+    /// `period` is the title of the fact with the range of the line.
+    fn show_facts(&self, facts: &[Fact], period: &str) {
         // The view shown so far: the facts change far less often than the
         // temperature.
         if self
@@ -518,12 +805,12 @@ impl PartCard {
         let mut rows = self.rows.borrow_mut();
         while rows.len() > facts.len() {
             if let Some(old) = rows.pop() {
-                self.facts.remove(&old.row);
+                old.row.unparent();
             }
         }
         while rows.len() < facts.len() {
             let row = FactLine::new();
-            self.facts.append(&row);
+            row.set_parent(&self.facts);
             let imp = row.imp();
             let (Some(title), Some(icon), Some(value)) =
                 (imp.title.get(), imp.icon.get(), imp.value.get())
@@ -552,11 +839,38 @@ impl PartCard {
                 row.value.remove_css_class("warning");
             }
         }
+        self.facts.set_range(
+            rows.iter()
+                .find(|row| row.title.label() == period)
+                .map(|row| row.row.clone()),
+        );
         // Whether a fact goes under its title depends on the widest fact of
         // the card, so a change of one is a change of all.
         for row in rows.iter() {
             row.row.queue_resize();
         }
+    }
+
+    /// Whether the range stands beside the temperature, after a layout
+    /// (tests).
+    #[cfg(test)]
+    fn range_beside(&self) -> bool {
+        self.number
+            .imp()
+            .range
+            .get()
+            .is_some_and(|range| range.get_visible() && range.is_child_visible())
+    }
+
+    /// The titles of the facts shown, after a layout (tests).
+    #[cfg(test)]
+    fn shown_facts(&self) -> Vec<String> {
+        self.rows
+            .borrow()
+            .iter()
+            .filter(|row| row.row.is_child_visible())
+            .map(|row| row.title.label().into())
+            .collect()
     }
 
     /// The facts shown, as title and value (tests).
@@ -800,6 +1114,9 @@ mod tests {
                                 card.widget.measure(gtk::Orientation::Vertical, width);
                             card.widget.allocate(width, height, -1, None);
                             for row in card.rows.borrow().iter() {
+                                if !row.row.is_child_visible() {
+                                    continue;
+                                }
                                 let (_, whole, _, _) =
                                     row.title.measure(gtk::Orientation::Horizontal, -1);
                                 assert!(
@@ -818,6 +1135,58 @@ mod tests {
                         }
                     }
                     assert!(under && beside, "{facts:?}: under {under}, beside {beside}");
+                }
+            });
+        });
+    }
+
+    /// With cards side by side the range stands beside the temperature and
+    /// leaves the facts, by the same words, and the card is a row of facts
+    /// shorter. A temperature of three digits in the narrowest card (a page
+    /// of 880 sp with three cards) sends it back among the facts, in its
+    /// place; so does a layout of one card a row or a narrow one. Screen
+    /// readers get the range once, from the line. Needs a display.
+    #[test]
+    fn range_beside_the_temperature() {
+        crate::gtk_test::run("range_beside_the_temperature", || {
+            crate::gtk_test::in_app_style(|| {
+                let card = PartCard::new("baseboard-processor-symbolic", "Processor", Some("cpu"));
+                let lay_out = |width: i32| {
+                    let (_, height, _, _) = card.widget.measure(gtk::Orientation::Vertical, width);
+                    card.widget.allocate(width, height, -1, None);
+                    height
+                };
+                // (880 - 24 of margins - 2 * 16 between the cards) / 3.
+                let narrowest = 274;
+                let all = ["CPU fan", "Last 3 minutes", "Highest since the app started"];
+                let two = ["CPU fan", "Highest since the app started"];
+
+                card.update(&view(false));
+                card.set_width(Width::Compact);
+                let beside = lay_out(narrowest);
+                assert!(card.range_beside());
+                assert_eq!(card.shown_facts(), two);
+
+                let mut hot = view(false);
+                hot.value = 102.0;
+                hot.facts[1].value = "From 98 to 102\u{a0}°C".into();
+                card.update(&hot);
+                let back = lay_out(narrowest);
+                assert!(!card.range_beside());
+                assert_eq!(card.shown_facts(), all);
+                assert!(back > beside, "{back} {beside}");
+                // Three digits with room for them keep it beside.
+                lay_out(500);
+                assert!(card.range_beside());
+
+                card.update(&view(false));
+                lay_out(narrowest);
+                assert!(card.range_beside());
+                for width in [Width::Medium, Width::Narrow] {
+                    card.set_width(width);
+                    lay_out(576);
+                    assert!(!card.range_beside(), "{width:?}");
+                    assert_eq!(card.shown_facts(), all, "{width:?}");
                 }
             });
         });

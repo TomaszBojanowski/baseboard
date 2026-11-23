@@ -591,8 +591,9 @@ fn clickables(root: &gtk::Widget) -> Vec<gtk::Widget> {
 /// with an ellipsis, an inscription whose text needs more lines than it has
 /// room for (D67: no text ends in an ellipsis), or the title of a fact on a
 /// card (its first label) broken or narrower than on one line (D67: the
-/// card changes its layout instead). A few pixels of the metrics of the
-/// font are no missing line.
+/// card changes its layout instead), or the range beside a temperature cut,
+/// broken or over the number (D81). A few pixels of the metrics of the font
+/// are no missing line.
 fn cut_texts(root: &gtk::Widget) -> Vec<String> {
     let mut cut = Vec::new();
     let mut child = root.first_child();
@@ -611,6 +612,9 @@ fn cut_texts(root: &gtk::Widget) -> Vec<String> {
                     cut.push(title.label().to_string());
                 }
             }
+            if widget.has_css_class("part-range") {
+                cut.extend(cut_range(&widget));
+            }
             if let Some(line) = widget.downcast_ref::<gtk::Inscription>()
                 && let Some(text) = line.text()
             {
@@ -624,6 +628,32 @@ fn cut_texts(root: &gtk::Widget) -> Vec<String> {
             cut.extend(cut_texts(&widget));
         }
         child = widget.next_sibling();
+    }
+    cut
+}
+
+/// The texts of the range beside a temperature that do not show whole: a
+/// label broken or narrower than on one line, or the range over the number
+/// on its left or past the right edge of the card's content.
+fn cut_range(range: &gtk::Widget) -> Vec<String> {
+    let mut cut = Vec::new();
+    let mut child = range.first_child();
+    while let Some(widget) = child {
+        if let Some(label) = widget.downcast_ref::<gtk::Label>() {
+            let (_, whole, _, _) = label.measure(gtk::Orientation::Horizontal, -1);
+            if label.layout().line_count() > 1 || label.width() < whole {
+                cut.push(label.label().to_string());
+            }
+        }
+        child = widget.next_sibling();
+    }
+    if let (Some(line), Some(number)) = (range.parent(), range.prev_sibling())
+        && let (Some(place), Some(beside)) =
+            (range.compute_bounds(&line), number.compute_bounds(&line))
+        && (place.x() < beside.x() + beside.width()
+            || place.x() + place.width() > line.width() as f32)
+    {
+        cut.extend(texts(range));
     }
     cut
 }

@@ -55,7 +55,12 @@
 .pc-head { display: flex; align-items: center; gap: 12px; }
 .pc-name { flex: 1; font-weight: 700; font-size: 110%; }
 .pc-main { display: grid; grid-template-areas: "num" "hist" "facts"; gap: 12px; }
-.pc-num { grid-area: num; }
+.pc-num { grid-area: num; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+/* the range of the line beside the temperature (D81) */
+.pc-range { display: flex; flex-direction: column; align-items: flex-end; padding-bottom: 7px; white-space: nowrap; }
+.pc-range span { opacity: .72; font-size: 92%; }
+.pc-range b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.fact.range { display: none; }
 .pc-num .n { font-size: 80px; font-weight: 300; line-height: 1.02; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .pc-num .n .u { font-size: 36%; opacity: .55; vertical-align: 120%; margin-left: 4px; font-weight: 400; }
 .pc-hist { grid-area: hist; }
@@ -78,6 +83,8 @@
 /* one card a row: the temperature and the facts beside the line, which
    reaches from the top of the temperature to the bottom of the last fact */
 @container (max-width: 879px) {
+  .pc-range { display: none; }
+  .fact.range { display: flex; }
   .pc-main { grid-template-columns: 210px minmax(0, 1fr); grid-template-areas: "num hist" "facts hist"; column-gap: 24px; row-gap: 4px; }
   .pc-hist { align-self: stretch; display: flex; flex-direction: column; }
   .hchart { flex: 1; }
