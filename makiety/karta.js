@@ -79,6 +79,21 @@
     </div>`;
   }
 
+  // With cards side by side the plots take the free height of the page,
+  // from 120 to 320 px and no taller than wide without the labels (D81).
+  function fit(charts) {
+    const pane = document.querySelector(".content-pane");
+    const page = document.getElementById("content");
+    if (!pane || !page || !charts.length || pane.clientWidth < 880) return;
+    const plots = charts.map(el => el.querySelector(".hplot"));
+    plots.forEach(plot => { plot.style.height = "120px"; });
+    const head = pane.querySelector(".headerbar")?.offsetHeight || 0;
+    const free = pane.clientHeight - head - page.scrollHeight;
+    const width = Math.max(...plots.map(plot => plot.clientWidth)) - 46;
+    const height = Math.round(Math.max(120, Math.min(120 + free, 320, width)));
+    plots.forEach(plot => { plot.style.height = `${height}px`; });
+  }
+
   // Draws every line of the page at its size, as `app::history_chart`:
   // one scale for all cards, 0–100 °C, lower or higher in whole 10 °C when
   // a reading needs it; lines at 20, 40, 60 and 80 °C labeled on the left,
@@ -88,6 +103,7 @@
   // over "now". Pages call it once the window has its size.
   function draw() {
     const charts = [...document.querySelectorAll(".hchart")];
+    fit(charts);
     const series = charts.map(el => el.dataset.values.split(" ").map(Number));
     const all = series.flat();
     const bottom = Math.floor(Math.min(0, ...all) / 10) * 10;

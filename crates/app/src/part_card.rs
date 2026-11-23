@@ -10,9 +10,10 @@
 //!
 //! In a window of one card a row (`Width::Medium`) the temperature and the
 //! facts stand beside the line, which is as tall as they are; otherwise
-//! they are above and under it, and the line has a fixed height. In a page
-//! with cards side by side the range of the line stands beside the
-//! temperature where it fits (`NumberLine`), and among the facts where it
+//! they are above and under it. In a page with cards side by side the line
+//! grows into the free height of the page (`history_chart::PlotHeight`) and
+//! the range of the line stands beside the temperature where it fits
+//! (`NumberLine`), and among the facts where it
 //! does not (`FactList`): both follow from the width alone, so that the
 //! card never lays itself out twice. The title of a fact never breaks:
 //! where the widest fact of the card does not fit on one line, every value
@@ -24,7 +25,7 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::{glib, graphene, gsk};
 
-use crate::history_chart::{self, HistoryChart, Limit, Points, Scale};
+use crate::history_chart::{self, HistoryChart, Limit, PlotHeight, Points, Scale};
 use crate::layout::Width;
 use baseboard_core::history::Trend;
 use baseboard_core::units;
@@ -542,15 +543,16 @@ pub struct PartCard {
 /// The narrowest column of the temperature and the facts beside the line.
 const SIDE: i32 = 210;
 
-/// The numbers and the height of the line by the width of the page (D80);
-/// `None` makes the line as tall as the temperature and the facts beside
-/// it.
-fn sizes(width: Width) -> (&'static str, Option<i32>) {
+/// The numbers and the height of the line by the width of the page (D80,
+/// D81): with cards side by side it grows into the free height of the page,
+/// in a card of one row it is as tall as the temperature and the facts
+/// beside it.
+fn sizes(width: Width) -> (&'static str, PlotHeight) {
     match width {
-        Width::Wide => ("large", Some(160)),
-        Width::Compact => ("medium", Some(160)),
-        Width::Medium => ("medium", None),
-        Width::Narrow => ("small", Some(120)),
+        Width::Wide => ("large", PlotHeight::Grows),
+        Width::Compact => ("medium", PlotHeight::Grows),
+        Width::Medium => ("medium", PlotHeight::Fill),
+        Width::Narrow => ("small", PlotHeight::Fixed(120)),
     }
 }
 
@@ -987,31 +989,38 @@ mod tests {
         });
     }
 
-    /// The line has a height of its own, whatever the window (D80): the
-    /// same wide and denser, 40 px less narrow, and given more room than
-    /// the card needs it stays so. In a card of one row it reaches from the
-    /// top of the temperature to the bottom of the last fact. Needs a
-    /// display.
+    /// With cards side by side the line takes the free height of the page
+    /// (D81): at least 120 px, at most 320 px and never taller than it is
+    /// wide without the labels of the scale; more room than that stays
+    /// empty. Narrow it has 120 px whatever the room. In a card of one row
+    /// it reaches from the top of the temperature to the bottom of the last
+    /// fact. Needs a display.
     #[test]
     fn heights_of_the_line() {
         crate::gtk_test::run("heights_of_the_line", || {
             crate::gtk_test::in_app_style(|| {
                 let card = PartCard::new("baseboard-processor-symbolic", "Processor", Some("cpu"));
                 card.update(&view(false));
+                // The plot with this many pixels over what the card needs.
                 let lay_out = |width: i32, more: i32| {
-                    let (minimum, natural, _, _) =
-                        card.widget.measure(gtk::Orientation::Vertical, width);
-                    assert_eq!(minimum, natural);
-                    card.widget.allocate(width, natural + more, -1, None);
-                    card.chart.height()
+                    let (least, _, _, _) = card.widget.measure(gtk::Orientation::Vertical, width);
+                    card.widget.allocate(width, least + more, -1, None);
+                    card.chart.plot_size()
                 };
-                card.set_width(Width::Wide);
-                let wide = lay_out(620, 0);
-                assert_eq!(lay_out(900, 400), wide);
-                card.set_width(Width::Compact);
-                assert_eq!(lay_out(400, 0), wide);
+                for layout in [Width::Wide, Width::Compact] {
+                    card.set_width(layout);
+                    assert_eq!(lay_out(620, 0).1, 120, "{layout:?}: no free height");
+                    assert_eq!(lay_out(620, 70).1, 190, "{layout:?}: 70 px free");
+                    let (wide, height) = lay_out(620, 2000);
+                    assert!(wide > 320, "{layout:?}: {wide}");
+                    assert_eq!(height, 320, "{layout:?}: the most");
+                    let (narrow, height) = lay_out(340, 2000);
+                    assert!((120..320).contains(&narrow), "{layout:?}: {narrow}");
+                    assert_eq!(height, narrow, "{layout:?}: no taller than wide");
+                }
                 card.set_width(Width::Narrow);
-                assert_eq!(lay_out(340, 0), wide - 40);
+                assert_eq!(lay_out(340, 0).1, 120);
+                assert_eq!(lay_out(340, 400).1, 120);
 
                 card.set_width(Width::Medium);
                 lay_out(700, 0);

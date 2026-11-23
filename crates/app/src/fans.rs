@@ -846,6 +846,57 @@ mod tests {
         });
     }
 
+    /// In a window with the card beside the list, the card's line grows
+    /// into the height the page has free, however long the list is, up to
+    /// its most (D81); a list longer than the card makes the card end level
+    /// with it. Needs a display.
+    #[test]
+    fn card_grows_with_the_free_height() {
+        crate::gtk_test::run("card_grows_with_the_free_height", || {
+            crate::gtk_test::resources();
+            let page = glib::Object::new::<FansPage>();
+            let imp = page.imp();
+            imp.stack.set_visible_child_name("fans");
+            let card = imp.card.get().unwrap().widget.clone();
+            // A window of 1850 px without its sidebar.
+            let width = 1570;
+            let bottom = |widget: &gtk::Widget| {
+                widget
+                    .compute_bounds(&page)
+                    .map_or(0, |bounds| (bounds.y() + bounds.height()).round() as i32)
+            };
+            // With a list this tall and this many pixels free on the page:
+            // the card's height, the least and the most it wants, its end
+            // and the end of the list's column.
+            let lay_out = |list: i32, free: i32| {
+                while let Some(row) = imp.list.first_child() {
+                    imp.list.remove(&row);
+                }
+                imp.list
+                    .append(&gtk::Box::builder().height_request(list).build());
+                page.measure(gtk::Orientation::Vertical, width);
+                let (needed, _, _, _) = imp.clamp.measure(gtk::Orientation::Vertical, width);
+                page.allocate(width, needed + free, -1, None);
+                let (least, most, _, _) = card.measure(gtk::Orientation::Vertical, card.width());
+                let column = imp.list_clamp.upcast_ref::<gtk::Widget>();
+                (card.height(), least, most, bottom(&card), bottom(column))
+            };
+            let (tight, least, most, card_end, list_end) = lay_out(100, 0);
+            assert_eq!(most, least + 200, "from 120 to 320 px");
+            assert!(card_end > list_end, "{card_end} {list_end}");
+            assert_eq!(tight, least);
+            assert_eq!(lay_out(100, 150).0, least + 150);
+            assert_eq!(lay_out(100, 2000).0, most);
+            let longer = 100 + card_end - list_end + 150;
+            let (level, _, _, card_end, list_end) = lay_out(longer, 0);
+            assert_eq!(level, least + 150);
+            assert_eq!(card_end, list_end);
+            let (tallest, _, _, card_end, list_end) = lay_out(2000, 0);
+            assert_eq!(tallest, most);
+            assert!(card_end < list_end, "{card_end} {list_end}");
+        });
+    }
+
     /// The icon of the link stands right after the link text, on its
     /// line, in a wide and in a narrow label. Needs a display.
     #[test]

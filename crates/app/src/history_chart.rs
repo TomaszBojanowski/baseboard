@@ -66,6 +66,29 @@ const LABEL_GAP: f64 = 8.0;
 const TIME_GAP: f64 = 4.0;
 /// The least height of a plot that fills the height it gets.
 const FILL_LEAST: i32 = 72;
+/// The least and the most height of a plot that grows with the page (D81).
+const GROWS_LEAST: i32 = 120;
+const GROWS_MOST: i32 = 320;
+
+/// How high the plot of a chart is.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum PlotHeight {
+    /// Always this many pixels.
+    Fixed(i32),
+    /// The height the chart gets: beside the temperature and the facts in
+    /// a card of one row.
+    #[default]
+    Fill,
+    /// Into the free height of the page, up to `grown`.
+    Grows,
+}
+
+/// The highest a plot that grows gets in a chart `width` wide, of which
+/// `labels` are the labels of the scale: 320 px, and no taller than the
+/// plot is wide.
+fn grown(width: i32, labels: i32) -> i32 {
+    (width - labels).clamp(GROWS_LEAST, GROWS_MOST)
+}
 
 /// The points of `history` for the chart.
 pub fn points(history: &History) -> Points {
@@ -312,8 +335,7 @@ mod imp {
         pub(super) limit: Cell<Option<f64>>,
         /// The scale of every card; `None` before the first history.
         pub(super) scale: Cell<Option<Scale>>,
-        /// The height of the plot; `None` fills the height the chart gets.
-        pub(super) height: Cell<Option<i32>>,
+        pub(super) height: Cell<PlotHeight>,
         pub(super) backdrop: RefCell<Option<Backdrop>>,
     }
 
@@ -331,17 +353,27 @@ mod imp {
     impl ObjectImpl for HistoryChart {}
 
     impl WidgetImpl for HistoryChart {
-        /// Its plot and the labels of time under it; a chart that fills
-        /// its place asks for a small plot only.
-        fn measure(&self, orientation: gtk::Orientation, _for_size: i32) -> (i32, i32, i32, i32) {
-            match orientation {
-                gtk::Orientation::Horizontal => (0, 0, -1, -1),
-                _ => {
-                    let plot = self.height.get().unwrap_or(FILL_LEAST);
-                    let height = plot + self.obj().time_height().ceil() as i32;
-                    (height, height, -1, -1)
-                }
+        fn request_mode(&self) -> gtk::SizeRequestMode {
+            gtk::SizeRequestMode::HeightForWidth
+        }
+
+        /// Its plot and the labels of time under it. A chart that fills its
+        /// place asks for a small plot only; one that grows needs its least
+        /// height and would like `grown`, so the page gives it what it has
+        /// free, up to that.
+        fn measure(&self, orientation: gtk::Orientation, for_size: i32) -> (i32, i32, i32, i32) {
+            if orientation == gtk::Orientation::Horizontal {
+                return (0, 0, -1, -1);
             }
+            let obj = self.obj();
+            let (least, most) = match self.height.get() {
+                PlotHeight::Fixed(height) => (height, height),
+                PlotHeight::Fill => (FILL_LEAST, FILL_LEAST),
+                PlotHeight::Grows if for_size < 0 => (GROWS_LEAST, GROWS_LEAST),
+                PlotHeight::Grows => (GROWS_LEAST, grown(for_size, obj.label_column())),
+            };
+            let time = obj.time_height().ceil() as i32;
+            (least + time, most + time, -1, -1)
         }
 
         fn snapshot(&self, snapshot: &gtk::Snapshot) {
@@ -361,9 +393,8 @@ impl HistoryChart {
         glib::Object::builder().property("hexpand", true).build()
     }
 
-    /// The height of the plot, or `None` to fill the height the chart gets
-    /// (D80: beside the temperature and the facts in a card of one row).
-    pub fn set_height(&self, height: Option<i32>) {
+    /// How high the plot is (D80, D81).
+    pub fn set_height(&self, height: PlotHeight) {
         if self.imp().height.replace(height) != height {
             self.queue_resize();
         }
@@ -373,10 +404,9 @@ impl HistoryChart {
     /// limit in °C and the scale of every card.
     pub fn set_view(&self, points: Points, hot: bool, limit: Option<f64>, scale: Scale) {
         let imp = self.imp();
-        let changed = *imp.points.borrow() != points
-            || imp.hot.get() != hot
-            || imp.limit.get() != limit
-            || imp.scale.get() != Some(scale);
+        // The labels of the scale take part in the height a plot may grow to.
+        let labels = imp.limit.get() != limit || imp.scale.get() != Some(scale);
+        let changed = labels || *imp.points.borrow() != points || imp.hot.get() != hot;
         if changed {
             imp.points.replace(points);
             imp.hot.set(hot);
@@ -384,12 +414,45 @@ impl HistoryChart {
             imp.scale.set(Some(scale));
             self.queue_draw();
         }
+        if labels && imp.height.get() == PlotHeight::Grows {
+            self.queue_resize();
+        }
     }
 
     /// The labels of time and the room above them.
     fn time_height(&self) -> f64 {
         let (_, now) = time_labels();
         TIME_GAP + size_of(&layout(self.upcast_ref(), &now, TEXT_SCALE, false)).1
+    }
+
+    /// As wide as the widest label of the scale, at least "100 °C", so that
+    /// the plots of cards side by side line up.
+    fn label_width(&self, scale: Scale, limit: Option<f64>) -> f64 {
+        [TOP, scale.1]
+            .into_iter()
+            .chain(limit)
+            .map(|value| {
+                let text = units::degrees(value);
+                size_of(&layout(self.upcast_ref(), &text, TEXT_SCALE, false)).0
+            })
+            .fold(0.0, f64::max)
+    }
+
+    /// The width of the labels of the scale with the gap after them.
+    fn label_column(&self) -> i32 {
+        let imp = self.imp();
+        let scale = imp.scale.get().unwrap_or((BOTTOM, TOP));
+        let limit = limit_in(scale, imp.limit.get());
+        (self.label_width(scale, limit) + LABEL_GAP).ceil() as i32
+    }
+
+    /// The width and the height of the plot, after a layout (tests).
+    #[cfg(test)]
+    pub fn plot_size(&self) -> (i32, i32) {
+        (
+            self.width() - self.label_column(),
+            self.height() - self.time_height().ceil() as i32,
+        )
     }
 
     fn colors(&self) -> Colors {
@@ -472,13 +535,7 @@ impl HistoryChart {
         let widget = self.upcast_ref::<gtk::Widget>();
         let snapshot = gtk::Snapshot::new();
         let label = |value: f64| layout(widget, &units::degrees(value), TEXT_SCALE, false);
-        // As wide as the widest label of the scale, at least "100 °C", so
-        // that the plots of cards side by side line up.
-        let margin = [TOP, key.scale.1]
-            .into_iter()
-            .chain(key.limit)
-            .map(|value| size_of(&label(value)).0)
-            .fold(0.0, f64::max);
+        let margin = self.label_width(key.scale, key.limit);
         let frame = Frame {
             left: margin + LABEL_GAP,
             right: f64::from(key.width),
@@ -706,6 +763,18 @@ mod tests {
         let y = frame.sharp_y(33.0);
         assert_eq!(y.fract(), 0.5);
         assert!((y - frame.y(33.0)).abs() <= 0.5);
+    }
+
+    /// A plot that grows gets at most 320 px and is never taller than it
+    /// is wide, without the labels of the scale; it has at least 120 px.
+    #[test]
+    fn how_far_a_plot_grows() {
+        let labels = 54;
+        assert_eq!(grown(900, labels), 320);
+        assert_eq!(grown(320 + labels, labels), 320);
+        assert_eq!(grown(300, labels), 246);
+        assert_eq!(grown(120 + labels, labels), 120);
+        assert_eq!(grown(100, labels), 120);
     }
 
     /// A new sample draws only the line: the grid and the labels stay one

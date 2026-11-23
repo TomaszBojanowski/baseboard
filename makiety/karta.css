@@ -32,13 +32,13 @@
 .o-status.warn > svg.ic:first-child { color: var(--warning); }
 .o-status .chev { align-self: center; }
 
-/* the line of the last 5 minutes (D80, drawn by Karta.draw): a plot of a
-   fixed height, in a card of one row as tall as the temperature and the
-   facts beside it, and the labels of time under it */
+/* the line of the last 5 minutes (D80, D81, drawn by Karta.draw): a plot
+   that takes the free height of the page, in a card of one row as tall as
+   the temperature and the facts beside it, and the labels of time under it */
 :root { --hist-grid: .16; --hist-strong: .30; --hist-weak: .09; --hist-limit: #9c6e03; }
 :root[data-theme="dark"] { --hist-grid: .15; --hist-strong: .42; --hist-weak: .14; --hist-limit: rgb(205 147 9 / .8); }
 .hchart { display: flex; flex-direction: column; color: var(--accent); --hist-fill: var(--accent-bg); }
-.hplot { position: relative; height: 160px; }
+.hplot { position: relative; height: 120px; }
 .hplot svg { position: absolute; inset: 0; overflow: visible; }
 .hl { font-size: 12px; fill: var(--window-fg); opacity: .72; font-variant-numeric: tabular-nums; }
 .hl.warn { fill: var(--warning); opacity: 1; }
