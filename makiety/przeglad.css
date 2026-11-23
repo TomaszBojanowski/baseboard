@@ -9,17 +9,21 @@
 .o-cards.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .o-cards.n1 { grid-template-columns: minmax(0, 1fr); }
 
-/* the tiles under the cards */
+/* the tiles under the cards: the bars beside the title and the value, the
+   line under them with the whole width beside the icon (D82) */
 .o-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .o-tiles.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.tile { display: flex; align-items: center; gap: 12px; min-height: 120px; padding: 16px;
+.tile { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-content: center;
+  column-gap: 12px; min-height: 120px; padding: 16px;
   border-radius: 12px; background: var(--card-bg); box-shadow: var(--card-shadow); }
+.tile > .badge { grid-row: 1 / span 3; align-self: center; }
 .tile.warn { background: color-mix(in srgb, var(--warning-bg) 18%, var(--card-bg)); }
-.tile .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.tile-t { font-weight: 600; opacity: .65; }
-.tile-v { font-size: 140%; font-weight: 600; font-variant-numeric: tabular-nums; }
-.tile-s { font-size: 88%; opacity: .62; }
+.tile .grow { display: contents; }
+.tile-t { grid-column: 2; font-weight: 600; opacity: .65; }
+.tile-v { grid-column: 2; font-size: 140%; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tile-s { grid-column: 2 / -1; font-size: 88%; opacity: .62; }
 .tile.warn .tile-s { color: var(--warning); opacity: 1; }
+.tile > .bars { grid-column: 3; grid-row: 1 / span 2; align-self: center; }
 .bars { display: flex; align-items: flex-end; gap: 4px; width: 82px; height: 40px; flex: none; }
 .bars span { flex: 1; border-radius: 3px; background: var(--accent-bg); }
 .bars span.off { background: currentColor; opacity: .15; }

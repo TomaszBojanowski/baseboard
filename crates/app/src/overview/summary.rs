@@ -356,11 +356,14 @@ impl StatusRow {
 }
 
 /// A tile under the cards: an icon, a title, a value and a line under it,
-/// and for the fans their speeds as bars.
+/// and for the fans their speeds as bars beside the title and the value.
+/// The line under them has the whole width beside the icon, also under the
+/// bars, and breaks only where it does not fit even there.
 struct Tile {
     button: gtk::Button,
     badge: gtk::Image,
     icon: &'static str,
+    name: gtk::Label,
     value: gtk::Label,
     sub: gtk::Label,
     bars: Option<gtk::Box>,
@@ -377,6 +380,7 @@ impl Tile {
         let name = gtk::Label::builder()
             .label(title)
             .xalign(0.0)
+            .hexpand(true)
             .css_classes(["tile-title"])
             .build();
         let value = gtk::Label::builder()
@@ -389,17 +393,14 @@ impl Tile {
             .natural_wrap_mode(gtk::NaturalWrapMode::Word)
             .css_classes(["tile-sub"])
             .build();
-        let texts = gtk::Box::builder()
-            .orientation(gtk::Orientation::Vertical)
-            .hexpand(true)
+        let content = gtk::Grid::builder()
+            .column_spacing(12)
             .valign(gtk::Align::Center)
             .build();
-        texts.append(&name);
-        texts.append(&value);
-        texts.append(&sub);
-        let content = gtk::Box::builder().spacing(12).build();
-        content.append(&badge);
-        content.append(&texts);
+        content.attach(&badge, 0, 0, 1, 3);
+        content.attach(&name, 1, 0, 1, 1);
+        content.attach(&value, 1, 1, 1, 1);
+        content.attach(&sub, 1, 2, 2, 1);
         let bars = bars.then(|| {
             let bars = gtk::Box::builder()
                 .spacing(BARS_GAP)
@@ -407,7 +408,7 @@ impl Tile {
                 .height_request(BARS_HEIGHT)
                 .accessible_role(gtk::AccessibleRole::Presentation)
                 .build();
-            content.append(&bars);
+            content.attach(&bars, 2, 0, 1, 2);
             bars
         });
         let button = gtk::Button::builder()
@@ -419,6 +420,7 @@ impl Tile {
             button,
             badge,
             icon,
+            name,
             value,
             sub,
             bars,
@@ -463,15 +465,7 @@ impl Tile {
                 self.icon
             },
         );
-        let title = self
-            .button
-            .child()
-            .and_then(|content| content.first_child())
-            .and_then(|badge| badge.next_sibling())
-            .and_then(|texts| texts.first_child())
-            .and_downcast::<gtk::Label>()
-            .map(|label| label.label().to_string())
-            .unwrap_or_default();
+        let title = self.name.label();
         self.button.update_property(&[
             gtk::accessible::Property::Label(&format!("{title}: {value}")),
             gtk::accessible::Property::Description(sub),
@@ -1234,6 +1228,35 @@ mod tests {
                             high.unwrap() - low.unwrap() <= 1,
                             "{layout:?}, {free} px free: {heights:?}"
                         );
+                    }
+                }
+            });
+        });
+    }
+
+    /// The line under the value of the fans tile runs under the bars, so
+    /// that the range of speeds stays on one line in the narrowest tile of
+    /// three side by side and at every wider width, in English and Polish,
+    /// with four-digit speeds and eight fans. Needs a display.
+    #[test]
+    fn range_of_the_fans_on_one_line() {
+        crate::gtk_test::run("range_of_the_fans_on_one_line", || {
+            crate::gtk_test::in_app_style(|| {
+                let tile = Tile::new("baseboard-fan-symbolic", "Fans", true);
+                tile.show_bars(&[(1880.0, false); 8]);
+                // (880 - 24 of margins - 2 * 14 between the tiles) / 3.
+                let narrowest = 276;
+                for range in [
+                    "From\u{a0}1013\u{a0}to 1880\u{a0}rpm",
+                    "Od\u{a0}1013\u{a0}do 1880\u{a0}rpm",
+                ] {
+                    tile.show("5 spinning", range, false);
+                    for width in (narrowest..narrowest + 200).step_by(7) {
+                        let (_, height, _, _) =
+                            tile.button.measure(gtk::Orientation::Vertical, width);
+                        tile.button.allocate(width, height, -1, None);
+                        let lines = tile.sub.layout().line_count();
+                        assert_eq!(lines, 1, "{range:?} at {width} px");
                     }
                 }
             });
