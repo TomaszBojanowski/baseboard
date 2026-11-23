@@ -14,8 +14,10 @@
 //! The chart draws its own shapes, so it cannot read colors from CSS: the
 //! colors of warnings are those of libadwaita 1.10 for the light and the
 //! dark style, as in `fan_chart`. It draws only when it gets a new history,
-//! once a sample. For screen readers it is an image described in words
-//! (`describe`).
+//! once a sample, and then only the line: the grid, the labels and the limit
+//! are kept as one render node until the size, the scale, the limit, the
+//! colors or the font change (`Backdrop`). For screen readers it is an image
+//! described in words (`describe`).
 
 use std::cell::{Cell, RefCell};
 
@@ -250,6 +252,31 @@ struct Colors {
     surface: gdk::RGBA,
 }
 
+/// All that the fixed part of the chart is drawn from.
+#[derive(Clone, PartialEq)]
+struct BackdropKey {
+    width: i32,
+    height: i32,
+    scale: Scale,
+    /// The limit inside the scale.
+    limit: Option<f64>,
+    text: gdk::RGBA,
+    grid: gdk::RGBA,
+    limit_line: gdk::RGBA,
+    limit_text: gdk::RGBA,
+    /// The serial of the Pango context, which changes with the font.
+    font: u32,
+}
+
+/// The fixed part of the chart, drawn once: the grid, the labels of the
+/// scale and of time and the limit, and where the plot stands among them.
+struct Backdrop {
+    key: BackdropKey,
+    node: Option<gsk::RenderNode>,
+    left: f64,
+    plot_height: f64,
+}
+
 /// Draws `layout` with its top left corner at (`x`, `top`).
 fn put(snapshot: &gtk::Snapshot, layout: &pango::Layout, x: f64, top: f64, color: &gdk::RGBA) {
     snapshot.save();
@@ -270,6 +297,7 @@ mod imp {
         pub(super) scale: Cell<Option<Scale>>,
         /// The height of the plot; `None` fills the height the chart gets.
         pub(super) height: Cell<Option<i32>>,
+        pub(super) backdrop: RefCell<Option<Backdrop>>,
     }
 
     #[glib::object_subclass]
@@ -372,71 +400,116 @@ impl HistoryChart {
 
     fn draw(&self, snapshot: &gtk::Snapshot) {
         let imp = self.imp();
-        let points = imp.points.borrow();
-        let widget = self.upcast_ref::<gtk::Widget>();
         let colors = self.colors();
         let scale = imp.scale.get().unwrap_or((BOTTOM, TOP));
-        let limit = limit_in(scale, imp.limit.get());
+        let key = BackdropKey {
+            width: self.width(),
+            height: self.height(),
+            scale,
+            limit: limit_in(scale, imp.limit.get()),
+            text: colors.text,
+            grid: colors.grid,
+            limit_line: colors.limit,
+            limit_text: colors.limit_text,
+            font: self.pango_context().serial(),
+        };
+        let mut kept = imp.backdrop.borrow_mut();
+        let backdrop = match kept.take() {
+            Some(backdrop) if backdrop.key == key => backdrop,
+            _ => self.draw_backdrop(key),
+        };
+        if let Some(node) = &backdrop.node {
+            snapshot.append_node(node);
+        }
+        let frame = Frame {
+            left: backdrop.left,
+            right: f64::from(backdrop.key.width),
+            height: backdrop.plot_height,
+            scale,
+        };
+        *kept = Some(backdrop);
+        draw_line(snapshot, &frame, &imp.points.borrow(), &colors);
+    }
+
+    /// The grid, the labels and the limit for `key`, in a node of their own.
+    fn draw_backdrop(&self, key: BackdropKey) -> Backdrop {
+        let widget = self.upcast_ref::<gtk::Widget>();
+        let snapshot = gtk::Snapshot::new();
         let label = |value: f64| layout(widget, &units::degrees(value), TEXT_SCALE, false);
         // As wide as the widest label of the scale, at least "100 °C", so
         // that the plots of cards side by side line up.
-        let margin = [TOP, scale.1]
+        let margin = [TOP, key.scale.1]
             .into_iter()
-            .chain(limit)
+            .chain(key.limit)
             .map(|value| size_of(&label(value)).0)
             .fold(0.0, f64::max);
         let frame = Frame {
             left: margin + LABEL_GAP,
-            right: f64::from(self.width()),
-            height: f64::from(self.height()) - self.time_height(),
-            scale,
+            right: f64::from(key.width),
+            height: f64::from(key.height) - self.time_height(),
+            scale: key.scale,
         };
         let grid_stroke = stroke(1.0, &[], false);
-        for value in grid(scale, limit) {
+        for value in grid(key.scale, key.limit) {
             let y = frame.y(value);
             line(
-                snapshot,
+                &snapshot,
                 (frame.left, y),
                 (frame.right, y),
-                &colors.grid,
+                &key.grid,
                 &grid_stroke,
             );
             let text = label(value);
             let (w, h) = size_of(&text);
-            put(snapshot, &text, margin - w, y - h / 2.0, &colors.text);
+            put(&snapshot, &text, margin - w, y - h / 2.0, &key.text);
         }
-        if let Some(value) = limit {
+        if let Some(value) = key.limit {
             let y = frame.y(value);
             let dashed = stroke(1.25, &[4.0, 4.0], false);
             line(
-                snapshot,
+                &snapshot,
                 (frame.left, y),
                 (frame.right, y),
-                &colors.limit,
+                &key.limit_line,
                 &dashed,
             );
             let text = label(value);
             let (w, h) = size_of(&text);
-            put(snapshot, &text, margin - w, y - h / 2.0, &colors.limit_text);
+            put(&snapshot, &text, margin - w, y - h / 2.0, &key.limit_text);
         }
-        draw_line(snapshot, &frame, &points, &colors);
         let (ago, now) = time_labels();
         let top = frame.height + TIME_GAP;
         put(
-            snapshot,
+            &snapshot,
             &layout(widget, &ago, TEXT_SCALE, false),
             frame.left,
             top,
-            &colors.text,
+            &key.text,
         );
         let now = layout(widget, &now, TEXT_SCALE, false);
         put(
-            snapshot,
+            &snapshot,
             &now,
             frame.right - size_of(&now).0,
             top,
-            &colors.text,
+            &key.text,
         );
+        Backdrop {
+            node: snapshot.to_node(),
+            left: frame.left,
+            plot_height: frame.height,
+            key,
+        }
+    }
+
+    /// The fixed part kept for the next draw (tests).
+    #[cfg(test)]
+    fn kept_backdrop(&self) -> Option<gsk::RenderNode> {
+        self.imp()
+            .backdrop
+            .borrow()
+            .as_ref()
+            .and_then(|backdrop| backdrop.node.clone())
     }
 }
 
@@ -571,6 +644,37 @@ mod tests {
         assert_eq!(grid(normal, Some(80.0)), [40.0, 60.0]);
         assert_eq!(grid(normal, Some(85.0)), [40.0, 60.0]);
         assert_eq!(grid((40.0, 100.0), None), [60.0, 80.0]);
+    }
+
+    /// A new sample draws only the line: the grid and the labels stay one
+    /// node, drawn again when the size, the scale or the limit changes.
+    /// Needs a display.
+    #[test]
+    fn the_fixed_part_is_drawn_once() {
+        crate::gtk_test::run("the_fixed_part_is_drawn_once", || {
+            let chart = HistoryChart::new();
+            let scale = (30.0, 100.0);
+            chart.set_view(steady(10, 40.0), false, Some(95.0), scale);
+            chart.allocate(400, 200, -1, None);
+            let draw = || {
+                chart.draw(&gtk::Snapshot::new());
+                chart.kept_backdrop().unwrap()
+            };
+            // Every node stays alive, so that a new one has a new address.
+            let same = |a: &gsk::RenderNode, b: &gsk::RenderNode| a.as_ptr() == b.as_ptr();
+            let first = draw();
+            assert!(same(&draw(), &first));
+            chart.set_view(steady(20, 45.0), true, Some(95.0), scale);
+            assert!(same(&draw(), &first), "a new sample");
+            chart.set_view(steady(20, 45.0), false, Some(80.0), scale);
+            let limit = draw();
+            assert!(!same(&limit, &first), "another limit");
+            chart.set_view(steady(20, 45.0), false, Some(80.0), (20.0, 100.0));
+            let lower = draw();
+            assert!(!same(&lower, &limit), "another scale");
+            chart.allocate(500, 200, -1, None);
+            assert!(!same(&draw(), &lower), "another size");
+        });
     }
 
     /// Time runs from the left end (five minutes ago) to the right end
