@@ -70,13 +70,13 @@ Linuksowy odpowiednik tych funkcji oprogramowania producenta, które dotyczą sa
 
 | Element | Wartość |
 |---|---|
-| Płyta | `board_name` = „MAG B850M MORTAR WIFI (MS-7E61)”, `board_version` = 1.0, BIOS 1.A68 (09/07/2026) |
+| Płyta | `board_name` = „MAG B850M MORTAR WIFI (MS-7E61)”, `board_version` = 1.0, BIOS 1.A6A (11/18/2026) |
 | CPU | AMD Ryzen 7 9700X, `amd-pstate-epp` |
-| System | Fedora 45, jądro 7.3.3-300.fc45, systemd 262, polkit 127 |
+| System | Fedora 45, jądro 7.3.4-300.fc45, systemd 262, polkit 127 |
 | Biblioteki | GTK 4.24.1, libadwaita 1.10.0, lm_sensors-libs 3.6.0 |
 | Narzędzia | Rust 1.99.1, meson 1.12.1, gettext 1.0 |
 | Usługi | tuned-ppd 2.28 (udostępnia `org.freedesktop.UPower.PowerProfiles`), logind: `CanRebootToFirmwareSetup` = yes |
-| Sterowanie wentylatorami w jądrze | Sterownik z jądra Fedory 7.3.3: `pwm1–4` tylko do odczytu (0444), brak `pwmN_enable` i krzywych. Seria łatek do `nct6683` z `hwmon-next` (gałąź opiekuna hwmon; aplikacja nie podaje wersji jądra, dopóki zmiany nie są w wydanym jądrze, D60; strona i README podają wersję spodziewaną, D72) daje na tej płycie `pwm1`, `pwm2`, `pwm13–16` z `pwmN_enable`; płyta ma customer ID 0x20D, które ta seria obejmuje. Sprawdzone modułem testowym 2026-11-06, łącznie z zapisem na `pwm16`. |
+| Sterowanie wentylatorami w jądrze | Sterownik z jądra Fedory 7.3.4: `pwm1–4` tylko do odczytu (0444), brak `pwmN_enable` i krzywych. Seria łatek do `nct6683` z `hwmon-next` (gałąź opiekuna hwmon; aplikacja nie podaje wersji jądra, dopóki zmiany nie są w wydanym jądrze, D60; strona i README podają wersję spodziewaną, D72) daje na tej płycie `pwm1`, `pwm2`, `pwm13–16` z `pwmN_enable`; płyta ma customer ID 0x20D, które ta seria obejmuje. Sprawdzone modułem testowym 2026-11-06, łącznie z zapisem na `pwm16`. |
 | Sterownik z naszymi łatkami (moduł testowy) | `hwmon-next` (`9cb64fddec6e`, z serią v1 przyjętą 2026-11-14 jako `07fb058cc090` i `09e30fd080f9`): `pwm1`, `pwm2`, `pwm13–16` z `_enable`, `pwmN_auto_point[1-7]_{temp,pwm}` 0644, `pwmN_auto_channels_temp` 0444; przy wyładowaniu przywraca automat na kanałach przełączonych przez sysfs na tryb ręczny. Moduł pod 7.3.3 przetestowany 2026-11-15: zapis krzywych i powrót do automatu działają. Budowanie, podpisywanie i ładowanie modułu spoza drzewa jądra do testów opisują notatki lokalne właściciela, poza repozytorium. |
 
 ---
@@ -484,7 +484,7 @@ Wyłącznie po atrybutach sysfs, **osobno dla każdego kanału**. Nigdy po wersj
 
 | `DriverLevel` | Warunek | Typowy sterownik |
 |---|---|---|
-| `read-only` | żaden kanał nie ma `mode` | jądro Fedory 7.3.3 |
+| `read-only` | żaden kanał nie ma `mode` | jądro Fedory 7.3.4 |
 | `manual` | `mode` i `duty-write`, bez `curve-read` | jądro z częścią łatek z `hwmon-next` (np. przeniesioną przez dystrybucję); w `hwmon-next` tryb ręczny wchodzi razem z odczytem krzywych |
 | `manual+curve-view` | dodatkowo `curve-read` | `hwmon-next` sprzed 2026-11-14 (bez serii v1) |
 | `curves` | dodatkowo `curve-write` | `hwmon-next` od 2026-11-14 (dziś moduł testowy) |
@@ -496,7 +496,7 @@ Wyłącznie po atrybutach sysfs, **osobno dla każdego kanału**. Nigdy po wersj
 
 Według poziomu sterownika, wydania (D47) i tego, czy jest pomocnik. Flatpak wygląda tak samo jak instalacja natywna, bo odczyt sysfs działa w piaskownicy (§10.1); różnią się tylko komunikaty o uprawnieniu D-Bus i okno polkit od agenta gospodarza (O19).
 
-| | `read-only` (wydane jądra, dziś Fedora 7.3.3) | `manual` | `manual+curve-view` (`hwmon-next` bez v1) | `curves` (`hwmon-next`, moduł testowy) |
+| | `read-only` (wydane jądra, dziś Fedora 7.3.4) | `manual` | `manual+curve-view` (`hwmon-next` bez v1) | `curves` (`hwmon-next`, moduł testowy) |
 |---|---|---|---|---|
 | Przegląd | obroty; wypełnienie procesora, pompy i wentylatora dodatkowego; SYS 1–4 bez wypełnienia | obroty i wypełnienie wszystkich złączy; tryb ręczny w podtytule, automat bez dopisku (D59) | jak `manual` | jak `manual` |
 | Wentylatory, 0.2.0 (sam podgląd, bez pomocnika) | pod dużą temperaturą procesora zdanie „Ten system na razie tylko odczytuje wentylatory. Sterowanie pojawi się w jednej z przyszłych wersji Linuksa.” z linkiem „Stan w jądrze” (strona projektu), bez numeru wersji jądra (D60, D62); lista z obrotami i wypełnieniem tam, gdzie jest, bez wykresów | lista z obrotami i wypełnieniem, tryb ręczny jako „Ręcznie”, bez wykresu; stopka „Baseboard na razie tylko pokazuje ustawienia wentylatorów z BIOS-u.” (D62) | jak `manual`, z małym wykresem krzywej w wierszu i stroną „Szczegóły krzywej” | jak `manual+curve-view` |
@@ -847,7 +847,7 @@ Stan z lokalnego drzewa jądra właściciela 2026-11-15; `hwmon-next` to `9cb64f
 
 | Gdzie | Zmiany w `nct6683` | Poziom na MS-7E61 | Co daje Baseboard |
 |---|---|---|---|
-| Wydane jądra (7.3; Fedora 7.3.3) i drzewo Linusa do v7.4-rc2 | odczyty; w v7.4-rc2 m.in. `c4a01c2a80b2` (poprawka rzutowania w `show_pwm()` i `store_pwm()`), `f9c5d495e22f` i `04f4079ee61a` (listy płyt) | `read-only`: `pwm1–4` 0444, bez `pwmN_enable` i krzywych | M2a: karty z obrotami i wypełnieniem, wyjaśnienie |
+| Wydane jądra (7.3; Fedora 7.3.4) i drzewo Linusa do v7.4-rc2 | odczyty; w v7.4-rc2 m.in. `c4a01c2a80b2` (poprawka rzutowania w `show_pwm()` i `store_pwm()`), `f9c5d495e22f` i `04f4079ee61a` (listy płyt) | `read-only`: `pwm1–4` 0444, bez `pwmN_enable` i krzywych | M2a: karty z obrotami i wypełnieniem, wyjaśnienie |
 | `hwmon-next` | `5410a1257e26` sterowanie wentylatorami płyt MSI z NCT6687D-R (seria Hamzy), `f62e305a9b72` wypełnienie wentylatorów SYS, `25447f635e86` odczyt krzywych, `3ae11c0f39c6` tryb ręczny po wznowieniu, `e557208cc48d`, `c5d0e09bad58`; od 2026-11-14 nasza seria v1 (`07fb058cc090`, `09e30fd080f9`: zapis punktów krzywych; `pwmN_auto_channels_temp` dalej 0444) i seria Dahlina (`ea8c6b17c9b5`: powrót do automatu przy wyładowaniu modułu na kanałach przełączonych przez sysfs na tryb ręczny; pozostałe jej łatki dotyczą płyt ASRock) | `curves` | M2a: podgląd krzywych i źródła; M2b: tryb ręczny i edytor krzywych |
 | Łatka 5 | wysłana na linux-hwmon (v2 2026-11-17, według właściciela), czeka na recenzję | `curves+source` | M2c: wybór źródła |
 
