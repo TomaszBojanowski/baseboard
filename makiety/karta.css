@@ -35,14 +35,16 @@
 /* the line of the last 5 minutes (D80, drawn by Karta.draw): a plot of a
    fixed height, in a card of one row as tall as the temperature and the
    facts beside it, and the labels of time under it */
-.hchart { display: flex; flex-direction: column; color: var(--accent-bg); }
+:root { --hist-grid: .16; --hist-strong: .30; --hist-weak: .09; --hist-limit: #9c6e03; }
+:root[data-theme="dark"] { --hist-grid: .15; --hist-strong: .42; --hist-weak: .14; --hist-limit: rgb(205 147 9 / .8); }
+.hchart { display: flex; flex-direction: column; color: var(--accent); --hist-fill: var(--accent-bg); }
 .hplot { position: relative; height: 160px; }
 .hplot svg { position: absolute; inset: 0; overflow: visible; }
 .hl { font-size: 12px; fill: var(--window-fg); opacity: .72; font-variant-numeric: tabular-nums; }
 .hl.warn { fill: var(--warning); opacity: 1; }
-.hg { stroke: var(--window-fg); stroke-opacity: .1; stroke-width: 1; shape-rendering: crispEdges; }
-.hlimit { stroke: var(--warning-bg); stroke-opacity: .8; stroke-width: 1.25; stroke-dasharray: 4 4; }
-.hline { fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; }
+.hg { stroke: var(--window-fg); stroke-opacity: var(--hist-grid); stroke-width: 1; shape-rendering: crispEdges; }
+.hlimit { stroke: var(--hist-limit); stroke-width: 1.25; stroke-dasharray: 4 4; }
+.hline { fill: none; stroke: currentColor; stroke-width: 2.75; stroke-linejoin: round; stroke-linecap: round; }
 .hdot { fill: currentColor; }
 .hring { fill: var(--surface); }
 .htime { display: flex; justify-content: space-between; font-size: 82%; opacity: .72; margin-top: 4px; color: var(--window-fg); }
@@ -68,7 +70,7 @@
 .pc-note.reserved { visibility: hidden; }
 /* close to its limit: the number and the line in the color of warnings */
 .pcard.hot .pc-num .n { color: var(--warning); }
-.pcard.hot .hchart { color: var(--warning-bg); }
+.pcard.hot .hchart { color: var(--warning); --hist-fill: var(--warning-bg); }
 
 @container (max-width: 1099px) {
   .pc-num .n { font-size: 56px; }

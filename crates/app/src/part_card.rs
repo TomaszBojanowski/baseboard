@@ -597,7 +597,7 @@ mod tests {
                 value: 95.0,
                 words: "At 95\u{a0}°C it slows down to avoid overheating.".into(),
             }),
-            scale: (30.0, 100.0),
+            scale: (0.0, 100.0),
             facts: vec![
                 Fact {
                     title: "CPU fan".into(),

@@ -80,18 +80,19 @@
   }
 
   // Draws every line of the page at its size, as `app::history_chart`:
-  // one scale for all cards, 30–100 °C, lower or higher in whole 10 °C
-  // when a reading needs it; lines at 40, 60 and 80 °C labeled on the left,
+  // one scale for all cards, 0–100 °C, lower or higher in whole 10 °C when
+  // a reading needs it; lines at 20, 40, 60 and 80 °C labeled on the left,
   // a line closer than 10 °C to the limit giving way to it; the limit
-  // dashed in the color of warnings; time from the left (five minutes ago)
-  // to the dot over "now". Pages call it once the window has its size.
+  // dashed in the color of warnings; a fill from the highest point of the
+  // line to the bottom; time from the left (five minutes ago) to the dot
+  // over "now". Pages call it once the window has its size.
   function draw() {
     const charts = [...document.querySelectorAll(".hchart")];
     const series = charts.map(el => el.dataset.values.split(" ").map(Number));
     const all = series.flat();
-    const bottom = Math.floor(Math.min(30, ...all) / 10) * 10;
+    const bottom = Math.floor(Math.min(0, ...all) / 10) * 10;
     const top = Math.ceil(Math.max(100, ...all) / 10) * 10;
-    const DOT = 4.5, RING = 2.5, PAD = DOT + RING, MARGIN = 46;
+    const DOT = 5.5, RING = 2.5, PAD = DOT + RING, MARGIN = 46;
     charts.forEach((el, n) => {
       const values = series[n];
       const plot = el.querySelector(".hplot");
@@ -104,7 +105,7 @@
       const label = (v, cls) =>
         `<text class="hl${cls}" x="${MARGIN - 8}" y="${f(Y(v) + 4)}" text-anchor="end">${v}${NB}°C</text>`;
       let svg = "";
-      for (const g of [40, 60, 80]) {
+      for (const g of [20, 40, 60, 80]) {
         if (g <= bottom || g >= top || (shown != null && Math.abs(shown - g) < 10)) continue;
         svg += `<line class="hg" x1="${MARGIN}" x2="${W}" y1="${f(Y(g))}" y2="${f(Y(g))}"/>${label(g, "")}`;
       }
@@ -113,9 +114,9 @@
       }
       const line = values.map((v, i) => `${f(X(i))},${f(Y(v))}`).join(" L");
       const id = `hg${n}`;
-      svg += `<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="0" y1="${PAD}" x2="0" y2="${H}">
-          <stop offset="0" style="stop-color:currentColor;stop-opacity:.16"/>
-          <stop offset="1" style="stop-color:currentColor;stop-opacity:0"/></linearGradient></defs>
+      svg += `<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="0" y1="${f(Y(Math.max(...values)))}" x2="0" y2="${H}">
+          <stop offset="0" style="stop-color:var(--hist-fill);stop-opacity:var(--hist-strong)"/>
+          <stop offset="1" style="stop-color:var(--hist-fill);stop-opacity:var(--hist-weak)"/></linearGradient></defs>
         <path d="M${line} L${f(X(values.length - 1))},${H} L${f(X(0))},${H} Z" style="fill:url(#${id})"/>
         <path class="hline" d="M${line}"/>
         <circle class="hring" cx="${f(X(values.length - 1))}" cy="${f(Y(values[values.length - 1]))}" r="${DOT + RING}"/>

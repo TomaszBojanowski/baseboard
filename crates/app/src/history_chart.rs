@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The last five minutes of a temperature on a card (docs/PROJEKT.md §5.1,
-//! D67, D80): a line with a light fill under it and the newest reading as a
-//! dot at the right end, in the accent color, or in the color of warnings
-//! while the part is close to its limit. Every card has the same scale,
-//! 30–100 °C, lower or higher in whole 10 °C when a reading needs it, with
-//! lines at 40, 60 and 80 °C labeled in a margin on the left and the part's
-//! limit as a dashed line in the color of warnings. Time always spans five
-//! minutes, from "5 min ago" under the left end to "now" under the dot: a
-//! short history grows from the right, and a gap in the samples is a gap in
-//! the line.
+//! D67, D80, D81): a line with a clear fill from its highest point down to
+//! the bottom and the newest reading as a dot at the right end, in the
+//! accent color, or in the color of warnings while the part is close to its
+//! limit. Every card has the same scale, 0–100 °C, lower or higher in whole
+//! 10 °C when a reading needs it, with lines at 20, 40, 60 and 80 °C labeled
+//! in a margin on the left and the part's limit as a dashed line in the
+//! color of warnings. Time always spans five minutes, from "5 min ago" under
+//! the left end to "now" under the dot: a short history grows from the
+//! right, and a gap in the samples is a gap in the line.
 //!
 //! The chart draws its own shapes, so it cannot read colors from CSS: the
 //! colors of warnings are those of libadwaita 1.10 for the light and the
@@ -44,18 +44,20 @@ pub struct Limit {
 }
 
 /// The scale while every reading is inside it, in °C.
-const BOTTOM: f64 = 30.0;
+const BOTTOM: f64 = 0.0;
 const TOP: f64 = 100.0;
 /// The scale grows by this many degrees at a time.
 const STEP: f64 = 10.0;
 /// The lines of the grid, in °C.
-const GRID: [f64; 3] = [40.0, 60.0, 80.0];
+const GRID: [f64; 4] = [20.0, 40.0, 60.0, 80.0];
 /// A line of the grid closer than this to the limit gives way to it: their
 /// labels would overlap.
 const NEAR_LIMIT: f64 = 10.0;
+/// The width of the line.
+const LINE: f32 = 2.75;
 /// Room for the dot at the right end and for the line at the top and the
 /// bottom.
-const DOT: f64 = 4.5;
+const DOT: f64 = 5.5;
 const RING: f64 = 2.5;
 const PAD_Y: f64 = DOT + RING;
 /// Between the labels of the scale and the plot.
@@ -185,9 +187,9 @@ pub fn describe(points: &Points, trend: Trend, limit: Option<&str>) -> String {
 /// The bottom and the top of a scale, in °C.
 pub type Scale = (f64, f64);
 
-/// The one scale of every card (D80), for the `values` of all their
-/// histories: 30–100 °C, lower or higher in whole 10 °C when a reading
-/// needs it, so that the lines of cards side by side match.
+/// The one scale of every card (D80, D81), for the `values` of all their
+/// histories: 0–100 °C, lower or higher in whole 10 °C when a reading needs
+/// it, so that the lines of cards side by side match.
 pub fn scale(values: impl IntoIterator<Item = f64>) -> Scale {
     let (lo, hi) = values
         .into_iter()
@@ -240,6 +242,18 @@ impl Frame {
         let (bottom, top) = self.scale;
         PAD_Y + (top - value) / (top - bottom) * (self.height - 2.0 * PAD_Y)
     }
+
+    /// Where a thin line at `value` stands: in the middle of a row of
+    /// pixels, so that it stays sharp and keeps its contrast.
+    fn sharp_y(&self, value: f64) -> f64 {
+        self.y(value).floor() + 0.5
+    }
+
+    /// Where the fill under `points` is strongest: at their highest point,
+    /// so that a low line has as clear a fill as a high one.
+    fn crest(&self, points: &Points) -> f64 {
+        range(points).map_or(PAD_Y, |(_, highest)| self.y(highest))
+    }
 }
 
 /// The colors of one style.
@@ -249,6 +263,9 @@ struct Colors {
     limit: gdk::RGBA,
     limit_text: gdk::RGBA,
     line: gdk::RGBA,
+    /// The fill at the highest point of the line and at the bottom.
+    fill_top: gdk::RGBA,
+    fill_bottom: gdk::RGBA,
     surface: gdk::RGBA,
 }
 
@@ -384,17 +401,36 @@ impl HistoryChart {
         };
         let fg = self.color();
         let warning = hex("#e5a50a", "#cd9309");
+        let warning_text = hex("#9c6e03", "#f8e45c");
+        // The line in the color for text and thin shapes, which has the
+        // contrast on a card; the fill in the color for large areas.
+        let (line, fill) = if self.imp().hot.get() {
+            (warning_text, warning)
+        } else {
+            (
+                style.accent_color().to_standalone_rgba(dark),
+                style.accent_color_rgba(),
+            )
+        };
+        let (strong, weak) = if dark { (0.42, 0.14) } else { (0.30, 0.09) };
+        let grid = match (contrast, dark) {
+            (true, _) => 0.25,
+            (false, true) => 0.15,
+            (false, false) => 0.16,
+        };
         Colors {
             text: alpha(&fg, if contrast { 1.0 } else { 0.72 }),
-            grid: alpha(&fg, if contrast { 0.25 } else { 0.1 }),
-            limit: alpha(&warning, 0.8),
-            limit_text: hex("#9c6e03", "#f8e45c"),
-            line: if self.imp().hot.get() {
-                warning
+            grid: alpha(&fg, grid),
+            limit: if dark {
+                alpha(&warning, 0.8)
             } else {
-                style.accent_color_rgba()
+                warning_text
             },
-            surface: hex("#ffffff", "#38383c"),
+            limit_text: warning_text,
+            line,
+            fill_top: alpha(&fill, strong),
+            fill_bottom: alpha(&fill, weak),
+            surface: hex("#ffffff", "#333337"),
         }
     }
 
@@ -451,7 +487,7 @@ impl HistoryChart {
         };
         let grid_stroke = stroke(1.0, &[], false);
         for value in grid(key.scale, key.limit) {
-            let y = frame.y(value);
+            let y = frame.sharp_y(value);
             line(
                 &snapshot,
                 (frame.left, y),
@@ -464,7 +500,7 @@ impl HistoryChart {
             put(&snapshot, &text, margin - w, y - h / 2.0, &key.text);
         }
         if let Some(value) = key.limit {
-            let y = frame.y(value);
+            let y = frame.sharp_y(value);
             let dashed = stroke(1.25, &[4.0, 4.0], false);
             line(
                 &snapshot,
@@ -516,7 +552,8 @@ impl HistoryChart {
 /// The line in its pieces with the fill under them, and the dot.
 fn draw_line(snapshot: &gtk::Snapshot, frame: &Frame, points: &Points, colors: &Colors) {
     let bottom = frame.height;
-    let line_stroke = stroke(2.25, &[], true);
+    let crest = frame.crest(points);
+    let line_stroke = stroke(LINE, &[], true);
     for piece in pieces(points) {
         let at: Vec<(f64, f64)> = piece
             .iter()
@@ -531,11 +568,11 @@ fn draw_line(snapshot: &gtk::Snapshot, frame: &Frame, points: &Points, colors: &
         snapshot.push_fill(&polyline(&area), gsk::FillRule::Winding);
         snapshot.append_linear_gradient(
             &gtk::graphene::Rect::new(0.0, 0.0, frame.right as f32, bottom as f32),
-            &point(0.0, PAD_Y),
+            &point(0.0, crest),
             &point(0.0, bottom),
             &[
-                gsk::ColorStop::new(0.0, alpha(&colors.line, 0.16)),
-                gsk::ColorStop::new(1.0, alpha(&colors.line, 0.0)),
+                gsk::ColorStop::new(0.0, colors.fill_top),
+                gsk::ColorStop::new(1.0, colors.fill_bottom),
             ],
         );
         snapshot.pop();
@@ -617,33 +654,58 @@ mod tests {
         assert_eq!(period(&steady(400, 40.0)), "Last 5 minutes");
     }
 
-    /// One scale for every card: 30–100 °C, lower or higher in whole 10 °C
+    /// One scale for every card: 0–100 °C, lower or higher in whole 10 °C
     /// when a reading of any card needs it; the limit only inside it.
     #[test]
     fn scale_of_every_card() {
-        assert_eq!(scale([45.0, 50.0]), (30.0, 100.0));
-        assert_eq!(scale([72.0, 88.0]), (30.0, 100.0));
-        // A graphics card resting at 29 °C lowers the scale of all cards.
-        assert_eq!(scale([41.0, 42.0, 29.0, 38.0]), (20.0, 100.0));
-        assert_eq!(scale([90.0, 104.0]), (30.0, 110.0));
-        assert_eq!(scale([]), (30.0, 100.0));
-        assert_eq!(limit_in((30.0, 100.0), Some(95.0)), Some(95.0));
-        assert_eq!(limit_in((30.0, 100.0), Some(100.0)), Some(100.0));
-        assert_eq!(limit_in((30.0, 100.0), Some(105.0)), None);
-        assert_eq!(limit_in((30.0, 100.0), None), None);
+        assert_eq!(scale([45.0, 50.0]), (0.0, 100.0));
+        assert_eq!(scale([72.0, 88.0]), (0.0, 100.0));
+        // A graphics card resting at 25 °C moves no scale.
+        assert_eq!(scale([41.0, 42.0, 25.0, 38.0]), (0.0, 100.0));
+        assert_eq!(scale([41.0, -3.0]), (-10.0, 100.0));
+        assert_eq!(scale([90.0, 104.0]), (0.0, 110.0));
+        assert_eq!(scale([]), (0.0, 100.0));
+        assert_eq!(limit_in((0.0, 100.0), Some(95.0)), Some(95.0));
+        assert_eq!(limit_in((0.0, 100.0), Some(100.0)), Some(100.0));
+        assert_eq!(limit_in((0.0, 100.0), Some(105.0)), None);
+        assert_eq!(limit_in((0.0, 100.0), None), None);
     }
 
-    /// The lines at 40, 60 and 80 °C; one that the limit falls on, or near
-    /// enough for their labels to overlap, gives way to it.
+    /// The lines at 20, 40, 60 and 80 °C; one that the limit falls on, or
+    /// near enough for their labels to overlap, gives way to it.
     #[test]
     fn grid_and_limit() {
-        let normal = (30.0, 100.0);
-        assert_eq!(grid(normal, None), [40.0, 60.0, 80.0]);
-        assert_eq!(grid(normal, Some(95.0)), [40.0, 60.0, 80.0]);
-        assert_eq!(grid(normal, Some(100.0)), [40.0, 60.0, 80.0]);
-        assert_eq!(grid(normal, Some(80.0)), [40.0, 60.0]);
-        assert_eq!(grid(normal, Some(85.0)), [40.0, 60.0]);
+        let normal = (0.0, 100.0);
+        assert_eq!(grid(normal, None), [20.0, 40.0, 60.0, 80.0]);
+        assert_eq!(grid(normal, Some(95.0)), [20.0, 40.0, 60.0, 80.0]);
+        assert_eq!(grid(normal, Some(100.0)), [20.0, 40.0, 60.0, 80.0]);
+        assert_eq!(grid(normal, Some(80.0)), [20.0, 40.0, 60.0]);
+        assert_eq!(grid(normal, Some(85.0)), [20.0, 40.0, 60.0]);
         assert_eq!(grid((40.0, 100.0), None), [60.0, 80.0]);
+    }
+
+    /// At rest a line stands well over the bottom, the fill is strongest at
+    /// its highest point however low that is, and the lines of the grid
+    /// stand in the middle of a row of pixels.
+    #[test]
+    fn rest_stands_over_the_bottom() {
+        let frame = Frame {
+            left: 50.0,
+            right: 400.0,
+            height: 216.0,
+            scale: (0.0, 100.0),
+        };
+        let above =
+            |value: f64| (frame.height - PAD_Y - frame.y(value)) / (frame.height - 2.0 * PAD_Y);
+        for (value, share) in [(40.0, 0.40), (36.0, 0.36), (25.0, 0.25)] {
+            assert!((above(value) - share).abs() < 1e-9, "{value}");
+        }
+        let low = steady(30, 40.0);
+        assert_eq!(frame.crest(&low), frame.y(40.0));
+        assert_eq!(frame.crest(&Vec::new()), PAD_Y);
+        let y = frame.sharp_y(33.0);
+        assert_eq!(y.fract(), 0.5);
+        assert!((y - frame.y(33.0)).abs() <= 0.5);
     }
 
     /// A new sample draws only the line: the grid and the labels stay one
@@ -691,13 +753,14 @@ mod tests {
             left: 50.0,
             right: 350.0 + DOT + RING,
             height: 100.0,
-            scale: (30.0, 100.0),
+            scale: (0.0, 100.0),
         };
         let &(age, value) = pieces[1].last().unwrap();
         assert!((frame.x(age) - 350.0).abs() < 1e-9);
-        // 41 °C on 30–100 °C: in the lower sixth of the plot.
+        // 41 °C on 0–100 °C: 41 % of the way up the plot.
         let y = frame.y(value);
-        assert!(y > 100.0 - PAD_Y - 86.0 / 6.0 && y < 100.0 - PAD_Y, "{y}");
+        let span = 100.0 - 2.0 * PAD_Y;
+        assert!((y - (100.0 - PAD_Y - 0.41 * span)).abs() < 1e-9, "{y}");
         // The oldest point, 259 s back, near the left end.
         assert!(frame.x(pieces[0][0].0) < 50.0 + 300.0 * (1.0 - 259.0 / 300.0) + 1e-9);
         // Thirty seconds of history stand in the right tenth.

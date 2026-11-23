@@ -871,9 +871,9 @@ mod tests {
         }
     }
 
-    /// The cards share one scale of their lines (D80): a graphics card
-    /// resting under 30 °C lowers it for the processor's card too, on the
-    /// Overview and on the Fans page alike.
+    /// The cards share one scale of their lines (D80, D81): a graphics card
+    /// at rest moves it for no card, and a reading outside 0–100 °C moves it
+    /// for all, on the Overview and on the Fans page alike.
     #[test]
     fn one_scale_for_the_cards() {
         use baseboard_core::readings::{Group, Name, Row, Subtitle};
@@ -913,9 +913,13 @@ mod tests {
         };
         let mut histories = Histories::default();
         histories.update(&sample(41.0, 35.0), baseboard_core::history::Moment::now());
-        assert_eq!(cards_scale(&summary, &histories), (30.0, 100.0));
-        histories.update(&sample(42.0, 29.0), baseboard_core::history::Moment::now());
-        assert_eq!(cards_scale(&summary, &histories), (20.0, 100.0));
+        assert_eq!(cards_scale(&summary, &histories), (0.0, 100.0));
+        histories.update(&sample(42.0, 25.0), baseboard_core::history::Moment::now());
+        assert_eq!(cards_scale(&summary, &histories), (0.0, 100.0));
+        histories.update(&sample(42.0, -3.0), baseboard_core::history::Moment::now());
+        assert_eq!(cards_scale(&summary, &histories), (-10.0, 100.0));
+        histories.update(&sample(104.0, 25.0), baseboard_core::history::Moment::now());
+        assert_eq!(cards_scale(&summary, &histories), (-10.0, 110.0));
     }
 
     /// The board's card: "Normal", a rail with its value as on the render,
