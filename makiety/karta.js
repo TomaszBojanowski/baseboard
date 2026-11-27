@@ -59,7 +59,7 @@
   // The limit in words, as the status sentence says it.
   const limitWords = (processor, limit) => processor
     ? `Przy ${limit}${NB}°C zaczyna zwalniać, żeby się nie przegrzać.`
-    : `Granica to ${limit}${NB}°C.`;
+    : `Limit to ${limit}${NB}°C.`;
   // The range as a fact: "Od 72 do 88 °C", or one value.
   function fromTo(values) {
     const { lo, hi } = range(values);

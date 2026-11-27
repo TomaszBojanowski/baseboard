@@ -385,7 +385,7 @@ msgstr "Przy {limit} zaczyna zwalniać, żeby się nie przegrzać."
 #: crates/app/src/alert.rs:103
 #, rust-format
 msgid "The limit is {limit}."
-msgstr "Granica to {limit}."
+msgstr "Limit to {limit}."
 
 #. Translators: the status sentence on top of the Overview and the
 #. System page.
