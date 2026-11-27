@@ -85,7 +85,7 @@ Choosing the temperature source will follow the interface of the patch on the ma
 
 | Level | What Baseboard does | What it needs from the kernel | State in the kernel |
 |---|---|---|---|
-| Read only | Shows temperatures, voltages and fan speeds (Baseboard 0.2.0) | The `nct6683` driver | In current kernels (checked with Fedora's 7.3.4 kernel) |
+| Read only | Shows temperatures, voltages and fan speeds (Baseboard 0.2.0) | The `nct6683` driver | In current kernels (checked with Fedora's 7.3.6 kernel) |
 | Manual control | Lets you set each fan to a fixed speed, in percent (a later Baseboard version) | Writable `pwmN` and `pwmN_enable` | In `hwmon-next`, the hwmon maintainer's tree; not in a released kernel yet |
 | Curve view | Shows the fan curves stored in the board and the temperature each one follows (Baseboard 0.2.0) | Readable `pwmN_auto_point*` and `pwmN_auto_channels_temp` | In `hwmon-next`; not in a released kernel yet |
 | Curve editing | Lets you change the fan curves; the board keeps running them when the app is closed (a later Baseboard version) | Writable `pwmN_auto_point*` | In `hwmon-next` since 2026-11-14 ([v1 thread](https://lore.kernel.org/linux-hwmon/20261109223442.509238-1-tomasz@bojanowski.me/)); not in a released kernel yet |
