@@ -38,9 +38,14 @@ run() {
     printf '%s\n' '[Settings]' 'gtk-font-name=Adwaita Sans 11' 'gtk-xft-antialias=1' \
         'gtk-xft-hinting=1' 'gtk-xft-hintstyle=hintslight' 'gtk-xft-rgba=none' \
         > "$home/config/gtk-4.0/settings.ini"
+    # Without a shader cache: xvfb-run stops Xvfb without waiting for it, and
+    # Xvfb, on its way out, sets up its screen again and with it the Mesa
+    # cache in XDG_CACHE_HOME, so it would create the home anew after rm.
+    # Each run starts with an empty cache anyway.
     env -u WAYLAND_DISPLAY -u DBUS_SESSION_BUS_ADDRESS -u GTK_A11Y -u NO_AT_BRIDGE \
         -u BASEBOARD_SYSFS_ROOT \
         GDK_BACKEND=x11 ADW_DISABLE_PORTAL=1 GDK_DEBUG=no-portals GSETTINGS_BACKEND=memory \
+        MESA_SHADER_CACHE_DISABLE=true \
         XDG_RUNTIME_DIR="$home/runtime" XDG_CONFIG_HOME="$home/config" \
         XDG_DATA_HOME="$home/data" XDG_CACHE_HOME="$home/cache" XDG_STATE_HOME="$home/state" \
         LC_ALL="$locale" LANGUAGE="$lang" \
