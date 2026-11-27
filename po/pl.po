@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: baseboard\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-17 21:03+0100\n"
+"POT-Creation-Date: 2026-11-23 22:15+0100\n"
 "PO-Revision-Date: 2026-11-11 20:30+0100\n"
 "Last-Translator: Tomasz Bojanowski <tomasz@bojanowski.me>\n"
 "Language-Team: \n"
@@ -176,13 +176,65 @@ msgstr "Przegląd w ciemnym stylu"
 
 #: data/me.bojanowski.Baseboard.metainfo.xml.in:74
 msgid ""
+"New temperature charts. Baseboard still only reads: it does not change any "
+"setting."
+msgstr ""
+"Nowe wykresy temperatur. Baseboard nadal tylko odczytuje: nie zmienia "
+"żadnych ustawień."
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:76
+msgid ""
+"The five-minute charts use one scale of 0 to 100 °C on every card, with "
+"degree labels and the limit of each part where it is known, so the same "
+"temperature stands at the same height"
+msgstr ""
+"Wykresy ostatnich 5 minut mają na każdej karcie tę samą skalę od 0 do 100 "
+"°C, z podpisami stopni i limitem danej części, jeśli jest znany, więc ta "
+"sama temperatura stoi na tej samej wysokości"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:77
+msgid ""
+"A clearer line and fill, with the range of the last five minutes beside the "
+"temperature"
+msgstr ""
+"Wyraźniejsza linia i wypełnienie, a zakres z ostatnich 5 minut stoi obok "
+"temperatury"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:78
+msgid ""
+"In a larger window the charts grow with it, within limits, and stay wider "
+"than tall"
+msgstr ""
+"W większym oknie wykresy rosną razem z nim, w rozsądnych granicach, i "
+"pozostają szersze niż wyższe"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:79
+msgid ""
+"On AMD processors the processor's chart no longer has gaps for the time the "
+"window was hidden"
+msgstr ""
+"Na procesorach AMD wykres procesora nie ma już przerw z czasu, gdy okno było "
+"ukryte"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:80
+msgid "The range of fan speeds on the Fans tile stays on one line"
+msgstr "Zakres obrotów na kafelku Wentylatory mieści się w jednym wierszu"
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:82
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:95
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:107
+msgid "Fan control comes in a later version."
+msgstr "Sterowanie wentylatorami pojawi się w jednej z kolejnych wersji."
+
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:87
+msgid ""
 "Small improvements after 0.2.0. Baseboard still only reads: it does not "
 "change any setting."
 msgstr ""
 "Drobne poprawki po wersji 0.2.0. Baseboard nadal tylko odczytuje: nie "
 "zmienia żadnych ustawień."
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:76
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:89
 msgid ""
 "In a large window, the five-minute charts on the Overview and Fans pages "
 "grow to fill the free space, up to a square, instead of leaving the bottom "
@@ -192,20 +244,20 @@ msgstr ""
 "wypełniają wolne miejsce, najwyżej do kwadratu, zamiast zostawiać pusty dół "
 "okna; okna 1200 × 800 i mniejsze wyglądają jak dotąd"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:77
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:90
 msgid "Diagnostics is now a single list, like in GNOME Settings"
 msgstr "„Diagnostyka” to teraz jedna lista, jak w Ustawieniach GNOME"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:78
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:91
 msgid "Icons for disks, wired and Wi-Fi network cards on the System page"
 msgstr ""
 "Ikony dysków, przewodowych kart sieciowych i kart Wi-Fi na stronie System"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:79
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:92
 msgid "The status icon is now centred in its row"
 msgstr "Znak stanu jest teraz wyśrodkowany w swoim wierszu"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:80
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:93
 msgid ""
 "Screen readers now read the value and subtitle of each row and announce each "
 "new warning once"
@@ -213,12 +265,7 @@ msgstr ""
 "Czytniki ekranu podają teraz wartość i podtytuł każdego wiersza i raz "
 "ogłaszają każde nowe ostrzeżenie"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:82
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:94
-msgid "Fan control comes in a later version."
-msgstr "Sterowanie wentylatorami pojawi się w jednej z kolejnych wersji."
-
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:87
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:100
 msgid ""
 "A new look and a Fans page. Baseboard still only reads: it does not change "
 "any setting."
@@ -226,7 +273,7 @@ msgstr ""
 "Nowy wygląd i strona Wentylatory. Baseboard nadal tylko odczytuje: nie "
 "zmienia żadnych ustawień."
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:89
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:102
 msgid ""
 "A new Overview: the processor, graphics card and board with their "
 "temperature over the last five minutes, and the fans, memory and disks at a "
@@ -235,7 +282,7 @@ msgstr ""
 "Nowy Przegląd: procesor, karta graficzna i płyta z temperaturą z ostatnich 5 "
 "minut oraz wentylatory, pamięć i dyski w skrócie"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:90
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:103
 msgid ""
 "A Fans page with the speed and duty cycle of every fan and, where the kernel "
 "driver reports them, the curves the board runs the fans by"
@@ -243,7 +290,7 @@ msgstr ""
 "Strona Wentylatory z obrotami i wypełnieniem każdego wentylatora oraz, gdy "
 "sterownik jądra je podaje, krzywymi, według których płyta nimi steruje"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:91
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:104
 msgid ""
 "A new System page, short like About in GNOME Settings, with the details one "
 "click away"
@@ -251,7 +298,7 @@ msgstr ""
 "Nowa strona System, krótka jak „O systemie” w Ustawieniach GNOME, ze "
 "szczegółami o jedno kliknięcie dalej"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:92
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:105
 msgid ""
 "Warnings when the processor gets very hot, when the CPU fan stops and when a "
 "voltage is outside its tolerance"
@@ -259,7 +306,7 @@ msgstr ""
 "Ostrzeżenia, gdy procesor jest bardzo gorący, gdy stanie wentylator "
 "procesora i gdy napięcie wyjdzie poza tolerancję"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:99
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:112
 msgid ""
 "The first release. Baseboard reads the sensors of a motherboard and shows "
 "information about the system; it does not control anything yet."
@@ -267,7 +314,7 @@ msgstr ""
 "Pierwsze wydanie. Baseboard odczytuje czujniki płyty głównej i pokazuje "
 "informacje o systemie; jeszcze niczym nie steruje."
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:101
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:114
 msgid ""
 "Temperatures, fan speeds and voltages; on a board with a profile, named "
 "after its fan headers and voltage rails"
@@ -275,7 +322,7 @@ msgstr ""
 "Temperatury, obroty wentylatorów i napięcia; na płycie z profilem nazwane "
 "według jej złączy wentylatorów i szyn napięć"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:102
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:115
 msgid ""
 "Voltages rated against their tolerance, with the lowest and highest value "
 "since the app started"
@@ -283,7 +330,7 @@ msgstr ""
 "Ocena napięć względem tolerancji, z najniższą i najwyższą wartością od "
 "uruchomienia aplikacji"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:103
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:116
 msgid ""
 "A System page with the board, BIOS, processor, memory, graphics card, disks "
 "and the fan driver, which can be copied as text for bug reports"
@@ -292,11 +339,11 @@ msgstr ""
 "dyskami i sterownikiem wentylatorów, którą można skopiować jako tekst do "
 "zgłoszeń błędów"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:104
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:117
 msgid "English and Polish"
 msgstr "Interfejs po angielsku i po polsku"
 
-#: data/me.bojanowski.Baseboard.metainfo.xml.in:106
+#: data/me.bojanowski.Baseboard.metainfo.xml.in:119
 msgid "Fan control, onboard RGB lighting and power profiles are not there yet."
 msgstr ""
 "Sterowania wentylatorami, podświetlenia RGB płyty i profili energii jeszcze "
@@ -595,7 +642,7 @@ msgid "Fans are speeding up"
 msgstr "Wentylatory przyspieszają"
 
 #. Translators: read by screen readers for the list of fans.
-#: crates/app/src/fans.rs:457 crates/app/src/overview/summary.rs:571
+#: crates/app/src/fans.rs:457 crates/app/src/overview/summary.rs:583
 #: crates/app/src/overview/texts.rs:21 crates/app/src/window.rs:62
 #: crates/app/src/window.ui:63
 msgid "Fans"
@@ -612,11 +659,11 @@ msgstr "Sterowanie wentylatorami niedostępne"
 msgid "The board's {} chip was not found"
 msgstr "Nie znaleziono układu płyty {}"
 
-#: crates/app/src/fans.rs:668 crates/app/src/overview.rs:547
+#: crates/app/src/fans.rs:668 crates/app/src/overview.rs:563
 msgid "All readings are hidden"
 msgstr "Wszystkie odczyty są ukryte"
 
-#: crates/app/src/fans.rs:669 crates/app/src/overview.rs:548
+#: crates/app/src/fans.rs:669 crates/app/src/overview.rs:564
 msgid "Turn them on again in Preferences."
 msgstr "Można je włączyć z powrotem w preferencjach."
 
@@ -627,7 +674,7 @@ msgstr "Odczyt czujników…"
 #. Translators: the title of the page "Technical Details" in
 #. a narrow window, where the whole one does not fit.
 #: crates/app/src/fans.ui:28 crates/app/src/overview.ui:21
-#: crates/app/src/system.rs:298 crates/app/src/window.rs:511
+#: crates/app/src/system.rs:298 crates/app/src/window.rs:536
 msgid "Details"
 msgstr "Szczegóły"
 
@@ -825,7 +872,7 @@ msgstr "minimum {duty}"
 #. Translators: the title of the range of a temperature on a card
 #. while the app has read it for less than a minute, e.g.
 #. "Last 30 s"; {} is the number of seconds.
-#: crates/app/src/history_chart.rs:117
+#: crates/app/src/history_chart.rs:144
 #, rust-format
 msgid "Last {} s"
 msgid_plural "Last {} s"
@@ -835,13 +882,13 @@ msgstr[2] "Ostatnie {} s"
 
 #. Translators: the title of the range of a temperature on a card
 #. while the app has read it for one to two minutes.
-#: crates/app/src/history_chart.rs:122
+#: crates/app/src/history_chart.rs:150
 msgid "Last minute"
 msgstr "Ostatnia minuta"
 
 #. Translators: the title of the range of a temperature on a card, e.g.
 #. "Last 2 minutes", up to "Last 5 minutes", the whole history.
-#: crates/app/src/history_chart.rs:127
+#: crates/app/src/history_chart.rs:155
 #, rust-format
 msgid "Last {} minute"
 msgid_plural "Last {} minutes"
@@ -851,24 +898,24 @@ msgstr[2] "Ostatnie {} minut"
 
 #. Translators: read by screen readers for the history of a
 #. temperature before its first reading.
-#: crates/app/src/history_chart.rs:156
+#: crates/app/src/history_chart.rs:184
 msgid "No readings yet"
 msgstr "Jeszcze bez odczytów"
 
 #. Translators: read by screen readers for the history of a
 #. temperature; {period} is e.g. "Last 5 minutes" or "Last 30 s",
 #. {range} e.g. "63–70 °C", {value} e.g. "68 °C".
-#: crates/app/src/history_chart.rs:162
+#: crates/app/src/history_chart.rs:190
 #, rust-format
 msgid "{period}: {range}. Now {value}, rising."
 msgstr "{period}: {range}. Teraz {value}, rośnie."
 
-#: crates/app/src/history_chart.rs:163
+#: crates/app/src/history_chart.rs:191
 #, rust-format
 msgid "{period}: {range}. Now {value}, falling."
 msgstr "{period}: {range}. Teraz {value}, spada."
 
-#: crates/app/src/history_chart.rs:164
+#: crates/app/src/history_chart.rs:192
 #, rust-format
 msgid "{period}: {range}. Now {value}, steady."
 msgstr "{period}: {range}. Teraz {value}, bez zmian."
@@ -876,19 +923,19 @@ msgstr "{period}: {range}. Teraz {value}, bez zmian."
 #. Translators: read by screen readers after the history of a
 #. temperature that has gaps (the window was hidden, or the computer
 #. slept).
-#: crates/app/src/history_chart.rs:174
+#: crates/app/src/history_chart.rs:202
 msgid "With gaps in the readings."
 msgstr "Z przerwami w odczytach."
 
 #. Translators: under the left end of the history of a temperature,
 #. which always spans five minutes.
-#: crates/app/src/history_chart.rs:215
+#: crates/app/src/history_chart.rs:242
 msgid "5 min ago"
 msgstr "5 min temu"
 
 #. Translators: under the right end of the history of a
 #. temperature, below the dot of the newest reading.
-#: crates/app/src/history_chart.rs:218
+#: crates/app/src/history_chart.rs:245
 msgid "now"
 msgstr "teraz"
 
@@ -934,16 +981,16 @@ msgid "Rated against the tolerances in the board profile"
 msgstr "Ocena względem tolerancji z profilu płyty"
 
 #. Translators: {} is the name of the board's chip, e.g. nct6687.
-#: crates/app/src/overview.rs:517
+#: crates/app/src/overview.rs:526
 #, rust-format
 msgid "No readings from the board: its {} chip was not found"
 msgstr "Brak odczytów płyty: nie znaleziono jej układu {}"
 
-#: crates/app/src/overview.rs:552 crates/app/src/preferences.rs:321
+#: crates/app/src/overview.rs:568 crates/app/src/preferences.rs:321
 msgid "No sensor readings"
 msgstr "Brak odczytów czujników"
 
-#: crates/app/src/overview.rs:554
+#: crates/app/src/overview.rs:570
 msgid ""
 "This computer reports no hardware sensors (hwmon), for example in a virtual "
 "machine."
@@ -988,25 +1035,25 @@ msgstr "Pobór mocy"
 msgid "Highest since the app started"
 msgstr "Najwyższa od uruchomienia"
 
-#: crates/app/src/overview/summary.rs:148
+#: crates/app/src/overview/summary.rs:162
 msgid "Power"
 msgstr "Zasilanie"
 
 #. Translators: on the board's card when every rated rail is
 #. within its tolerance.
-#: crates/app/src/overview/summary.rs:154
+#: crates/app/src/overview/summary.rs:168
 msgid "Normal"
 msgstr "W normie"
 
 #. Translators: on the board's card for a rail outside its
 #. tolerance: the rail and what the board reads, e.g.
 #. "+12 V: 11.20 V".
-#: crates/app/src/overview/summary.rs:162
+#: crates/app/src/overview/summary.rs:176
 #, rust-format
 msgid "{rail}: {value}"
 msgstr "{rail}: {value}"
 
-#: crates/app/src/overview/summary.rs:175
+#: crates/app/src/overview/summary.rs:189
 #, rust-format
 msgid "{} voltage outside the normal range"
 msgid_plural "{} voltages outside the normal range"
@@ -1016,41 +1063,41 @@ msgstr[2] "{} napięć poza normą"
 
 #. Translators: under "Everything is fine" on the Overview
 #. while the duty cycle of a fan rises.
-#: crates/app/src/overview/summary.rs:210
+#: crates/app/src/overview/summary.rs:224
 msgid "Fans are speeding up."
 msgstr "Wentylatory przyspieszają."
 
-#: crates/app/src/overview/summary.rs:212
+#: crates/app/src/overview/summary.rs:226
 msgid "Temperatures, fans and power are normal."
 msgstr "Temperatury, wentylatory i zasilanie bez zastrzeżeń."
 
-#: crates/app/src/overview/summary.rs:223
+#: crates/app/src/overview/summary.rs:237
 msgid ""
 "This board has no profile yet, so some readings have no names or ratings."
 msgstr ""
 "Ta płyta nie ma jeszcze profilu, więc część odczytów jest bez nazw i bez "
 "oceny."
 
-#: crates/app/src/overview/summary.rs:575 crates/app/src/overview/texts.rs:25
+#: crates/app/src/overview/summary.rs:587 crates/app/src/overview/texts.rs:25
 #: crates/app/src/system/sections.rs:238 crates/app/src/system/sections.rs:600
 msgctxt "system memory"
 msgid "Memory"
 msgstr "Pamięć"
 
-#: crates/app/src/overview/summary.rs:579 crates/app/src/overview/texts.rs:24
+#: crates/app/src/overview/summary.rs:591 crates/app/src/overview/texts.rs:24
 #: crates/app/src/system/sections.rs:292 crates/app/src/system/sections.rs:697
 msgid "Disks"
 msgstr "Dyski"
 
-#: crates/app/src/overview/summary.rs:588
+#: crates/app/src/overview/summary.rs:600
 msgid "All sensors"
 msgstr "Wszystkie czujniki"
 
-#: crates/app/src/overview/summary.rs:590
+#: crates/app/src/overview/summary.rs:602
 msgid "Every reading with its source and range since the app started"
 msgstr "Każdy odczyt ze źródłem i zakresem od uruchomienia aplikacji"
 
-#: crates/app/src/overview/summary.rs:649
+#: crates/app/src/overview/summary.rs:661
 #, rust-format
 msgid "{} spinning"
 msgid_plural "{} spinning"
@@ -1060,13 +1107,13 @@ msgstr[2] "{} kręci się"
 
 #. Translators: under the number of fans that spin on the
 #. Overview while the duty cycle of one of them rises.
-#: crates/app/src/overview/summary.rs:655
+#: crates/app/src/overview/summary.rs:667
 msgctxt "fans"
 msgid "Speeding up"
 msgstr "Przyspieszają"
 
 #. Translators: under the warmest memory module on the Overview.
-#: crates/app/src/overview/summary.rs:668
+#: crates/app/src/overview/summary.rs:680
 #, rust-format
 msgid "Warmest of {} module"
 msgid_plural "Warmest of {} modules"
@@ -1075,7 +1122,7 @@ msgstr[1] "Najcieplejszy z {} modułów"
 msgstr[2] "Najcieplejszy z {} modułów"
 
 #. Translators: under the warmest disk on the Overview.
-#: crates/app/src/overview/summary.rs:672
+#: crates/app/src/overview/summary.rs:684
 #, rust-format
 msgid "Warmest of {} disk"
 msgid_plural "Warmest of {} disks"
@@ -1087,7 +1134,7 @@ msgstr[2] "Najcieplejszy z {} dysków"
 #. the range of a temperature on a card; {high} has its unit, e.g. "From
 #. 750 to 1010 rpm" or "From 72 to 88 °C". The line may break only
 #. before {high}.
-#: crates/app/src/overview/summary.rs:757
+#: crates/app/src/overview/summary.rs:770
 #, rust-format
 msgid "From {low} to {high}"
 msgstr "Od {low} do {high}"
@@ -1443,7 +1490,7 @@ msgstr "Sterownik nct6683 jest załadowany, ale nie znalazł układu {}"
 msgid "Other fan control programs are running"
 msgstr "Działają inne programy sterujące wentylatorami"
 
-#: crates/app/src/system/sections.rs:360 crates/app/src/window.rs:504
+#: crates/app/src/system/sections.rs:360 crates/app/src/window.rs:529
 #, rust-format
 msgid "{} file skipped because of errors"
 msgid_plural "{} files skipped because of errors"
@@ -1746,11 +1793,11 @@ msgstr "Krzywe w kontrolerze płyty z wyborem temperatury"
 msgid "Overview"
 msgstr "Przegląd"
 
-#: crates/app/src/window.rs:583
+#: crates/app/src/window.rs:608
 msgid "System information copied"
 msgstr "Skopiowano informacje o systemie"
 
-#: crates/app/src/window.rs:592
+#: crates/app/src/window.rs:617
 msgid "Unknown board"
 msgstr "Nieznana płyta"
 

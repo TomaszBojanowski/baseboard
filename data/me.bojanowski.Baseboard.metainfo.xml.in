@@ -69,6 +69,19 @@
   </branding>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.2.2" date="2026-11-27">
+      <description>
+        <p>New temperature charts. Baseboard still only reads: it does not change any setting.</p>
+        <ul>
+          <li>The five-minute charts use one scale of 0 to 100 °C on every card, with degree labels and the limit of each part where it is known, so the same temperature stands at the same height</li>
+          <li>A clearer line and fill, with the range of the last five minutes beside the temperature</li>
+          <li>In a larger window the charts grow with it, within limits, and stay wider than tall</li>
+          <li>On AMD processors the processor's chart no longer has gaps for the time the window was hidden</li>
+          <li>The range of fan speeds on the Fans tile stays on one line</li>
+        </ul>
+        <p>Fan control comes in a later version.</p>
+      </description>
+    </release>
     <release version="0.2.1" date="2026-11-16">
       <description>
         <p>Small improvements after 0.2.0. Baseboard still only reads: it does not change any setting.</p>

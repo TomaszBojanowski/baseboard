@@ -23,13 +23,13 @@
   </picture>
 </p>
 
-> **Early version, read only.** The current release is 0.2.1, see [Install](#install): it shows readings, fan curves and system information and does not change any setting yet. The design, in Polish, is in [docs/PROJEKT.md](docs/PROJEKT.md).
+> **Early version, read only.** The current release is 0.2.2, see [Install](#install): it shows readings, fan curves and system information and does not change any setting yet. The design, in Polish, is in [docs/PROJEKT.md](docs/PROJEKT.md).
 
 ## What it is for
 
 - A native GNOME app (GTK 4, libadwaita) for MSI motherboards on Linux. The point of reference is the sensor and fan part of MSI Center on Windows.
 - For sensors and fans it relies only on the kernel drivers and their standard hwmon interface in sysfs. It has no hardware access of its own: no I/O ports, `/dev/port` or `/dev/mem`, and nothing in user space writes to the embedded controller (EC).
-- What it does today (0.2.1), read only:
+- What it does today (0.2.2), read only:
   - an Overview with the processor, graphics card and board, each with its temperature over the last five minutes, the fans, memory and disks, and one sentence that says whether everything is fine; it warns when the processor gets very hot, when the CPU fan stops and when a voltage is outside its tolerance;
   - a Fans page with the speed and duty cycle of every fan, named after the headers in the board profile, and the curve the board runs each fan by, where the kernel driver reports curves (see [Roadmap and kernel support](#roadmap-and-kernel-support)); with the driver of a released kernel it shows the speeds and temperatures;
   - all sensors: every temperature, fan speed and voltage with its source and its range since the app started, voltages rated against their tolerance;
