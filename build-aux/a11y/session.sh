@@ -11,6 +11,10 @@
 # to write), A11Y_LOG (the app's log), A11Y_HOT (optional: a temperature
 # file of a fake tree to set to 93 °C after the dump).
 address=$A11Y_LOG.address
+# The file may still hold the address of a bus from an earlier run, and the
+# redirection below empties it only once the background job starts: empty it
+# here, so that the wait reads the address of this run's bus.
+: > "$address"
 dbus-daemon --config-file="$A11Y_DIR/a11y-bus.conf" --nofork --print-address \
     > "$address" 2> "$A11Y_LOG.bus" &
 bus=$!
