@@ -18,8 +18,8 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="website/screenshots/0.2.0/readme/overview-dark-en.png">
-    <img src="website/screenshots/0.2.0/readme/overview-en.png" width="800" alt="The Overview page: “Everything is fine” on top; cards for the processor, graphics card and motherboard, each with its temperature, a line of the last five minutes and the highest value since the app started; tiles for the fans, memory and disks; and a row that opens all sensors.">
+    <source media="(prefers-color-scheme: dark)" srcset="website/screenshots/0.2.2/readme/overview-dark-en.png">
+    <img src="website/screenshots/0.2.2/readme/overview-en.png" width="800" alt="The Overview page: “Everything is fine” on top; cards for the processor, graphics card and motherboard, each with its temperature, a line of the last five minutes and the highest value since the app started; tiles for the fans, memory and disks; and a row that opens all sensors.">
   </picture>
 </p>
 
@@ -39,8 +39,8 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="website/screenshots/0.2.0/readme/fans-dark-en.png">
-    <img src="website/screenshots/0.2.0/readme/fans-en.png" width="700" alt="The Fans page: the processor card with its temperature and the CPU fan speed, and a list of the fans named after their headers, with their speed and duty cycle and a small curve where the driver reports one.">
+    <source media="(prefers-color-scheme: dark)" srcset="website/screenshots/0.2.2/readme/fans-dark-en.png">
+    <img src="website/screenshots/0.2.2/readme/fans-en.png" width="700" alt="The Fans page: the processor card with its temperature and the CPU fan speed, and a list of the fans named after their headers, with their speed and duty cycle and a small curve where the driver reports one.">
   </picture>
 </p>
 

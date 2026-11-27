@@ -39,28 +39,28 @@
   <screenshots>
     <screenshot type="default">
       <caption>Temperatures over the last five minutes, fans, memory and disks</caption>
-      <image>https://baseboard.bojanowski.me/screenshots/0.2.0/overview-en.png</image>
-      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.2.0/overview-pl.png</image>
+      <image>https://baseboard.bojanowski.me/screenshots/0.2.2/overview-en.png</image>
+      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.2.2/overview-pl.png</image>
     </screenshot>
     <screenshot>
       <caption>Every fan with its speed and duty cycle, named after its header</caption>
-      <image>https://baseboard.bojanowski.me/screenshots/0.2.0/fans-en.png</image>
-      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.2.0/fans-pl.png</image>
+      <image>https://baseboard.bojanowski.me/screenshots/0.2.2/fans-en.png</image>
+      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.2.2/fans-pl.png</image>
     </screenshot>
     <screenshot>
       <caption>The curve the board runs the CPU fan by</caption>
-      <image>https://baseboard.bojanowski.me/screenshots/0.2.0/fan-curve-en.png</image>
-      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.2.0/fan-curve-pl.png</image>
+      <image>https://baseboard.bojanowski.me/screenshots/0.2.2/fan-curve-en.png</image>
+      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.2.2/fan-curve-pl.png</image>
     </screenshot>
     <screenshot>
       <caption>The board, BIOS, processor, memory, graphics card and disks</caption>
-      <image>https://baseboard.bojanowski.me/screenshots/0.2.0/system-en.png</image>
-      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.2.0/system-pl.png</image>
+      <image>https://baseboard.bojanowski.me/screenshots/0.2.2/system-en.png</image>
+      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.2.2/system-pl.png</image>
     </screenshot>
     <screenshot>
       <caption>The Overview in the dark style</caption>
-      <image>https://baseboard.bojanowski.me/screenshots/0.2.0/overview-dark-en.png</image>
-      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.2.0/overview-dark-pl.png</image>
+      <image>https://baseboard.bojanowski.me/screenshots/0.2.2/overview-dark-en.png</image>
+      <image xml:lang="pl">https://baseboard.bojanowski.me/screenshots/0.2.2/overview-dark-pl.png</image>
     </screenshot>
   </screenshots>
   <branding>
